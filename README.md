@@ -1,3 +1,5 @@
+> **Moved:** this repo is now https://github.com/vibedata-showcase/nyc-taxi-duckdb. This copy is archived.
+
 # Sample NYC Taxi Analytics Domain
 
 An intentionally brownfield DuckDB + dbt warehouse for NYC taxi analytics and
