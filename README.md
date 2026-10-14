@@ -58,6 +58,7 @@ reproducible from the code and the public TLC files.
 - `AGENTS.md` and `.agents/rules/`: how to work in this repo.
 - `CONTEXT.md`: the vocabulary of the data product.
 - `docs/adr/` and `docs/design/`: decisions, and design records per model and pipeline.
+- `docs/setup/`: repo maintenance: how this repo was built and the skill changes it implies.
 - `docs/data-provenance.md`: real versus generated data, tier by tier.
 - `docs/future-requests/`: candidate business requests.
 - `intents/`: requirements for past work.
@@ -100,6 +101,7 @@ python3 orchestration/run_transform.py   # dbt build
 
 ```bash
 cd transformation
+dbt deps                    # once: installs the packages in packages.yml
 dbt build --target domain
 dbt docs generate --target domain
 dbt docs serve --port 8085

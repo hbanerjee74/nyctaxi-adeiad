@@ -4,6 +4,10 @@ A DuckDB lakehouse for NYC taxi analytics: real TLC trip records, plus two simul
 
 Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers, entrypoints, commands and artifact locations. This file says how to work.
 
+## Startup
+
+Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance.
+
 ## Medallion layers
 
 - **Bronze**: raw data loaded by dlt (`ingestion/`) into `bronze` (TLC), `ops_raw` and `mdm_raw`.
