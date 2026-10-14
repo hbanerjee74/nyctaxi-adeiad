@@ -72,10 +72,10 @@ Added for data engineering: `layers` (one entry per schema), `sources`, `artifac
     "unit_tests": "cd transformation && dbt test --select test_type:unit",
     "docs": "cd transformation && dbt docs generate"
   },
-  "key_references": {"provenance": "docs/data-provenance.md", "rules": ".agents/rules/"},
+  "key_references": {"provenance": "docs/setup/data-provenance.md", "rules": ".agents/rules/"},
   "notes_for_agents": {
     "reporting_window": "report_start/report_end are dbt vars, not a sampling control",
-    "synthetic_data": "ops_raw and mdm_raw are generated; see docs/data-provenance.md"
+    "synthetic_data": "ops_raw and mdm_raw are generated; see docs/setup/data-provenance.md"
   }
 }
 ```

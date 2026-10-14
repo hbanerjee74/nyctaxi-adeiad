@@ -25,7 +25,7 @@ pipeline in `docs/design/`.
 | dbt models | Staging, intermediate, dimensions, facts, marts and aggregates | Derived transformations and business rules. |
 
 The TLC trip window is January to March 2024. Read
-[`docs/data-provenance.md`](docs/data-provenance.md) before treating a result as
+[`docs/setup/data-provenance.md`](docs/setup/data-provenance.md) before treating a result as
 a real-world claim. Trip-level TLC facts are genuine; Harbour Point identities
 and operational outcomes are not.
 
@@ -59,7 +59,7 @@ reproducible from the code and the public TLC files.
 - `CONTEXT.md`: the vocabulary of the data product.
 - `docs/adr/` and `docs/design/`: decisions, and design records per model and pipeline.
 - `docs/setup/`: repo maintenance: how this repo was built and the skill changes it implies.
-- `docs/data-provenance.md`: real versus generated data, tier by tier.
+- `docs/setup/data-provenance.md`: real versus generated data, tier by tier.
 - `docs/future-requests/`: candidate business requests.
 - `intents/`: requirements for past work.
 - `.github/` and `.workflow/`: Domain CI.

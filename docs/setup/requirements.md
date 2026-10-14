@@ -64,7 +64,7 @@ against a realistic brownfield domain.
 | Domain slug | `nyc-taxi-duckdb-demo` (`VD_DOMAIN_SLUG` in `.workflow/ci-config.yml`) | user answer |
 | TLC source registration | Custom source under `ingestion/`, registered by hand-following the `add-or-update-source` section format; the gap is recorded in `skill-change-notes.md` | user answer |
 | Domain terms | All candidate terms listed in `domain-terms.md` go into `CONTEXT.md` | user answer |
-| Layers table | Dropped from `CONTEXT.md`: layout and ownership belong in `repo-map.json` `layers` and `docs/data-provenance.md` | user answer |
+| Layers table | Dropped from `CONTEXT.md`: layout and ownership belong in `repo-map.json` `layers` and `docs/setup/data-provenance.md` | user answer |
 | Data characteristics | Each entry in `CONTEXT.md`'s "Known data characteristics" becomes its own ADR, and the section is removed. Each ADR records the handling decision the code already makes, with the alternatives, and is checked against the SQL before it is written | user answer; mapping to ADRs proposed below |
 | Data product, no audience | The repo describes a data product that anyone can use. `CONTEXT.md` and ADRs name no consumers or consuming teams; the repo reflects the product through its terms, ADRs, design records and requirements | user answer |
 | ADRs for data characteristics | 0004 quality verdicts flag trips and never delete them (refunds, zero-distance, implausible); 0011 tips are measured only over payment methods that record them; 0012 unknown zones are retained and flagged, and each mart chooses whether to exclude them; 0013 no-charge and dispute payments are not excluded by the billable rule, and each metric decides | user answer |

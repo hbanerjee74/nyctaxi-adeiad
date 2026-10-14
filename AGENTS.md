@@ -1,6 +1,6 @@
 # NYC Taxi Analytics (nyc-taxi-duckdb-demo): Agent Conventions
 
-A DuckDB lakehouse for NYC taxi analytics: real TLC trip records, plus two simulated source systems (fleet operations and master data). Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary and [`docs/data-provenance.md`](docs/data-provenance.md) for which data is real before trusting any number.
+A DuckDB lakehouse for NYC taxi analytics: real TLC trip records, plus two simulated source systems (fleet operations and master data). Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary.
 
 Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers, entrypoints, commands and artifact locations. This file says how to work.
 
@@ -28,6 +28,7 @@ Operator conventions live in `.agents/rules/`. Read the ones that match your tas
 | [`dlt.md`](.agents/rules/dlt.md) | Datasets, write disposition, schema contract, bronze carries no logic |
 | [`context.md`](.agents/rules/context.md) | What goes into `CONTEXT.md` |
 | [`adr.md`](.agents/rules/adr.md) | What goes into an ADR, and when |
+| [`workarounds.md`](.agents/rules/workarounds.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, the evaluator only for transformation changes. Each names what removes it |
 | [`design-records.md`](.agents/rules/design-records.md) | What goes into a design record |
 | [`git-and-prs.md`](.agents/rules/git-and-prs.md) | Commit and pull request format |
 
@@ -63,8 +64,6 @@ Keep these current in the same change that makes them stale.
 | `repo-map.json` | A layer, source, pipeline, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
 | `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
-| `docs/data-provenance.md` | A source is added, or its files or row counts change | none |
-| `README.md`, `CONTRIBUTING.md` | Commands, layout or workflow change | none |
 | `.agents/rules/` | A convention changes | none |
 | `AGENTS.md` | A durable fact the code does not show: an environment constraint or a workflow gotcha | none |
 
