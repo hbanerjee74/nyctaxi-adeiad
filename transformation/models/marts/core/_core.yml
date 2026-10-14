@@ -10,6 +10,7 @@ models:
         tests: [unique, not_null]
 
   - name: dim_daypart
+    description: "One row per hour of the day, with its daypart. Analyst-owned banding from the daypart seed."
     columns:
       - name: hour_of_day
         tests: [unique, not_null]
@@ -43,6 +44,7 @@ models:
         tests: [not_null]
 
   - name: dim_payment_method
+    description: "One row per payment method: how it settles, whether tips are recorded and whether trips paid this way count as revenue."
     columns:
       - name: payment_method_key
         tests: [unique, not_null]
@@ -51,11 +53,13 @@ models:
         tests: [not_null]
 
   - name: dim_rate_plan
+    description: "One row per rate plan, with its pricing model and flat-fare amount."
     columns:
       - name: rate_plan_key
         tests: [unique, not_null]
 
   - name: dim_service_type
+    description: "One row per service type (fleet), with its airport and Manhattan-core hail rules."
     columns:
       - name: service_type_key
         tests: [unique, not_null]
@@ -86,6 +90,7 @@ models:
         tests: [not_null]
 
   - name: dim_garage
+    description: "One row per garage, with its capacity and the number of vehicles assigned."
     columns:
       - name: garage_key
         tests: [unique, not_null]
