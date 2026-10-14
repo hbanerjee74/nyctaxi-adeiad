@@ -2,7 +2,6 @@ import io
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-
 from sources import tlc
 
 

@@ -1,5 +1,4 @@
 import pyarrow as pa
-
 from sources import mdm
 
 TABLES = [

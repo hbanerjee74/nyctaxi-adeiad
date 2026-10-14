@@ -5,14 +5,14 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run(command, cwd, env):
-    return subprocess.run(command, cwd=cwd, env=env)
+    return subprocess.run(command, cwd=cwd, env=env, check=False)
 
 
 def run_transform(runner: Callable = _run, target: str = "domain") -> int:

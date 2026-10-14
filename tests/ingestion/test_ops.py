@@ -1,9 +1,9 @@
 import random
 from datetime import datetime, timedelta
+from itertools import pairwise
 
 import pyarrow as pa
 import pytest
-
 from sources import ops
 
 TABLES = [
@@ -42,7 +42,7 @@ def tables():
 
 
 def test_source_has_exactly_the_eight_ops_tables():
-    source = ops.ops_source(trips=lambda: [])
+    source = ops.ops_source(trips=list)
     assert sorted(source.resources) == sorted(TABLES)
 
 
@@ -61,7 +61,7 @@ def test_no_two_attributed_trips_overlap_on_one_vehicle(tables):
         tables["trip_assignment"].to_pylist(), key=lambda r: (r["vehicle_id"], r["pickup_datetime"])
     )
     assert rows, "no trips were attributed"
-    for prev, cur in zip(rows, rows[1:]):
+    for prev, cur in pairwise(rows):
         if prev["vehicle_id"] == cur["vehicle_id"]:
             assert cur["pickup_datetime"] >= prev["dropoff_datetime"]
 

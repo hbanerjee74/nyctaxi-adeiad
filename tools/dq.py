@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+
 import duckdb
 
 
@@ -30,6 +31,17 @@ def _fmt(v, w=14):
     return f"{s:>{w}}"[:w] if len(s) > w else f"{s:>{w}}"
 
 
+def _top_values(con, src, column, top):
+    """The most frequent values of a column, or None when the column cannot be grouped."""
+    try:
+        return con.execute(
+            f'''SELECT "{column}"::VARCHAR v, count(*) n FROM {src} t
+                GROUP BY 1 ORDER BY n DESC LIMIT {top}'''
+        ).fetchall()
+    except duckdb.Error:
+        return None
+
+
 def profile(db, relation, cols=None, top=10, where=None):
     con = _con(db)
     pred = f"WHERE {where}" if where else ""
@@ -37,7 +49,7 @@ def profile(db, relation, cols=None, top=10, where=None):
     total = con.execute(f"SELECT count(*) FROM {src} t").fetchone()[0]
     schema = con.execute(f"DESCRIBE SELECT * FROM {src} t").fetchall()
     names = [r[0] for r in schema]
-    types = dict((r[0], r[1]) for r in schema)
+    types = {r[0]: r[1] for r in schema}
     if cols:
         names = [c for c in cols if c in types]
 
@@ -51,7 +63,7 @@ def profile(db, relation, cols=None, top=10, where=None):
                        min("{c}")::VARCHAR, max("{c}")::VARCHAR FROM {src} t'''
         try:
             nulls, ndv, mn, mx = con.execute(q).fetchone()
-        except Exception as e:
+        except duckdb.Error as e:
             print(f"{c:30} {types[c][:12]:12} {'-':>8} {'-':>12}  {type(e).__name__}")
             continue
         pct = (nulls / total * 100) if total else 0
@@ -64,16 +76,9 @@ def profile(db, relation, cols=None, top=10, where=None):
         for c in names:
             if types[c] in ("TIMESTAMP", "DATE") or "trip_key" in c:
                 continue
-            try:
-                rows = con.execute(
-                    f'''SELECT "{c}"::VARCHAR v, count(*) n FROM {src} t
-                        GROUP BY 1 ORDER BY n DESC LIMIT {top}'''
-                ).fetchall()
-            except Exception:
+            rows = _top_values(con, src, c, top)
+            if rows is None or (len(rows) <= 1 and len(rows) < top):
                 continue
-            if len(rows) <= 1 or len(rows) >= top:
-                if len(rows) < top:
-                    continue
             print(f"\n  top {top} :: {c}")
             for v, n in rows:
                 print(f"    {str(v)[:40]:40} {n:>14,}  {n/total*100:>6.2f}%")
@@ -112,7 +117,7 @@ def joinev(db, left, right, lkey, rkey, where=None):
     print()
     for lab, v in zip(labels, row):
         print(f"  {lab:28} {v:>14,}")
-    lr, _, _, jr, mr, ur = row[0], row[1], row[2], row[3], row[4], row[5]
+    lr, _, _, jr, _mr, ur = row[0], row[1], row[2], row[3], row[4], row[5]
     print()
     print(f"  row multiplication      {jr/lr if lr else 0:>14.6f}  (1.0 = no fanout)")
     print(f"  unmatched rate          {ur/lr*100 if lr else 0:>14.4f} %")

@@ -5,15 +5,15 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINES = ["tlc_pipeline.py", "ops_pipeline.py", "mdm_pipeline.py"]
 
 
 def _run(command, cwd, env):
-    return subprocess.run(command, cwd=cwd, env=env)
+    return subprocess.run(command, cwd=cwd, env=env, check=False)
 
 
 def ingest_environment() -> dict[str, str]:

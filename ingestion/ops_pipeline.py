@@ -4,10 +4,9 @@
 import os
 
 import dlt
-from vibedata.dlt.duckdb import setup_environment, finalize
-
 from sources.ops import ops_source
 from sources.tlc import trip_tables
+from vibedata.dlt.duckdb import finalize, setup_environment
 
 # CONNECTION_NAME: the dlt source section [sources.<name>] in .dlt/config.toml.
 CONNECTION_NAME = "ops"
