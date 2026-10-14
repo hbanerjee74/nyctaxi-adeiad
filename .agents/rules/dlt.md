@@ -39,6 +39,7 @@ Profile a remote source file once per intent: row count, columns and types, null
 ## Adding a source
 
 - A new source mirrors an existing entry in `repo-map.json` `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source.
+- Mirror `tlc.py` for a large file: it yields pyarrow tables per parquet row group, which is proven on three months of TLC data. Do not read dlt's installed source code to re-check how it writes or rotates files.
 - Sources are custom modules under `ingestion/sources/`, registered as `[sources.<name>]` with `connector = "custom"` and `connector_source = "local"`. The connector catalog is not used.
 - Then register the pipeline in `orchestration/run_ingest.py`, and add the source to `repo-map.json` and `test-map.json`.
 - `tests/test_maps.py` fails when a source's listed paths or its config section are missing.

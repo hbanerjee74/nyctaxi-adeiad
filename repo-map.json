@@ -235,7 +235,7 @@
     },
     "setup": {
       "path": "docs/setup/",
-      "description": "Repo maintenance documents (requirements, work plan, conventions inventory, skill changes, data provenance). Not for ingestion or transformation tasks; not maintained by build agents."
+      "description": "Repo maintenance documents (requirements, work plan, conventions inventory, skill changes, data provenance, candidate requests for testing agents). Not for ingestion or transformation tasks; not maintained by build agents."
     },
     "reviews": {
       "path": "docs/review/",
@@ -256,7 +256,7 @@
     "intents/": "requirements",
     ".agents/rules/": "operator rules",
     ".github/": "Domain CI workflows and scripts",
-    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes and the skill changes it implies. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
+    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies, and the candidate requests used to test agents (future-requests/). Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
     "docs/review/": "Review findings for triage. Not read during build tasks.",
     "docs/proposal/": "Proposals that become intents. Read one only when the intent links to it."
   },
@@ -271,7 +271,8 @@
     "dbt_parse": "cd transformation && dbt parse",
     "dbt_docs": "cd transformation && dbt docs generate",
     "python_tests": "python3 -m pytest tests -q",
-    "python_lint": "ruff check ."
+    "python_lint": "ruff check .",
+    "adr_lint": "python3 .github/scripts/adr_lint.py"
   },
   "key_references": {
     "agents": "AGENTS.md",

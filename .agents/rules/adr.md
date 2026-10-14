@@ -25,3 +25,4 @@ Not an ADR: a choice one model or pipeline makes that is easy to change later, s
 - A decision that still holds is left alone.
 - A decision that no longer holds is superseded by a new ADR. The old ADR changes only its frontmatter: `status: rejected` and `rejected-note: Superseded by docs/adr/<new>.md`.
 - Cite ADRs as `ADR NNNN` so the CI citation check finds them.
+- Check citations and links with the `adr_lint` command in `repo-map.json`. Run it; do not read the CI scripts to work out what they check.

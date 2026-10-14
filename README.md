@@ -60,7 +60,7 @@ reproducible from the code and the public TLC files.
 - `docs/adr/` and `docs/design/`: decisions, and design records per model and pipeline.
 - `docs/setup/`: repo maintenance: how this repo was built and the skill changes it implies.
 - `docs/setup/data-provenance.md`: real versus generated data, tier by tier.
-- `docs/future-requests/`: candidate business requests.
+- `docs/setup/future-requests/`: candidate business requests, used to test agents. Repo maintenance like the rest of `docs/setup/`.
 - `intents/`: requirements for past work.
 - `.github/` and `.workflow/`: Domain CI.
 

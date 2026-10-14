@@ -4,7 +4,7 @@ What every onboarded repo has, so the first build intent does not spend its call
 
 ## Base commands
 
-Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them.
+Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them, and one entry per CI check script an agent should run rather than read (for example `adr_lint` for `.github/scripts/adr_lint.py`).
 
 In the design phase, before the inventory, run each once in the sandbox: dbt through the runtime wrapper with `--target dev`, after `dbt deps` when `packages.yml` exists. Record every result. A failure you cannot fix with a change from the two lists below is a review finding, `platform` or `bug`.
 
@@ -38,7 +38,7 @@ Copy these from [templates/rules/](../templates/rules/) as they are; only exampl
 | `design-records.md` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
 | `adr.md` | The three tests, what is not an ADR, content, supersession. |
 | `git-and-prs.md` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
-| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command, the evaluator only for model changes, `plan.md` and `verify.md` written once per phase. |
+| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), the evaluator only for model changes, `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, one run per gate. |
 
 Write these into the repo's own rule files beside its conventions:
 
@@ -47,12 +47,15 @@ Write these into the repo's own rule files beside its conventions:
 | `dlt.md` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. |
 | `dlt.md` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
 | `dlt.md` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
+| `dlt.md` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
+| `adr.md` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
 | `dbt-models.md` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
 | `dbt-testing.md` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
 
 ## Agent entry points
 
-- `AGENTS.md` starts with a Startup section: before a task, read `repo-map.json` and the rule file for the task (`dlt.md` to add a source, `dbt-models.md` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change.
+- `AGENTS.md` starts with a Startup section: before a task, read `repo-map.json` and the rule file for the task (`dlt.md` to add a source, `dbt-models.md` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change. Read `repo-map.json` whole, once: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories or read it again in parts.
+- Material that is not for build tasks (setup or maintenance notes, demo or evaluation prompts, answer keys) is declared in `key_directories` and `notes_for_agents` as not read. Prompts used to test agents are an answer key: file a `gap` finding recommending a move into the maintenance folder.
 - `repo-map.json` `notes_for_agents` has at least: `startup`; `new_source` (a new source mirrors an existing `sources` entry and creates every artifact it lists); `reviews_and_proposals`; and, when pipelines use the Vibedata dlt package, the environment variables they need outside Studio.
 
 ## Checks for the onboarding review
