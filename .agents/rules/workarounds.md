@@ -19,3 +19,9 @@ cd transformation && <plugin>/scripts/vd-intent-context-run.sh "dbt <command> --
 Run `dbt deps` the same way first if `dbt_packages/` is missing. The plain commands in `repo-map.json` `commands` are for a local checkout.
 
 Remove when: the platform `duckdb_local/dbt.md` states this command (`skill-changes.md`).
+
+## Run `dbt_project_evaluator` only for transformation changes
+
+The verifying skill runs `dbt_project_evaluator` whenever the package is installed. Run it only when the change touches `transformation/` (models, sources, tests or `dbt_project.yml`). For an ingestion-only change, skip it and say so in `verify.md`. Enable it with `--vars '{dbt_project_evaluator_enabled: true}'`.
+
+Remove when: `skills/verifying/SKILL.md` step 3 gates the evaluator on the change kind (`skill-changes.md`).
