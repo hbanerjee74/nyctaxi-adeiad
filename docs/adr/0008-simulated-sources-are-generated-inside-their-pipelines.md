@@ -19,7 +19,6 @@ date: 2026-10-14
 - The ops pipeline downloads the yellow trips again; the pipelines stay independent.
 - Generation is deterministic: the same inputs give the same rows.
 - Overlapping trips on one vehicle are removed repeatedly until none remain; a single pass left some behind.
-- The README's data provenance table states which data is real and which is simulated.
 
 ## Affected designs
 
