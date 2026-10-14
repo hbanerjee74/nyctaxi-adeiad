@@ -19,7 +19,7 @@ from (
             partition by {{ trip_natural_key("'green'", 'g."VendorID"', 'g.lpep_pickup_datetime',
                'g.lpep_dropoff_datetime', 'g."PULocationID"', 'g."DOLocationID"',
                'g.trip_distance', 'g.total_amount') }}
-            order by g._source_file
+            order by g._dlt_load_id
         )                                                 as dup_rank
     from {{ source('bronze', 'green_tripdata') }} g
 ) d

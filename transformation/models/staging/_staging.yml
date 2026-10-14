@@ -1,19 +1,21 @@
 version: 2
 
 models:
-  - name: stg_tlc__trips
+  - name: stg_tlc__yellow_tripdata
     description: >
-      Conformed trips with the derived measures every downstream model would
-      otherwise recompute. No filtering -- silver's completeness is deliberate.
+      Yellow taxi trip records, one row per bronze row: renamed and typed.
+      Timestamps are brought back to plain UTC timestamps.
     columns:
-      - name: trip_key
-        description: '{{ doc("trip_key") }}'
-        tests: [unique, not_null]
-      - name: service_type
-        tests:
-          - accepted_values: {values: ['yellow', 'green']}
-      - name: trip_seconds
-        description: Dropoff minus pickup. Negative on a handful of malformed records.
+      - name: pickup_datetime
+        tests: [not_null]
+
+  - name: stg_tlc__green_tripdata
+    description: >
+      Green taxi trip records, one row per bronze row: renamed and typed. Carries
+      `ehail_fee` and `trip_type`, which yellow does not.
+    columns:
+      - name: pickup_datetime
+        tests: [not_null]
 
   - name: stg_tlc__yellow_trip_extras
     description: >

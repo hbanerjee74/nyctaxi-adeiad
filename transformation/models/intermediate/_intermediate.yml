@@ -15,10 +15,27 @@ models:
           precisely the hazard -- the failure mode is a meaningless borough, not
           an unmatched row.
 
+  - name: int_trips_conformed
+    description: >
+      Yellow and green trips on one grain, one row per distinct trip, with the
+      derived measures every downstream model would otherwise recompute. No
+      filtering: refunds, zero-distance trips and out-of-window pickups survive.
+    columns:
+      - name: trip_key
+        description: '{{ doc("trip_key") }}'
+        tests: [unique, not_null]
+      - name: service_type
+        tests:
+          - accepted_values: {values: ['yellow', 'green']}
+      - name: pickup_location_id
+        description: Joins the zone dimension.
+      - name: trip_seconds
+        description: Dropoff minus pickup. Negative on a handful of malformed records.
+
   - name: int_trips_enriched
     description: >
-      The cross-layer model: conformed silver trips rejoined to the
-      fleet-specific bronze columns ADR 0001 dropped. Both joins are optional
+      The cross-layer model: conformed trips rejoined to the
+      fleet-specific bronze columns the conform step drops. Both joins are optional
       many-to-one; multiplication here would be a defect.
     columns:
       - name: trip_key

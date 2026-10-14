@@ -4,6 +4,6 @@
 with counts as (
     select
         (select count(*) from {{ ref('fct_trip') }})       as fact_rows,
-        (select count(*) from {{ ref('stg_tlc__trips') }}) as source_rows
+        (select count(*) from {{ ref('int_trips_conformed') }}) as conformed_rows
 )
-select * from counts where fact_rows <> source_rows
+select * from counts where fact_rows <> conformed_rows

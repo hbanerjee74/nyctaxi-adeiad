@@ -1,5 +1,5 @@
--- The cross-layer model. silver.trips is the conformed intersection of the two
--- fleet schemas, so the fleet-specific columns ADR 0001 dropped have to be
+-- The cross-layer model. int_trips_conformed is the conformed intersection of the
+-- two fleet schemas, so the fleet-specific columns it drops have to be
 -- rejoined from bronze by recomputing the natural key on both sides.
 --
 -- Both joins are optional many-to-one: a yellow trip has at most one yellow
@@ -16,6 +16,6 @@ select
     case when t.service_type = 'green' then 'not_applicable'
          when y.airport_fee is null     then 'missing'
          else 'present' end                            as airport_fee_status
-from {{ ref('stg_tlc__trips') }} t
+from {{ ref('int_trips_conformed') }} t
 left join {{ ref('stg_tlc__yellow_trip_extras') }} y on t.trip_key = y.trip_key
 left join {{ ref('stg_tlc__green_trip_extras') }}  g on t.trip_key = g.trip_key

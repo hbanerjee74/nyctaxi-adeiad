@@ -18,7 +18,7 @@ with trip_rollup as (
         sum(t.trip_seconds)                            as paid_seconds
     from {{ ref('stg_ops__trip_assignments') }} ta
     join {{ ref('int_trip_fare_components') }} f on ta.trip_key = f.trip_key
-    join {{ ref('stg_tlc__trips') }} t            on ta.trip_key = t.trip_key
+    join {{ ref('int_trips_conformed') }} t            on ta.trip_key = t.trip_key
     group by 1
 )
 
