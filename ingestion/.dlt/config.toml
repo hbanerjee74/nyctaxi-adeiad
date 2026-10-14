@@ -13,3 +13,8 @@ add_dlt_id = true
 connector = "custom"
 connector_source = "local"
 entry_point = "tlc_source"
+
+[sources.mdm]
+connector = "custom"
+connector_source = "local"
+entry_point = "mdm_source"
