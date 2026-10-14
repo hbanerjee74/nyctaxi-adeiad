@@ -44,7 +44,7 @@ Write these into the repo's own rule files beside its conventions:
 
 | Rule file | Rule |
 | --- | --- |
-| `dlt.md` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. |
+| `dlt.md` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. `replace` is proven with two sample loads (the limit's row count and one load package), never a second full load. |
 | `dlt.md` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
 | `dlt.md` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
 | `dlt.md` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
