@@ -12,7 +12,7 @@ Set per resource, never per run: `append` for immutable events that arrive once,
 
 ## Schema contract (D7)
 
-`columns: freeze`, `tables: evolve` while a pipeline is new then `freeze` once every resource has loaded, `data_type: freeze`. Any other value carries a `# why:` line in the pipeline and a decision in its design record.
+`columns: freeze`, `tables: evolve` while a pipeline is new then `freeze` once every resource has loaded into a database that persists, `data_type: freeze`. A pipeline whose database is rebuilt from empty on every run keeps `tables: evolve`, because freezing it would forbid creating the tables. Any other value carries a `# why:` line in the pipeline and a decision in its design record.
 
 ## Bronze carries no logic (D8)
 
