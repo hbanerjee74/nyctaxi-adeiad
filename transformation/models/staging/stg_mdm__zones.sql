@@ -16,5 +16,5 @@ select
     valid_from_date,
     valid_to_date,
     source_version,
-    _load_id
+    _dlt_load_id
 from {{ source('mdm_raw', 'zone_master') }}

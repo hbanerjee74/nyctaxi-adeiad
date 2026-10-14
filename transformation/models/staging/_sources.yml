@@ -81,8 +81,11 @@ sources:
           Links a TLC trip to the shift that ran it. The system of record for
           attribution. A small number are `manual` overrides.
         columns:
-          - name: trip_key
-            description: Foreign key to silver.trips.trip_key.
+          - name: pickup_datetime
+            description: >
+              With the other natural columns (service type, vendor, dropoff time,
+              pickup and dropoff zone, distance, total) this identifies the trip.
+              The warehouse's `trip_key` is derived from them in staging.
       - name: driver_status_event
         description: >
           The occupancy stream. LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK,
