@@ -26,8 +26,8 @@ vars:
   mdm_schema: mdm_raw
 
   # --- Business rules ---------------------------------------------------
-  # The reporting window Finance agreed (ADR 0002). Changing it changes the
-  # numbers in the Monday revenue pack. This is NOT a sampling control.
+  # The reporting window the business agreed (ADR 0003). Changing it changes the
+  # numbers in every revenue mart. This is NOT a sampling control.
   report_start: '2024-01-01'
   report_end: '2024-04-01'
 

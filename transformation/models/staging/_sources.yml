@@ -17,7 +17,7 @@ sources:
       - name: yellow_tripdata
         description: >
           Yellow medallion trips. **The only place `Airport_fee` exists** --
-          ADR 0001 drops it when conforming, because green has no equivalent.
+          The conform step drops it (ADR 0006), because green has no equivalent.
           Anything needing the airport access fee reads this table.
         columns:
           - name: VendorID

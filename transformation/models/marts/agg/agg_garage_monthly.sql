@@ -1,5 +1,4 @@
--- Garage-month. The top of the pyramid, and the level the depot managers are
--- measured on.
+-- Garage-month. The top of the pyramid.
 select
     v.month_start_date,
     g.garage_key,

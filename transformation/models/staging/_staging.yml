@@ -19,7 +19,7 @@ models:
 
   - name: stg_tlc__yellow_trip_extras
     description: >
-      Yellow-only columns ADR 0001 dropped when conforming, keyed back to the
+      Yellow-only columns the conform step drops (ADR 0006), keyed back to the
       trip. Deduplicated to one row per natural key so the rejoin cannot
       multiply the fact.
     columns:

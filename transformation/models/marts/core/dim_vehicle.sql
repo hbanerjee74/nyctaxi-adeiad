@@ -17,7 +17,7 @@ select
     v.model,
     v.make || ' ' || v.model                              as make_model,
     v.model_year,
-    date_part('year', date '2024-07-01') - v.model_year    as vehicle_age_years,
+    date_part('year', date '{{ var("report_end") }}') - v.model_year    as vehicle_age_years,
     v.fuel_type,
     v.fuel_type in ('hybrid', 'electric')                  as is_low_emission,
     v.wheelchair_accessible,

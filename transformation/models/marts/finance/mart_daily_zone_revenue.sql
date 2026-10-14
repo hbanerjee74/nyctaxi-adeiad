@@ -1,6 +1,6 @@
--- Finance's headline table, in the Monday revenue pack.
+-- Daily revenue by pickup zone.
 --
--- The billable rule (ADR 0002) is applied here, in gold, and nowhere upstream,
+-- The billable rule (ADR 0003) is applied here, in gold, and nowhere upstream,
 -- so data-quality work can still see the rows this excludes.
 select
     f.pickup_date                                          as trip_date,

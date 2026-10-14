@@ -1,7 +1,7 @@
 -- One row per trip carrying every quality verdict, so that downstream models
 -- filter on a named condition rather than re-deriving the rule.
 --
--- Nothing is deleted here. ADR 0002 puts the billable rule in gold, and a trip
+-- Nothing is deleted here. ADR 0003 puts the billable rule in gold, and a trip
 -- excluded from a revenue mart is still a trip that happened.
 select
     t.trip_key,
