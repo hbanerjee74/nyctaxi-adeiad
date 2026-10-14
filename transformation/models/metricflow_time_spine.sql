@@ -8,4 +8,4 @@
 {% set end_date = '2035-12-31' %}
 
 SELECT CAST(day AS DATE) AS date_day
-FROM generate_series(CAST('{{ start_date }}' AS DATE), CAST('{{ end_date }}' AS DATE), INTERVAL 1 DAY) AS t(day)
+FROM GENERATE_SERIES(CAST('{{ start_date }}' AS DATE), CAST('{{ end_date }}' AS DATE), INTERVAL 1 DAY) AS t (day)

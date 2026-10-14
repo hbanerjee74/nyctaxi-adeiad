@@ -17,20 +17,21 @@ with versioned as (
 ),
 
 poi as (
-    select location_id,
-           count(*)                                      as poi_count,
-           string_agg(distinct poi_category, ',')         as poi_categories
+    select
+        location_id,
+        count(*) as poi_count,
+        string_agg(distinct poi_category, ',') as poi_categories
     from {{ ref('stg_mdm__zone_poi') }}
     group by 1
 )
 
 select
     md5(v.location_id::varchar || '|' || v.valid_from_date::varchar) as zone_key,
-    v.location_id                                         as zone_natural_key,
-    v.source_version                                      as zone_version,
+    v.location_id as zone_natural_key,
+    v.source_version as zone_version,
     v.valid_from_date,
     v.valid_to_date,
-    v.valid_to_date = date '2099-12-31'                   as is_current_version,
+    v.valid_to_date = date '2099-12-31' as is_current_version,
     v.zone_name,
     v.borough_name,
     v.borough_code,
@@ -46,8 +47,8 @@ select
     v.is_congestion_zone,
     v.is_nyc,
     v.is_core_market,
-    v.borough_name in ('Unknown', 'N/A')                  as is_unresolved_zone,
-    coalesce(p.poi_count, 0)                              as poi_count,
+    v.borough_name in ('Unknown', 'N/A') as is_unresolved_zone,
+    coalesce(p.poi_count, 0) as poi_count,
     p.poi_categories
 from versioned v
 left join poi p on v.location_id = p.location_id

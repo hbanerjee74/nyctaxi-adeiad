@@ -18,7 +18,8 @@
       "name": "dbt (duckdb)",
       "config_files": [
         "transformation/dbt_project.yml",
-        "transformation/profiles.yml"
+        "transformation/profiles.yml",
+        "transformation/packages.yml"
       ],
       "notes": "Project profile comes from DBT_PROFILE_NAME, default nyc_taxi_analytics."
     },

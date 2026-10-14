@@ -17,16 +17,16 @@ from (
     select
         {{ trip_natural_key("'yellow'", 'y."VendorID"', "timezone('UTC', y.tpep_pickup_datetime)",
            "timezone('UTC', y.tpep_dropoff_datetime)", 'y."PULocationID"', 'y."DOLocationID"',
-           'y.trip_distance', 'y.total_amount') }}       as trip_key,
-        y."Airport_fee"                                   as airport_fee,
-        y."PULocationID"                                  as pickup_location_id,
-        timezone('UTC', y.tpep_pickup_datetime)           as pickup_datetime,
+           'y.trip_distance', 'y.total_amount') }} as trip_key,
+        y."Airport_fee" as airport_fee,
+        y."PULocationID" as pickup_location_id,
+        timezone('UTC', y.tpep_pickup_datetime) as pickup_datetime,
         row_number() over (
             partition by {{ trip_natural_key("'yellow'", 'y."VendorID"', "timezone('UTC', y.tpep_pickup_datetime)",
                "timezone('UTC', y.tpep_dropoff_datetime)", 'y."PULocationID"', 'y."DOLocationID"',
                'y.trip_distance', 'y.total_amount') }}
             order by y._dlt_load_id
-        )                                                 as dup_rank
+        ) as dup_rank
     from {{ source('bronze', 'yellow_tripdata') }} y
 ) d
 where dup_rank = 1

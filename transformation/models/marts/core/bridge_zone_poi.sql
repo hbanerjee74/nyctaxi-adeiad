@@ -12,7 +12,7 @@ with weights as (
 
 select
     p.poi_id,
-    p.location_id                                         as zone_natural_key,
+    p.location_id as zone_natural_key,
     p.poi_category,
     p.poi_category_name,
     p.poi_name,

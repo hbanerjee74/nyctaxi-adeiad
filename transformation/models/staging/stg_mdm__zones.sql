@@ -3,7 +3,7 @@
 select
     location_id,
     borough_name,
-    zone_label                                as zone_name,
+    zone_label as zone_name,
     tlc_service_zone,
     zone_class,
     demand_tier,

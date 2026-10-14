@@ -15,15 +15,19 @@ with combos as (
 )
 
 select
-    md5(concat_ws('|', is_billable, is_refund, is_zero_distance,
+    md5(concat_ws(
+        '|', is_billable, is_refund, is_zero_distance,
         is_implausibly_short, is_implausibly_fast, is_negative_duration,
         is_zero_passenger, is_missing_passenger_count, is_sparse_vendor_feed,
         is_unresolved_pickup_zone, is_undocumented_rate_code,
-        is_missing_airport_fee))                          as trip_quality_key,
+        is_missing_airport_fee
+    )) as trip_quality_key,
     *,
     -- One rollup attribute so a report can say "clean" without listing twelve
     -- negations.
-    (is_billable and not is_zero_distance and not is_implausibly_short
-     and not is_implausibly_fast and not is_negative_duration
-     and not is_unresolved_pickup_zone)                   as is_clean_trip
+    (
+        is_billable and not is_zero_distance and not is_implausibly_short
+        and not is_implausibly_fast and not is_negative_duration
+        and not is_unresolved_pickup_zone
+    ) as is_clean_trip
 from combos

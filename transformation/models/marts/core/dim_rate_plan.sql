@@ -1,5 +1,5 @@
 select
-    rate_code_id                                          as rate_plan_key,
+    rate_code_id as rate_plan_key,
     rate_plan_name,
     pricing_model,
     is_flat_fare,

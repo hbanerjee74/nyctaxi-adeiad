@@ -10,5 +10,5 @@ select
     garage_id,
     in_service_date,
     retired_date,
-    retired_date is null                      as is_in_service
+    retired_date is null as is_in_service
 from {{ source('ops_raw', 'vehicle') }}

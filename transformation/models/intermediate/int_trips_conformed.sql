@@ -37,9 +37,10 @@ keyed as (
            'trip_distance', 'total_amount') }} as trip_key,
         *,
         row_number() over (
-            partition by service_type, vendor_id, pickup_datetime, dropoff_datetime,
-                         pickup_location_id, dropoff_location_id, trip_distance,
-                         total_amount
+            partition by
+                service_type, vendor_id, pickup_datetime, dropoff_datetime,
+                pickup_location_id, dropoff_location_id, trip_distance,
+                total_amount
             order by _dlt_load_id
         ) as dup_rank
     from unioned
@@ -51,8 +52,8 @@ select
     vendor_id,
     pickup_datetime,
     dropoff_datetime,
-    cast(pickup_datetime as date)                              as pickup_date,
-    extract(hour from pickup_datetime)                         as pickup_hour,
+    cast(pickup_datetime as date) as pickup_date,
+    extract(hour from pickup_datetime) as pickup_hour,
     pickup_location_id,
     dropoff_location_id,
     rate_code_id,
@@ -68,7 +69,7 @@ select
     improvement_surcharge,
     congestion_surcharge,
     total_amount,
-    date_diff('second', pickup_datetime, dropoff_datetime)     as trip_seconds,
+    date_diff('second', pickup_datetime, dropoff_datetime) as trip_seconds,
     {{ safe_divide('trip_distance',
         'date_diff(\'second\', pickup_datetime, dropoff_datetime) / 3600.0') }} as avg_mph,
     _dlt_load_id

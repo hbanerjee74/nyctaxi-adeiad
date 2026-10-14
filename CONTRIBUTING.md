@@ -12,6 +12,8 @@ python3 orchestration/run_all.py
 
 ```bash
 python3 -m pytest tests -q
+ruff check . --extend-exclude .github,ingestion/sources
+sqlfluff lint transformation/models
 cd transformation && dbt test --exclude test_type:unit && dbt test --select test_type:unit
 ```
 

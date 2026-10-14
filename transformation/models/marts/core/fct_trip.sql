@@ -33,11 +33,13 @@ with trips as (
 quality as (
     select
         trip_key,
-        md5(concat_ws('|', is_billable, is_refund, is_zero_distance,
+        md5(concat_ws(
+            '|', is_billable, is_refund, is_zero_distance,
             is_implausibly_short, is_implausibly_fast, is_negative_duration,
             is_zero_passenger, is_missing_passenger_count, is_sparse_vendor_feed,
             is_unresolved_pickup_zone, is_undocumented_rate_code,
-            is_missing_airport_fee))                       as trip_quality_key,
+            is_missing_airport_fee
+        )) as trip_quality_key,
         is_billable
     from {{ ref('int_trip_quality_flags') }}
 )
@@ -46,24 +48,24 @@ select
     t.trip_key,
 
     -- Degenerate and conformed dimension keys
-    d.date_key                                             as pickup_date_key,
+    d.date_key as pickup_date_key,
     t.pickup_date,
     t.pickup_hour,
     dp.daypart_code,
-    t.service_type                                         as service_type_key,
-    zp.zone_key                                            as pickup_zone_key,
-    zd.zone_key                                            as dropoff_zone_key,
+    t.service_type as service_type_key,
+    zp.zone_key as pickup_zone_key,
+    zd.zone_key as dropoff_zone_key,
     v.vendor_key,
-    t.payment_type                                         as payment_method_key,
-    t.rate_code_id                                         as rate_plan_key,
+    t.payment_type as payment_method_key,
+    t.rate_code_id as rate_plan_key,
     q.trip_quality_key,
 
     -- Fleet attribution. Null for any trip run by another operator.
     ta.shift_id,
-    ta.driver_id                                           as driver_key,
-    ta.vehicle_id                                          as vehicle_key,
+    ta.driver_id as driver_key,
+    ta.vehicle_id as vehicle_key,
     ta.assignment_method,
-    ta.shift_id is not null                                as is_fleet_attributed,
+    ta.shift_id is not null as is_fleet_attributed,
 
     -- Degenerate attributes
     t.pickup_datetime,
@@ -95,24 +97,27 @@ select
     t.airport_fee_status
 
 from trips t
-left join quality q                        on t.trip_key = q.trip_key
+left join quality q on t.trip_key = q.trip_key
 left join {{ ref('int_trip_fare_components') }} fc on t.trip_key = fc.trip_key
-left join {{ ref('dim_date') }} d          on t.pickup_date = d.calendar_date
-left join {{ ref('dim_daypart') }} dp      on t.pickup_hour = dp.hour_of_day
+left join {{ ref('dim_date') }} d on t.pickup_date = d.calendar_date
+left join {{ ref('dim_daypart') }} dp on t.pickup_hour = dp.hour_of_day
 
 -- Role-playing dimension, resolved as of the trip's own date.
 left join {{ ref('dim_zone') }} zp
-       on t.pickup_location_id = zp.zone_natural_key
-      and t.pickup_date >= zp.valid_from_date
-      and t.pickup_date <  zp.valid_to_date
+    on
+        t.pickup_location_id = zp.zone_natural_key
+        and t.pickup_date >= zp.valid_from_date
+        and t.pickup_date < zp.valid_to_date
 left join {{ ref('dim_zone') }} zd
-       on t.dropoff_location_id = zd.zone_natural_key
-      and t.pickup_date >= zd.valid_from_date
-      and t.pickup_date <  zd.valid_to_date
+    on
+        t.dropoff_location_id = zd.zone_natural_key
+        and t.pickup_date >= zd.valid_from_date
+        and t.pickup_date < zd.valid_to_date
 
 left join {{ ref('dim_vendor') }} v
-       on t.vendor_id = v.vendor_natural_key
-      and t.pickup_date >= v.valid_from_date
-      and t.pickup_date <  v.valid_to_date
+    on
+        t.vendor_id = v.vendor_natural_key
+        and t.pickup_date >= v.valid_from_date
+        and t.pickup_date < v.valid_to_date
 
 left join {{ ref('stg_ops__trip_assignments') }} ta on t.trip_key = ta.trip_key
