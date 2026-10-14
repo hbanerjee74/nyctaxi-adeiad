@@ -103,3 +103,56 @@ def test_test_map_dbt_selectors_resolve_to_at_least_one_test(name, kind, select)
     else:
         nodes = _dbt_ls(select, "test", exclude="test_type:unit")
     assert nodes, f"{name}.{kind}: `{select}` selects no tests"
+
+
+REVIEW_STATUS = re.compile(r"^(open|intent|deferred|declined: .+|proposal → P-\d{4})$")
+PROPOSAL_STATUS = re.compile(r"^(proposed|accepted|rejected|in-intent: .+|shipped: .+)$")
+
+
+def _frontmatter(path: Path) -> dict:
+    text = path.read_text()
+    assert text.startswith("---\n"), f"{path.name} has no frontmatter"
+    block = text.split("---\n", 2)[1]
+    return dict(line.split(": ", 1) for line in block.splitlines() if ": " in line)
+
+
+def _review_rows(path: Path) -> list[list[str]]:
+    rows = [line.strip("|").split("|") for line in path.read_text().splitlines() if line.startswith("| R-")]
+    return [[cell.strip() for cell in row] for row in rows]
+
+
+def test_review_and_proposal_paths_are_declared():
+    assert REPO_MAP["artifact_paths"]["review"] == "docs/review/{date}-{type}-{slug}.md"
+    assert REPO_MAP["artifact_paths"]["proposal"] == "docs/proposal/{nnnn}-{slug}.md"
+
+
+def test_every_review_has_frontmatter_and_a_valid_status_per_finding():
+    reviews = sorted((ROOT / "docs/review").glob("*.md"))
+    assert reviews
+    for review in reviews:
+        meta = _frontmatter(review)
+        assert {"type", "date", "commit", "source"} <= meta.keys(), review.name
+        assert review.name.startswith(f"{meta['date']}-{meta['type']}-"), review.name
+        rows = _review_rows(review)
+        assert rows, review.name
+        for row in rows:
+            assert row[1] in {"platform", "convention", "bug", "gap", "style"}, (review.name, row[0])
+            assert REVIEW_STATUS.match(row[-1]), (review.name, row[0], row[-1])
+
+
+def test_proposals_and_review_findings_point_at_each_other():
+    proposals = {p.name[:4]: p for p in (ROOT / "docs/proposal").glob("[0-9][0-9][0-9][0-9]-*.md")}
+    assert proposals
+    findings = {}
+    for review in (ROOT / "docs/review").glob("*.md"):
+        for row in _review_rows(review):
+            findings[(review.stem, row[0])] = row[-1]
+    for number, proposal in proposals.items():
+        meta = _frontmatter(proposal)
+        assert PROPOSAL_STATUS.match(meta["status"]), proposal.name
+        for ref in filter(None, meta.get("findings", "").strip("[]").split(",")):
+            review, finding = ref.strip().split("#")
+            assert findings.get((review, finding)) == f"proposal → P-{number}", (proposal.name, ref)
+    for (review, finding), status in findings.items():
+        if status.startswith("proposal → "):
+            assert status[-4:] in proposals, (review, finding)
