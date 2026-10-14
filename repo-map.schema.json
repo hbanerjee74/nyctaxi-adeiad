@@ -169,7 +169,11 @@
           "kind",
           "dataset",
           "pipeline",
-          "docs"
+          "docs",
+          "module",
+          "config_section",
+          "tests",
+          "design_record"
         ],
         "properties": {
           "kind": {
@@ -187,6 +191,18 @@
             "type": "string"
           },
           "description": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string"
+          },
+          "config_section": {
+            "type": "string"
+          },
+          "tests": {
+            "type": "string"
+          },
+          "design_record": {
             "type": "string"
           }
         }
