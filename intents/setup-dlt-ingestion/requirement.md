@@ -4,7 +4,7 @@ kinds: [ingestion, transformation]
 
 # Requirement: Load every raw source with dlt and build silver in dbt
 
-The full requirement and its decisions are in `docs/design/setup-nyctaxi-comp-repo/requirements.md` (R-10, R-12, with the decisions table). This document keeps the four requirements that govern the pipelines and the silver move.
+The full requirement and its decisions are in `docs/setup/requirements.md` (R-10, R-12, with the decisions table). This document keeps the four requirements that govern the pipelines and the silver move.
 
 ## Ask
 
@@ -21,9 +21,9 @@ Make the repo look like a real data product: raw sources loaded by dlt pipelines
 
 | Decision | Value | Source |
 | --- | --- | --- |
-| Sampling | None; volume is limited by the three-month window | `docs/design/setup-nyctaxi-comp-repo/requirements.md` |
+| Sampling | None; volume is limited by the three-month window | `docs/setup/requirements.md` |
 | Simulated sources | Generated inside their pipelines | `docs/adr/0008-simulated-sources-are-generated-inside-their-pipelines.md` |
-| Reference data | Needed to load raw: a dlt resource. Used in staging: a dbt seed | `docs/design/setup-nyctaxi-comp-repo/requirements.md` |
+| Reference data | Needed to load raw: a dlt resource. Used in staging: a dbt seed | `docs/setup/requirements.md` |
 
 ## Out of scope
 

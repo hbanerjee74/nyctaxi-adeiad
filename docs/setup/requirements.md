@@ -45,7 +45,7 @@ against a realistic brownfield domain.
 | Decision | Value | Source |
 | --- | --- | --- |
 | Run records | `plan.md`, `verify.md` and `case.md` are ignored. Only `requirement.md` is kept for intents, for demo and context | user answer |
-| `requirements.md` location | `docs/design/setup-nyctaxi-comp-repo/` | user answer |
+| `requirements.md` location | `docs/setup/` | user answer |
 | Purpose of this repo | The model answer: it reflects every convention and preference decision, so it shows what the Vibedata skills should produce when they do the right thing | user answer |
 | Role of studio and `ext/vd-data-engineering` | Reference only: studio shows how agents get bearing (`AGENTS.md`, rules, `repo-map.json`, `test-map.json`); the plugin skills show how skills work today. Neither is modified | user answer |
 | Where conventions live | Conventions and customer preferences (dbt/dlt paths, naming, testing, SQL style) move out of skills into this repo's `AGENTS.md` and `.agents/rules/`, so skills get lighter and per-customer preferences are a repo change, not a skill change | user answer |
@@ -72,7 +72,7 @@ against a realistic brownfield domain.
 | Consumers wording | Model descriptions name no audience; each design record's `## Consumers` lists dependents only (models and pipelines, from lineage) | user answer |
 | Draft rules accepted | The text in `rules-docs-draft.md` for `context.md`, `adr.md` and `design-records.md` is accepted as written; `adr.md` also says business definitions qualify as ADRs | user answer |
 | Content rules for docs | Three operator-owned rules: what goes into `CONTEXT.md`, what goes into an ADR, and what goes into a design record (including that Consumers lists dependents only). The skills read these rules instead of carrying their own copies | user answer |
-| Skill-changes document | `skill-changes.md` lives in `docs/design/setup-nyctaxi-comp-repo/` | user answer |
+| Skill-changes document | `skill-changes.md` lives in `docs/setup/` | user answer |
 | Repo documents | `AGENTS.md`, the contributor guide and `README.md` are updated as a deliverable in the work plan | user answer |
 | Open questions | Worked through with the `grill-with-docs` skill | user answer |
 | Target repo | The work is built on branch `setup/nyctaxi-comp-repo` in `accelerate-data/sample-nyctaxi-comp` and raised as a PR there. Porting to `vibedata-showcase/nyc-taxi-duckdb` is a separate decision after checking whether it diverged. The README's "archived" note is corrected to match what GitHub shows | user answer |

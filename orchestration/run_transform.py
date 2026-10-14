@@ -1,4 +1,4 @@
-"""Run the dbt project: `dbt build` against the domain target."""
+"""Run the dbt project: `dbt deps`, then `dbt build` against the domain target."""
 
 from __future__ import annotations
 
@@ -18,8 +18,12 @@ def _run(command, cwd, env):
 def run_transform(runner: Callable = _run, target: str = "domain") -> int:
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = str(ROOT / "transformation")
-    command = [sys.executable, "-m", "dbt.cli.main", "build", "--target", target]
-    return runner(command, cwd=ROOT / "transformation", env=env).returncode
+    dbt = [sys.executable, "-m", "dbt.cli.main"]
+    # packages.yml lists dbt_utils and dbt_project_evaluator; a fresh checkout has neither installed.
+    deps = runner([*dbt, "deps"], cwd=ROOT / "transformation", env=env).returncode
+    if deps != 0:
+        return deps
+    return runner([*dbt, "build", "--target", target], cwd=ROOT / "transformation", env=env).returncode
 
 
 def main() -> int:

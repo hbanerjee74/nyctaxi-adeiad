@@ -8,7 +8,7 @@
 
 **Tech Stack:** dlt 1.31 with `vibedata-dlt-duckdb-studio` 0.11.0, dbt-duckdb on dbt 1.11, DuckDB 1.5, pytest 9, Python 3.
 
-**Spec:** `docs/design/setup-nyctaxi-comp-repo/requirements.md` (R-01 to R-23, and the decisions table). Supporting files in the same folder: `conventions-inventory.md`, `repo-map-design.md`, `rules-docs-draft.md`, `domain-terms.md`, `skill-change-notes.md`.
+**Spec:** `docs/setup/requirements.md` (R-01 to R-23, and the decisions table). Supporting files in the same folder: `conventions-inventory.md`, `repo-map-design.md`, `rules-docs-draft.md`, `domain-terms.md`, `skill-change-notes.md`.
 
 ## Global Constraints
 
@@ -44,7 +44,7 @@
 | `.agents/rules/*.md` (8), `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | Conventions and entry documents |
 | `repo-map.json`, `test-map.json` | Locations and test lanes |
 | `docs/adr/`, `docs/design/`, `CONTEXT.md`, `intents/<slug>/requirement.md` | Domain documents |
-| `docs/design/setup-nyctaxi-comp-repo/skill-changes.md` | Deliverable R-11 |
+| `docs/setup/skill-changes.md` | Deliverable R-11 |
 
 ---
 
@@ -263,7 +263,7 @@
 
 ### Task 17: Skill changes document
 
-**Files:** Create `docs/design/setup-nyctaxi-comp-repo/skill-changes.md`.
+**Files:** Create `docs/setup/skill-changes.md`.
 
 **Interfaces:** A table with columns Skill, Reference (plugin file and section), Suggested change; plus a section "What `init` must do" for greenfield and brownfield. Consumes `conventions-inventory.md` (Skill and Rule rows) and `skill-change-notes.md`.
 
