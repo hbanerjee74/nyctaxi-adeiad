@@ -63,7 +63,6 @@ Keep these current in the same change that makes them stale.
 | `repo-map.json` | A layer, source, pipeline, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
 | `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
-| `README.md`, `CONTRIBUTING.md` | Commands, layout or workflow change | none |
 | `.agents/rules/` | A convention changes | none |
 | `AGENTS.md` | A durable fact the code does not show: an environment constraint or a workflow gotcha | none |
 
