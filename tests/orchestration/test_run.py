@@ -42,12 +42,19 @@ def test_ingest_stops_at_the_first_failing_pipeline():
     assert [Path(c[-1]).name for c, _, _ in runner.calls] == ["tlc_pipeline.py", "ops_pipeline.py"]
 
 
-def test_transform_runs_dbt_build_against_the_domain_target():
+def test_transform_installs_packages_then_builds_against_the_domain_target():
     runner = Recorder()
     assert run_transform.run_transform(runner) == 0
-    (command, cwd, _), = runner.calls
-    assert command[-3:] == ["build", "--target", "domain"]
-    assert cwd == ROOT / "transformation"
+    (deps, deps_cwd, _), (build, build_cwd, _) = runner.calls
+    assert deps[-1] == "deps"
+    assert build[-3:] == ["build", "--target", "domain"]
+    assert deps_cwd == build_cwd == ROOT / "transformation"
+
+
+def test_transform_does_not_build_when_package_install_fails():
+    runner = Recorder(fail_on="deps")
+    assert run_transform.run_transform(runner) == 1
+    assert len(runner.calls) == 1
 
 
 def test_all_does_not_run_dbt_when_ingestion_fails():
