@@ -5,7 +5,7 @@ date: 2026-10-14
 
 # A rate is rebuilt from summed numerators and denominators, and a zero denominator gives null
 
-Every rate above the grain it was first measured at (occupancy rate, revenue per online hour, utilisation) is computed as a sum of numerators over a sum of denominators, through the `safe_divide` macro, which returns null when the denominator is zero. A rate is never the average of lower-level rates. Each aggregation level is built from the one below, so day, month and ranking levels cannot disagree. The semantic model's ratio metrics are built the same way.
+Every rate that aggregates shift-level measures (occupancy rate, revenue per online hour, utilisation) is computed as a sum of numerators over a sum of denominators, through the `safe_divide` macro, which returns null when the denominator is zero. Such a rate is never the average of lower-level rates. The measurable tip rate is the exception: it is a trip-level measure with no denominator to sum, and its aggregate is a mean over the trips where it is measurable, with the measurable share published beside it (ADR 0011). Each aggregation level is built from the one below, so day, month and ranking levels cannot disagree. The semantic model's ratio metrics are built the same way.
 
 ## Considered options
 

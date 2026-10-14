@@ -62,7 +62,7 @@ models:
   - name: int_trip_quality_flags
     description: >
       Every quality verdict for a trip, in one row. Nothing is deleted -- ADR
-      0002 puts the billable rule in gold, and an excluded trip still happened.
+      0003 puts the billable rule in gold, and an excluded trip still happened.
     columns:
       - name: trip_key
         tests: [unique, not_null]

@@ -5,7 +5,7 @@ date: 2026-10-14
 
 # Drivers are ranked on revenue per online hour; asset utilisation is taken against the 24-hour day
 
-Driver performance is ranked on revenue per online hour, not gross revenue: gross revenue rewards whoever worked the most hours, which is a roster fact. A driver below a minimum number of online hours is flagged and left out of the ranking, because a rank on a few shifts is noise. Asset utilisation is taken against the 24-hour day, and labour utilisation (occupancy) against sign-on time. A medallion idle in the depot is the asset question; a driver idle on the road is the labour question, and they are different numbers.
+Driver performance is ranked on revenue per online hour, not gross revenue: gross revenue rewards whoever worked the most hours, which is a roster fact. A driver below a minimum number of online hours is flagged with `is_below_ranking_floor` and still ranked; a consumer who wants only stable ranks filters the flag, because a rank on a few shifts is noise. Asset utilisation is taken against the 24-hour day, and labour utilisation (occupancy) against sign-on time. A medallion idle in the depot is the asset question; a driver idle on the road is the labour question, and they are different numbers.
 
 ## Considered options
 

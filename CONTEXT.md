@@ -32,7 +32,7 @@ One part of a trip's total: the fare itself, tip, tolls, taxes and surcharges.
 What is left of a trip's total after every modelled fare component. A non-zero residual means the total is not the sum of its parts.
 
 **Billable trip**:
-A trip whose total is positive, inside the reporting window. Revenue and flow reporting counts only billable trips; quality reporting counts all trips and shows how many are billable.
+A trip whose total is positive. Revenue and flow reporting counts only billable trips inside the reporting window; quality reporting counts all trips and shows how many are billable.
 _Not_: revenue trip, because whether a billable trip counts as revenue depends on how it was paid.
 
 **Refund**:
@@ -87,7 +87,7 @@ A trip matched to one of the operator's vehicles and drivers. Most trips are not
 A depot where the operator keeps its vehicles.
 
 **Shift**:
-A driver's working period on one vehicle, from sign-on to sign-off. When no sign-off is recorded the shift is unclosed and ends when its last trip ends.
+A driver's working period on one vehicle, from sign-on to sign-off. When no sign-off is recorded the shift is unclosed and ends at the operator's derived end, shortly after its last trip.
 
 **Lease type**:
 How a driver pays for a vehicle: owner-operators share revenue, lease drivers pay a fixed rate.

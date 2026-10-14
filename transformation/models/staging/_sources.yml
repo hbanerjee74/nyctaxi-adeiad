@@ -16,9 +16,9 @@ sources:
     tables:
       - name: yellow_tripdata
         description: >
-          Yellow medallion trips. **The only place `Airport_fee` exists** --
-          The conform step drops it (ADR 0006), because green has no equivalent.
-          Anything needing the airport access fee reads this table.
+          Yellow medallion trips. **The only fleet with `Airport_fee`.** The
+          conform step drops it (ADR 0006), because green has no equivalent;
+          `int_trips_enriched` rejoins it from here.
         columns:
           - name: VendorID
             description: Technology provider that submitted the record.
@@ -47,7 +47,7 @@ sources:
   - name: ops_raw
     description: >
       Harbour Point Taxi Management's dispatch and telematics platform.
-      Lands nightly. The TLC feed describes the journey; this describes who
+      Regenerated and replaced on every run. The TLC feed describes the journey; this describes who
       drove it, in which medallion, on which shift, and what the driver was
       doing when not carrying a fare.
     database: "{{ var('ops_database') }}"

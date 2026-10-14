@@ -28,7 +28,7 @@ kept; the only additions are dlt's `_dlt_load_id` and `_dlt_id`.
 | `bronze.taxi_zone_lookup` | 265 | `taxi_zone_lookup.csv` |
 
 `int_trips_conformed` (9,722,362 rows) is **real data, transformed** — union,
-rename, type, deduplicate. So is everything derived from it in `staging`,
+rename, type, deduplicate. So is everything derived from it in `intermediate`,
 `marts/core` and `marts/agg`.
 
 Genuine in these tables: every timestamp, zone id, trip distance, fare, tip,
@@ -72,7 +72,7 @@ enrichment columns around them are hash-derived and mean nothing.
 
 > **The coordinates are fake and look real.**
 > `centroid_lat` / `centroid_lon` fall in a plausible NYC range but are hash
-> output. JFK reads `40.6034` where the true centroid is about `40.641`, and
+> output. JFK reads `40.6731` where the true centroid is about `40.641`, and
 > `resident_population = 23,862` at an airport is nonsense. Any distance,
 > density or mapping calculation built on these columns produces garbage that
 > passes a smell test. The same applies to `area_sq_mi`.
@@ -132,7 +132,7 @@ are genuine properties of the source:
 
 - `service_zone = 'Airports'` excludes Newark
 - `Airport_fee` carries 1.75, 0.00, −1.75 and null in the same column
-- `Airport_fee` exists only on yellow, and only in bronze
+- `Airport_fee` exists only on yellow; conformed trips drop it and `int_trips_enriched` rejoins it
 - cash trips record a tip on 0.03% of airport trips versus 94.4% on card
 - zone ids 264 and 265 join the lookup cleanly and carry no real borough
 - the trip-to-zone join has zero unmatched rows and no fanout across all 9.72M trips
