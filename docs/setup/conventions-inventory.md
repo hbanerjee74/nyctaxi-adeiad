@@ -88,6 +88,7 @@ Operator-owned when it is a preference that does not change whether the platform
 | D13 | Source registration committed alone | add-or-update-source | Skill | Skill |
 | D14 | Local-files feeds are a one-off load, not scheduled | add-or-update-source | Rule | Rule |
 | D15 | Reference data needed to load raw is a dlt resource; reference data used in staging is a dbt seed | user answer | Skill | Skill |
+| D16 | Profile a remote source file once per intent and reuse the saved profile | HVFHV run analysis (9 to 12 reads of the same file per run) | Rule | Rule |
 
 ## E. Docs: glossary, ADRs, design records
 
