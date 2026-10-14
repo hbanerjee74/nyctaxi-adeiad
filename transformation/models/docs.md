@@ -1,6 +1,6 @@
 {% docs trip_key %}
 md5 over the trip's natural columns: service type, vendor, pickup and dropoff
-timestamps, pickup and dropoff zone, distance, total. Published by `silver.trips`.
+timestamps, pickup and dropoff zone, distance, total. Produced by `int_trips_conformed`.
 
 Bronze does not carry it. Any model reaching back to a fleet-specific bronze
 column has to recompute this expression identically -- same column order, same

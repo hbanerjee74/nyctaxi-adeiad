@@ -1,13 +1,13 @@
 # ---------------------------------------------------------------
-# Source data. Rebuilt by tools/build_domain.py from TLC open data.
-# Never commit trip parquet -- it is ~300MB and freely downloadable.
+# Source data. Fetched by the dlt pipelines in ingestion/ from TLC open data.
+# Never commit trip parquet -- it is large and freely downloadable.
 # ---------------------------------------------------------------
 raw/
 *.parquet
 *.csv.gz
 
 # ---------------------------------------------------------------
-# Warehouse. Rebuilt by the three tools/build_*.py scripts.
+# Warehouse. Rebuilt by orchestration/run_all.py.
 # ---------------------------------------------------------------
 *.duckdb
 *.duckdb.wal
@@ -23,6 +23,8 @@ transformation/dbt_packages/
 transformation/.user.yml
 logs/
 target/
+dbt_packages/
+*.log
 
 # ---------------------------------------------------------------
 # Local tooling
@@ -33,8 +35,13 @@ __pycache__/
 venv/
 .env
 .DS_Store
+.pytest_cache/
+.agents_tmp/
 .idea/
 .vscode/
+
+# Secrets. Never commit; dlt reads them from the bound secret store.
+**/secrets.toml
 
 # Seed CSVs are project config, not data -- keep them.
 !transformation/seeds/*.csv

@@ -2,8 +2,7 @@ version: 2
 
 sources:
   # =====================================================================
-  # TLC trip records. Two layers, both produced by the loader outside this
-  # repo. bronze is verbatim; silver is conformed.
+  # TLC trip records, loaded by the tlc pipeline in ingestion/. Verbatim.
   # =====================================================================
   - name: bronze
     description: >
@@ -14,16 +13,12 @@ sources:
       re-interpretation.
     database: "{{ var('bronze_database') }}"
     schema: "{{ var('bronze_schema') }}"
-    loaded_at_field: _loaded_at
-    freshness:
-      warn_after: {count: 36, period: hour}
-      error_after: {count: 72, period: hour}
     tables:
       - name: yellow_tripdata
         description: >
-          Yellow medallion trips. **The only place `Airport_fee` exists** --
-          ADR 0001 drops it when conforming, because green has no equivalent.
-          Anything needing the airport access fee reads this table.
+          Yellow medallion trips. **The only fleet with `Airport_fee`.** The
+          conform step drops it (ADR 0006), because green has no equivalent;
+          `int_trips_enriched` rejoins it from here.
         columns:
           - name: VendorID
             description: Technology provider that submitted the record.
@@ -33,47 +28,16 @@ sources:
             description: TLC pickup zone id.
           - name: Airport_fee
             description: >
-              Airport access fee. 1.75 under the current regime, 1.25 on
-              stragglers from the pre-December-2023 regime, negative on
-              reversals, and null where the vendor did not populate it.
-              Summing it without filtering is not a fee total.
+              Airport access fee. 1.75 under the current regime, zero on
+              trips that incur none, negative on reversals, and null where
+              the vendor did not populate it. Summing it without filtering
+              is not a fee total.
       - name: green_tripdata
         description: >
           Green (boro) taxi trips. Carries `ehail_fee` and `trip_type`,
           which yellow does not, and has no `Airport_fee`.
       - name: taxi_zone_lookup
         description: TLC zone reference as published. 265 rows.
-
-  - name: silver
-    description: >
-      Conformed trip layer. Yellow and green unioned onto one grain with
-      shared column names and a `service_type` discriminator. Structure
-      only -- no business filtering, so refunds, zero-distance trips and
-      out-of-window pickups all survive into silver by design.
-    database: "{{ var('silver_database') }}"
-    schema: "{{ var('silver_schema') }}"
-    tables:
-      - name: trips
-        description: >
-          One row per distinct trip across both fleets. The conformed
-          intersection of the two schemas -- deliberately not a complete
-          trip record. See ADR 0001.
-        columns:
-          - name: trip_key
-            description: >
-              md5 over the trip's natural columns. Bronze does not carry it,
-              so reaching back to a fleet-specific bronze column means
-              recomputing this expression identically -- see the
-              `trip_natural_key` macro.
-            tests: [unique, not_null]
-          - name: service_type
-            tests:
-              - accepted_values: {values: ['yellow', 'green']}
-          - name: pickup_location_id
-            description: Joins the zone dimension. TLC never emits an id outside 1-265.
-      - name: zones
-      - name: payment_types
-      - name: rate_codes
 
   # =====================================================================
   # Fleet operations. Harbour Point's own dispatch and telematics platform.
@@ -83,7 +47,7 @@ sources:
   - name: ops_raw
     description: >
       Harbour Point Taxi Management's dispatch and telematics platform.
-      Lands nightly. The TLC feed describes the journey; this describes who
+      Regenerated and replaced on every run. The TLC feed describes the journey; this describes who
       drove it, in which medallion, on which shift, and what the driver was
       doing when not carrying a fare.
     database: "{{ var('ops_database') }}"
@@ -117,8 +81,11 @@ sources:
           Links a TLC trip to the shift that ran it. The system of record for
           attribution. A small number are `manual` overrides.
         columns:
-          - name: trip_key
-            description: Foreign key to silver.trips.trip_key.
+          - name: pickup_datetime
+            description: >
+              With the other natural columns (service type, vendor, dropoff time,
+              pickup and dropoff zone, distance, total) this identifies the trip.
+              The warehouse's `trip_key` is derived from them in staging.
       - name: driver_status_event
         description: >
           The occupancy stream. LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK,

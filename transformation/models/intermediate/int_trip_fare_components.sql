@@ -15,16 +15,18 @@ select
     t.mta_tax,
     t.improvement_surcharge,
     t.congestion_surcharge,
-    coalesce(t.airport_fee, 0)                        as airport_fee,
+    coalesce(t.airport_fee, 0) as airport_fee,
     t.total_amount,
-    {{ total_surcharges('t') }}                       as total_surcharges,
-    {{ fare_residual('t') }}                          as fare_residual,
-    abs({{ fare_residual('t') }}) > 0.01              as has_unexplained_residual,
+    {{ total_surcharges('t') }} as total_surcharges,
+    {{ fare_residual('t') }} as fare_residual,
+    abs({{ fare_residual('t') }}) > 0.01 as has_unexplained_residual,
     {{ safe_divide('t.tip_amount', 't.fare_amount') }} as tip_rate_on_fare,
     -- Only meaningful where the meter actually captures tips. Cash tips are
     -- never recorded, so a cash trip's zero is not a zero.
-    case when p.tip_is_captured
-         then {{ safe_divide('t.tip_amount', 't.fare_amount') }} end as measurable_tip_rate,
+    case
+        when p.tip_is_captured
+            then {{ safe_divide('t.tip_amount', 't.fare_amount') }}
+    end as measurable_tip_rate,
     p.tip_is_captured,
     p.counts_as_revenue,
     p.settlement_class

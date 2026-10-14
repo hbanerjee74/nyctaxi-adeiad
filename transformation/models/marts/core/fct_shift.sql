@@ -2,10 +2,10 @@
 -- (occupancy, leases) and the revenue world (trips).
 select
     e.shift_id,
-    cast(strftime(e.shift_date, '%Y%m%d') as integer)      as shift_date_key,
+    cast(strftime(e.shift_date, '%Y%m%d') as integer) as shift_date_key,
     e.shift_date,
-    e.driver_id                                            as driver_key,
-    e.vehicle_id                                           as vehicle_key,
+    e.driver_id as driver_key,
+    e.vehicle_id as vehicle_key,
     d.garage_key,
     e.engagement_type,
     e.lease_type,
@@ -43,4 +43,4 @@ select
     o.telematics_source
 from {{ ref('int_shift_economics') }} e
 join {{ ref('int_shift_occupancy') }} o on e.shift_id = o.shift_id
-left join {{ ref('dim_driver') }} d     on e.driver_id = d.driver_key
+left join {{ ref('dim_driver') }} d on e.driver_id = d.driver_key

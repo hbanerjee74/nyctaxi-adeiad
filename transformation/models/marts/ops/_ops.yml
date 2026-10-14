@@ -25,26 +25,3 @@ models:
     description: >
       What proportion of the feed is trustworthy and whose records are not.
       Aggregated through the junk dimension so every verdict is groupable.
-
-exposures:
-  - name: garage_operations_review
-    type: dashboard
-    maturity: high
-    description: Monthly depot review. Drives driver coaching and vehicle reallocation.
-    depends_on:
-      - ref('mart_driver_scorecard')
-      - ref('mart_vehicle_utilisation')
-      - ref('agg_garage_monthly')
-    owner:
-      name: Fleet Operations
-      email: fleet-ops@harbourpoint.example
-
-  - name: data_quality_review
-    type: analysis
-    maturity: medium
-    description: Standing review of feed quality by vendor.
-    depends_on:
-      - ref('mart_trip_quality_scorecard')
-    owner:
-      name: Data Platform
-      email: data-platform@harbourpoint.example

@@ -1,39 +1,38 @@
-# `int_trips_enriched`
+---
+artifacts: [int_trips_enriched]
+---
 
-## Purpose and interface
+# int_trips_enriched
 
-One row per conformed `trip_key`. This is the only intermediate model that
-rejoins the fleet-specific attributes removed from `silver.trips`:
-`airport_fee` for Yellow, and `ehail_fee` / `trip_type` for Green.
+The only intermediate model that rejoins the fleet-specific attributes removed when trips were conformed: the airport fee for yellow, and the e-hail fee and trip type for green.
+
+## Grain
+
+One row per conformed trip (`trip_key`).
 
 ## Decisions
 
-- Rejoin through the two dedicated, deduplicated staging models on `trip_key`.
-  Joining raw Bronze rows would allow duplicate source records to multiply a
-  trip; carrying all fleet-specific columns in `silver.trips` would reverse
-  ADR 0001's conformed-intersection contract.
-- Preserve three airport-fee states: `present`, `missing`, and
-  `not_applicable`. A null Green fee is not missing data; it is a field that
-  does not exist for that fleet. Collapsing the states would corrupt
-  fleet-blind fee metrics.
-- Use left joins. Every conformed trip survives even when its optional,
-  fleet-specific companion is absent; the staging models enforce the required
-  at-most-one match.
+- `D-01` Rejoin through the two dedicated, deduplicated extras models on `trip_key`. Joining raw rows would allow duplicate source records to multiply a trip; carrying all fleet-specific columns in the conformed model would reverse the conformed-intersection contract ([ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md)). Source: intents/trip-fact/requirement.md R-02, [ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md).
+- `D-02` Preserve three airport-fee states: `present`, `missing` and `not_applicable`. A null green fee is not missing data; it is a field that does not exist for that fleet. Collapsing the states would corrupt fleet-blind fee metrics. Source: intents/trip-fact/requirement.md R-02.
+- `D-03` Use left joins. Every conformed trip survives even when its optional, fleet-specific companion is absent; the extras models enforce the required at-most-one match. Source: intents/trip-fact/requirement.md R-02.
 
-## Boundaries and rerun behavior
+## Rejected
 
-This model restores attributes; it does not apply finance filters, quality
-filters, or fleet attribution. Its upstream inputs are `stg_tlc__trips`,
-`stg_tlc__yellow_trip_extras`, and `stg_tlc__green_trip_extras`; rebuild it
-whenever any of those sources are rebuilt.
+- Carrying every fleet-specific column in `int_trips_conformed`: a column null for a whole fleet invites silently wrong averages.
+- Joining bronze rows directly: duplicates would multiply trips.
 
-## Consumers and guardrails
+## Consumers
 
-`int_trip_fare_components`, `int_trip_quality_flags`, and ultimately
-`core.fct_trip` depend on this contract. The `airport_fee_status` accepted-value
-test and `assert_airport_fee_only_on_yellow` protect its fleet asymmetry.
+Depended on by: `agg_driver_daily`, `agg_driver_monthly`, `agg_garage_monthly`, `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_vehicle_daily`, `agg_vehicle_monthly`, `agg_weather_demand_daily`, `dim_trip_quality`, `fct_shift`, `fct_trip`, `int_shift_economics`, `int_trip_fare_components`, `int_trip_quality_flags`, `mart_daily_zone_revenue`, `mart_driver_scorecard`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`, `mart_vehicle_utilisation`.
 
-## References
+## Evidence
 
-- [ADR 0001](../../../adr/0001-conform-yellow-and-green-into-one-trip-grain.md)
-- [Model SQL](../../../../transformation/models/intermediate/int_trips_enriched.sql)
+- `assert_enrichment_rejoin_matches_every_trip`: every conformed trip finds its extras row. A key computed from differently typed inputs matches nothing, and a left join then reports every fee as missing without failing anything else; this test caught exactly that.
+- `assert_airport_fee_only_on_yellow` and the `airport_fee_status` accepted-values test protect the fleet asymmetry; a unit test covers the three states.
+- Airport-fee states on the three-month load: present 8,802,815, missing 751,962, not applicable 167,585.
+- The model restores attributes; it does not apply finance filters, quality filters or fleet attribution. Rebuild it whenever its inputs (`int_trips_conformed`, `stg_tlc__yellow_trip_extras`, `stg_tlc__green_trip_extras`) are rebuilt.
+
+## History
+
+- - 2026-08-29 — trip-fact — design record written (commit 97862f7) — D-01, D-02, D-03
+- - 2026-10-14 — setup-dlt-ingestion — conformed trips now come from `int_trips_conformed`; the extras models apply the same timestamp conversion as staging; record conformed to the template

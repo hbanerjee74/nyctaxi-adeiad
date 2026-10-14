@@ -1,7 +1,7 @@
 name: 'nyc_taxi_analytics'
 version: '2.1.0'
 config-version: 2
-profile: 'nyc_taxi_analytics'
+profile: "{{ env_var('DBT_PROFILE_NAME', 'nyc_taxi_analytics') }}"
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -26,10 +26,10 @@ vars:
   mdm_schema: mdm_raw
 
   # --- Business rules ---------------------------------------------------
-  # The reporting window Finance agreed (ADR 0002). Changing it changes the
-  # numbers in the Monday revenue pack. This is NOT a sampling control.
+  # The reporting window the business agreed (ADR 0003). Changing it changes the
+  # numbers in every revenue mart. This is NOT a sampling control.
   report_start: '2024-01-01'
-  report_end: '2024-07-01'
+  report_end: '2024-04-01'
 
   # Trips below this duration or above this speed are physically implausible
   # and are flagged, not deleted (ADR 0004).
@@ -37,6 +37,10 @@ vars:
   min_plausible_seconds: 30
 
 models:
+  # The evaluator package audits the project's own structure. It is built only when
+  # the quality workflow asks for it (--vars '{dbt_project_evaluator_enabled: true}').
+  dbt_project_evaluator:
+    +enabled: "{{ var('dbt_project_evaluator_enabled', false) }}"
   nyc_taxi_analytics:
     +persist_docs:
       relation: true
@@ -59,6 +63,8 @@ models:
         +schema: ops
 
 seeds:
+  dbt_project_evaluator:
+    +enabled: "{{ var('dbt_project_evaluator_enabled', false) }}"
   nyc_taxi_analytics:
     +schema: seeds
     +quote_columns: false

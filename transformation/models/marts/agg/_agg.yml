@@ -63,7 +63,7 @@ models:
       it with those days makes a well-run asset look idle.
 
   - name: agg_garage_monthly
-    description: Garage-month. The level depot managers are measured on.
+    description: Garage-month. The top of the driver, vehicle and garage pyramid.
 
   - name: agg_zone_occupancy_hourly
     description: >

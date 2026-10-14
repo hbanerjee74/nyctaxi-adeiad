@@ -1,5 +1,5 @@
 select
-    payment_type_code                         as payment_type,
+    payment_type_code as payment_type,
     payment_method_name,
     settlement_class,
     tip_is_captured,

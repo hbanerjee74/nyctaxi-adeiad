@@ -15,10 +15,10 @@ with current_zone as (
 poi_rollup as (
     select
         location_id,
-        count(*)                                     as poi_count,
-        sum(demand_weight)                           as poi_demand_weight,
+        count(*) as poi_count,
+        sum(demand_weight) as poi_demand_weight,
         max(case when poi_category = 'AIRPORT' then 1 else 0 end) = 1 as has_airport_poi,
-        string_agg(distinct poi_category, ',')        as poi_categories
+        string_agg(distinct poi_category, ',') as poi_categories
     from {{ ref('stg_mdm__zone_poi') }}
     group by 1
 )
@@ -43,11 +43,11 @@ select
     -- TLC emits 264 and 265 for pickups it could not resolve. They join the
     -- lookup cleanly, which is exactly why they are dangerous: the failure is
     -- a meaningless borough, not an unmatched row.
-    z.borough_name in ('Unknown', 'N/A')             as is_unresolved_zone,
-    coalesce(p.poi_count, 0)                          as poi_count,
-    coalesce(p.poi_demand_weight, 0)                  as poi_demand_weight,
-    coalesce(p.has_airport_poi, false)                as has_airport_poi,
+    z.borough_name in ('Unknown', 'N/A') as is_unresolved_zone,
+    coalesce(p.poi_count, 0) as poi_count,
+    coalesce(p.poi_demand_weight, 0) as poi_demand_weight,
+    coalesce(p.has_airport_poi, false) as has_airport_poi,
     p.poi_categories
 from current_zone z
 left join {{ ref('stg_mdm__boroughs') }} b on z.borough_name = b.borough_name
-left join poi_rollup p                     on z.location_id  = p.location_id
+left join poi_rollup p on z.location_id = p.location_id
