@@ -53,6 +53,7 @@ Operator-owned when it is a preference that does not change whether the platform
 | B14 | No dbt `versions:` / `deprecation_date`; breaking change = new model beside the old (dual-write) | designing, shipping | Skill | Skill |
 | B15 | Default materialisation per layer (view / table / incremental) | not specified | Rule | Rule |
 | B16 | `.gitignore` fragments for dbt (`*/target/`, `*/logs/`, `dbt_packages/`, `.user.yml`) | generating-dbt-model | Skill | Skill |
+| B17 | dlt-loaded timestamps are converted with `timezone('UTC', col)` in staging | trip-key bug in setup | Rule | Rule |
 
 ## C. Testing and quality
 
@@ -67,6 +68,7 @@ Operator-owned when it is a preference that does not change whether the platform
 | C7 | Never loosen a test to pass (weakening needs a design decision plus an approval) | verifying | Skill | Skill |
 | C8 | Docs must match data: every number/rule in descriptions, design records, ADRs, `CONTEXT.md` matches the built relation | verifying | Skill | Skill |
 | C9 | Dev-artifact scan (no `dev_mode`, `.add_limit()`, edited profile target committed) | verifying | Skill | Skill |
+| C10 | A left join on a derived key gets a rejoin test | trip-key bug in setup | Rule | Rule |
 
 ## D. dlt and bronze
 
