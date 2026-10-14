@@ -1,5 +1,6 @@
 import json
 import re
+import tomllib
 import subprocess
 import sys
 from pathlib import Path
@@ -13,8 +14,9 @@ TEST_MAP = json.loads((ROOT / "test-map.json").read_text())
 
 
 def _exists(path: str) -> bool:
-    """A path with a {placeholder} is checked up to the placeholder."""
-    static = re.split(r"[{*]", path)[0].rstrip("/")
+    """A path with a {placeholder} is checked up to the last whole directory before it."""
+    prefix = re.split(r"[{*]", path)[0]
+    static = prefix.rstrip("/") if prefix.endswith("/") or "/" not in prefix else prefix.rsplit("/", 1)[0]
     return (ROOT / static).exists() if static else True
 
 
@@ -36,10 +38,32 @@ def test_repo_map_paths_exist():
     paths += REPO_MAP["entrypoints"].values()
     paths += REPO_MAP["key_directories"].keys()
     paths += [m["path"] for m in REPO_MAP["modules"].values()]
-    paths += [s["pipeline"] for s in REPO_MAP["sources"].values()]
-    paths += [s["docs"] for s in REPO_MAP["sources"].values()]
+    for source in REPO_MAP["sources"].values():
+        paths += [source[k] for k in ("pipeline", "docs", "module", "tests", "design_record")]
     missing = [p for p in paths if not _exists(p)]
     assert missing == []
+
+
+def test_every_source_is_registered_in_the_dlt_config():
+    config = tomllib.loads((ROOT / "ingestion" / ".dlt" / "config.toml").read_text())
+    for name, source in REPO_MAP["sources"].items():
+        assert source["config_section"] == f"sources.{name}"
+        assert name in config["sources"], f"{name} has no [sources.{name}] section"
+
+
+def test_every_layer_has_a_test_map_module():
+    modules = set(TEST_MAP["modules"])
+    for name, layer in REPO_MAP["layers"].items():
+        expected = "ingestion" if layer["built_by"] == "dlt" else name
+        assert expected in modules, f"layer {name} has no test-map module {expected}"
+
+
+def test_source_artifact_patterns_resolve_for_every_source():
+    for name in REPO_MAP["sources"]:
+        for key in ("source_module", "source_tests", "pipeline", "resource_docs", "design_record_pipeline"):
+            pattern = REPO_MAP["artifact_paths"][key]
+            path = pattern.format(name=name, connection=name, pipeline=name)
+            assert (ROOT / path).exists(), f"{key} for {name}: {path}"
 
 
 def test_every_dlt_layer_has_a_source():

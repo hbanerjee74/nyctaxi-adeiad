@@ -120,21 +120,33 @@
       "dataset": "bronze",
       "pipeline": "ingestion/tlc_pipeline.py",
       "docs": "ingestion/docs/tlc.yml",
-      "description": "NYC TLC yellow and green trips and the zone lookup, fetched from the public TLC site."
+      "description": "NYC TLC yellow and green trips and the zone lookup, fetched from the public TLC site.",
+      "module": "ingestion/sources/tlc.py",
+      "config_section": "sources.tlc",
+      "tests": "tests/ingestion/test_tlc.py",
+      "design_record": "docs/design/pipelines/tlc.md"
     },
     "ops": {
       "kind": "dlt",
       "dataset": "ops_raw",
       "pipeline": "ingestion/ops_pipeline.py",
       "docs": "ingestion/docs/ops.yml",
-      "description": "Fleet operator's platform, generated from the yellow trips."
+      "description": "Fleet operator's platform, generated from the yellow trips.",
+      "module": "ingestion/sources/ops.py",
+      "config_section": "sources.ops",
+      "tests": "tests/ingestion/test_ops.py",
+      "design_record": "docs/design/pipelines/ops.md"
     },
     "mdm": {
       "kind": "dlt",
       "dataset": "mdm_raw",
       "pipeline": "ingestion/mdm_pipeline.py",
       "docs": "ingestion/docs/mdm.yml",
-      "description": "Master-data platform: zones, vendors, payment methods, rate plans, regimes, boroughs, points of interest, calendar, weather."
+      "description": "Master-data platform: zones, vendors, payment methods, rate plans, regimes, boroughs, points of interest, calendar, weather.",
+      "module": "ingestion/sources/mdm.py",
+      "config_section": "sources.mdm",
+      "tests": "tests/ingestion/test_mdm.py",
+      "design_record": "docs/design/pipelines/mdm.md"
     }
   },
   "artifact_paths": {
@@ -149,7 +161,10 @@
     "pipeline": "ingestion/{name}_pipeline.py",
     "resource_docs": "ingestion/docs/{connection}.yml",
     "orchestration": "orchestration/",
-    "test_map": "test-map.json"
+    "test_map": "test-map.json",
+    "source_module": "ingestion/sources/{name}.py",
+    "source_tests": "tests/ingestion/test_{name}.py",
+    "source_config": "ingestion/.dlt/config.toml"
   },
   "modules": {
     "ingestion": {
@@ -253,6 +268,7 @@
     "synthetic_data": "ops_raw and mdm_raw are simulated. TLC trips are real. docs/data-provenance.md says which is which.",
     "trip_key": "Produced only by the trip_natural_key macro. The operator source carries natural columns, not the key.",
     "warehouse": "domain.duckdb at the repo root is ignored by git and rebuilt by orchestration/run_all.py.",
-    "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them."
+    "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
+    "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Then register it in orchestration/run_ingest.py, test-map.json and docs/data-provenance.md."
   }
 }
