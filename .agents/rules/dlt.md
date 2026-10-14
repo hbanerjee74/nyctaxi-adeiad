@@ -30,6 +30,10 @@ A safety run or sample load sets `DLT_INGEST_LIMIT` (default 1,000 rows); a full
 
 A local-files feed is a one-off load and is not scheduled. Not applicable until this repo has one.
 
+## Profiling a remote file (D16)
+
+Profile a remote source file once per intent: row count, columns and types, null counts, value ranges and anything else the design or resource docs need. Save the results to `.agents_tmp/<source>-profile.json` with the file URL and the time read, and take every later figure (design record, resource docs, verify) from that file. Read the remote file again only if the profile is missing or the URL changed.
+
 ## Adding a source
 
 - A new source mirrors an existing entry in `repo-map.json` `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source.

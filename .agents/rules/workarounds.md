@@ -22,6 +22,6 @@ Remove when: the platform `duckdb_local/dbt.md` states this command (`skill-chan
 
 ## Run `dbt_project_evaluator` only for transformation changes
 
-The verifying skill runs `dbt_project_evaluator` whenever the package is installed. Run it only when the change touches `transformation/` (models, sources, tests or `dbt_project.yml`). For an ingestion-only change, skip it and say so in `verify.md`. Enable it with `--vars '{dbt_project_evaluator_enabled: true}'`.
+The verifying skill runs `dbt_project_evaluator` whenever the package is installed. Run it only when the change touches dbt models, tests, macros, seeds or `dbt_project.yml`. Registering a new source in `_sources.yml` does not count: an ingestion change always adds that entry, and the evaluator has nothing to judge until a model reads the source. For an ingestion-only change, skip it and say so in `verify.md`. Enable it with `--vars '{dbt_project_evaluator_enabled: true}'`.
 
 Remove when: `skills/verifying/SKILL.md` step 3 gates the evaluator on the change kind (`skill-changes.md`).
