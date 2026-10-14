@@ -8,6 +8,8 @@
 
 A business definition of a measure, population, threshold or grain also qualifies, and cites its source. This includes the standing answers a requirement would otherwise ask about, such as the week boundary or how nulls are handled. A decision the code already makes, with no ADR, qualifies if it passes the three tests.
 
+Not an ADR: a choice one model or pipeline makes that is easy to change later, such as which months a source loads, a write disposition or an incremental cursor. Record it as a decision in that artifact's design record.
+
 ## Content
 
 - One decision per ADR, titled as a decision.

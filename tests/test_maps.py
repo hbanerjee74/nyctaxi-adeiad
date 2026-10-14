@@ -68,7 +68,7 @@ def test_source_artifact_patterns_resolve_for_every_source():
 
 def test_every_dlt_layer_has_a_source():
     datasets = {s["dataset"] for s in REPO_MAP["sources"].values()}
-    dlt_schemas = {l["schema"] for l in REPO_MAP["layers"].values() if l["built_by"] == "dlt"}
+    dlt_schemas = {layer["schema"] for layer in REPO_MAP["layers"].values() if layer["built_by"] == "dlt"}
     assert datasets == dlt_schemas
 
 
@@ -80,11 +80,25 @@ def test_test_map_paths_exist():
     assert missing == []
 
 
+DBT_PROJECT = ROOT / "transformation"
+# The repo's own profile, named explicitly: in the Studio sandbox DBT_PROFILES_DIR and
+# DBT_PROFILE_NAME point at the runtime profile, which plain `dbt ls` would otherwise use.
+DBT = [sys.executable, "-m", "dbt.cli.main"]
+DBT_PROFILE = ["--profiles-dir", str(DBT_PROJECT), "--profile", "nyc_taxi_analytics"]
+
+
+@pytest.fixture(scope="session")
+def dbt_packages():
+    """Install packages.yml once on a fresh checkout; `dbt ls` refuses to run without them."""
+    if not (DBT_PROJECT / "dbt_packages").exists():
+        subprocess.run([*DBT, "deps", *DBT_PROFILE], cwd=DBT_PROJECT, capture_output=True, check=True)
+
+
 def _dbt_ls(select: str, resource_type: str, exclude: str | None = None) -> list[str]:
-    command = [sys.executable, "-m", "dbt.cli.main", "ls", "--select", select, "--resource-type", resource_type]
+    command = [*DBT, "ls", *DBT_PROFILE, "--select", select, "--resource-type", resource_type]
     if exclude:
         command += ["--exclude", exclude]
-    out = subprocess.run(command, cwd=ROOT / "transformation", capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(command, cwd=DBT_PROJECT, capture_output=True, text=True, check=True).stdout
     return [line for line in out.splitlines() if ":" in line and not line.startswith(" ")]
 
 
@@ -97,7 +111,7 @@ DBT_SELECTORS = [
 
 
 @pytest.mark.parametrize("name,kind,select", DBT_SELECTORS, ids=lambda v: str(v))
-def test_test_map_dbt_selectors_resolve_to_at_least_one_test(name, kind, select):
+def test_test_map_dbt_selectors_resolve_to_at_least_one_test(dbt_packages, name, kind, select):
     if kind == "unit":
         nodes = _dbt_ls(select, "unit_test")
     else:

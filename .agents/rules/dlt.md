@@ -26,6 +26,8 @@ Never drop or alias them.
 
 A safety run or sample load sets `DLT_INGEST_LIMIT` (default 1,000 rows); a full load leaves it unset. No committed limit.
 
+In an intent, every run while the pipeline is being written is a sample load. A full load runs at most once, after the pipeline and its docs are final, and only when the requirement asks for loaded data. A change after the full load gets a sample load to prove it, not a second full load.
+
 ## Local-files feeds (D14)
 
 A local-files feed is a one-off load and is not scheduled. Not applicable until this repo has one.

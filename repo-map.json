@@ -264,12 +264,14 @@
     "all": "python3 orchestration/run_all.py",
     "ingest": "python3 orchestration/run_ingest.py",
     "transform": "python3 orchestration/run_transform.py",
+    "dbt_deps": "cd transformation && dbt deps",
     "dbt_build": "cd transformation && dbt build",
     "dbt_data_tests": "cd transformation && dbt test --exclude test_type:unit",
     "dbt_unit_tests": "cd transformation && dbt test --select test_type:unit",
     "dbt_parse": "cd transformation && dbt parse",
     "dbt_docs": "cd transformation && dbt docs generate",
-    "python_tests": "python3 -m pytest tests -q"
+    "python_tests": "python3 -m pytest tests -q",
+    "python_lint": "ruff check ."
   },
   "key_references": {
     "agents": "AGENTS.md",
