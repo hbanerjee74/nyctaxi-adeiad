@@ -18,3 +18,8 @@ entry_point = "tlc_source"
 connector = "custom"
 connector_source = "local"
 entry_point = "mdm_source"
+
+[sources.ops]
+connector = "custom"
+connector_source = "local"
+entry_point = "ops_source"

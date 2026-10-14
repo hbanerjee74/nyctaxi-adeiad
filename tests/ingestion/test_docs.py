@@ -8,7 +8,7 @@ DOCS = sorted((Path(__file__).resolve().parents[2] / "ingestion" / "docs").glob(
 
 def test_every_pipeline_has_a_docs_file():
     assert [p.stem for p in DOCS] == sorted(p.stem for p in DOCS)
-    assert {"tlc"} <= {p.stem for p in DOCS}
+    assert {"tlc", "mdm", "ops"} <= {p.stem for p in DOCS}
 
 
 @pytest.mark.parametrize("path", DOCS, ids=lambda p: p.stem)

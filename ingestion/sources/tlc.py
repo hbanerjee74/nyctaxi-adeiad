@@ -40,7 +40,7 @@ def zone_rows(fetch: Fetch = http_get) -> list[dict]:
     return pacsv.read_csv(io.BytesIO(fetch(zone_url()))).to_pylist()
 
 
-def _trip_tables(fleet: str, fetch: Fetch) -> Iterator:
+def trip_tables(fleet: str, fetch: Fetch = http_get) -> Iterator:
     for month in MONTHS:
         yield pq.read_table(io.BytesIO(fetch(trip_url(fleet, month))))
 
@@ -49,11 +49,11 @@ def _trip_tables(fleet: str, fetch: Fetch) -> Iterator:
 def tlc_source(fetch: Fetch = http_get):
     @dlt.resource(name="yellow_tripdata")
     def yellow_tripdata():
-        yield from _trip_tables("yellow", fetch)
+        yield from trip_tables("yellow", fetch)
 
     @dlt.resource(name="green_tripdata")
     def green_tripdata():
-        yield from _trip_tables("green", fetch)
+        yield from trip_tables("green", fetch)
 
     @dlt.resource(name="taxi_zone_lookup")
     def taxi_zone_lookup():
