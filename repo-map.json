@@ -164,7 +164,9 @@
     "test_map": "test-map.json",
     "source_module": "ingestion/sources/{name}.py",
     "source_tests": "tests/ingestion/test_{name}.py",
-    "source_config": "ingestion/.dlt/config.toml"
+    "source_config": "ingestion/.dlt/config.toml",
+    "review": "docs/review/{date}-{type}-{slug}.md",
+    "proposal": "docs/proposal/{nnnn}-{slug}.md"
   },
   "modules": {
     "ingestion": {
@@ -234,6 +236,14 @@
     "setup": {
       "path": "docs/setup/",
       "description": "Repo maintenance documents (requirements, work plan, conventions inventory, skill changes, data provenance). Not for ingestion or transformation tasks; not maintained by build agents."
+    },
+    "reviews": {
+      "path": "docs/review/",
+      "description": "Review outputs (onboarding, security, performance and others) whose findings are triaged: intent, proposal, declined or deferred."
+    },
+    "proposals": {
+      "path": "docs/proposal/",
+      "description": "Optional proposals for major functional or design items that need discussion before they become intents."
     }
   },
   "key_directories": {
@@ -246,7 +256,9 @@
     "intents/": "requirements",
     ".agents/rules/": "operator rules",
     ".github/": "Domain CI workflows and scripts",
-    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes and the skill changes it implies. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it."
+    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes and the skill changes it implies. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
+    "docs/review/": "Review findings for triage. Not read during build tasks.",
+    "docs/proposal/": "Proposals that become intents. Read one only when the intent links to it."
   },
   "commands": {
     "all": "python3 orchestration/run_all.py",
@@ -274,6 +286,7 @@
     "warehouse": "domain.duckdb at the repo root is ignored by git and rebuilt by orchestration/run_all.py.",
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
     "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Then register it in orchestration/run_ingest.py and test-map.json.",
-    "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work."
+    "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work.",
+    "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it."
   }
 }
