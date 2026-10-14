@@ -1,12 +1,12 @@
 # NYC Taxi Analytics (nyc-taxi-duckdb-demo): Agent Conventions
 
-A DuckDB lakehouse for NYC taxi analytics: real TLC trip records, plus two simulated source systems (fleet operations and master data). Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary and [`docs/setup/data-provenance.md`](docs/setup/data-provenance.md) for which data is real before trusting any number.
+A DuckDB lakehouse for NYC taxi analytics: real TLC trip records, plus two simulated source systems (fleet operations and master data). Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary.
 
 Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers, entrypoints, commands and artifact locations. This file says how to work.
 
 ## Startup
 
-Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. The one exception is `docs/setup/data-provenance.md`: read it before trusting a number, and update it when a source is added.
+Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance.
 
 ## Medallion layers
 
@@ -63,7 +63,6 @@ Keep these current in the same change that makes them stale.
 | `repo-map.json` | A layer, source, pipeline, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
 | `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
-| `docs/setup/data-provenance.md` | A source is added, or its files or row counts change | none |
 | `README.md`, `CONTRIBUTING.md` | Commands, layout or workflow change | none |
 | `.agents/rules/` | A convention changes | none |
 | `AGENTS.md` | A durable fact the code does not show: an environment constraint or a workflow gotcha | none |
