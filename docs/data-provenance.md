@@ -9,27 +9,27 @@ aggregate-pyramid structure that TLC's trip records do not carry.
 findings from this warehouse are genuine; others are artefacts of a generator,
 and the two are not distinguishable from the tables alone.
 
-Everything is reproducible: `tools/build_domain.py` downloads and lands the real
-data, and `tools/build_mdm.py` / `tools/build_fleet_ops.py` regenerate the
-invented systems deterministically from it.
+Everything is reproducible: the dlt pipelines in `ingestion/` download and load
+the real data (`tlc`) and regenerate the invented systems deterministically
+(`ops`, `mdm`). `python3 orchestration/run_ingest.py` runs them.
 
 ---
 
 ## Tier 1 — Real, downloaded from TLC
 
 Source: <https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page>
-13 files, ~336 MB, January–June 2024. Landed verbatim; the only additions are
-the ingestion columns `_load_id`, `_source_file` and `_loaded_at`.
+7 files, ~160 MB, January–March 2024. Loaded verbatim, with source column names
+kept; the only additions are dlt's `_dlt_load_id` and `_dlt_id`.
 
 | Table | Rows | Source file |
 | --- | ---: | --- |
-| `bronze.yellow_tripdata` | 20,332,093 | `yellow_tripdata_2024-01..06.parquet` |
-| `bronze.green_tripdata` | 339,807 | `green_tripdata_2024-01..06.parquet` |
+| `bronze.yellow_tripdata` | 9,554,778 | `yellow_tripdata_2024-01..03.parquet` |
+| `bronze.green_tripdata` | 167,585 | `green_tripdata_2024-01..03.parquet` |
 | `bronze.taxi_zone_lookup` | 265 | `taxi_zone_lookup.csv` |
 
-`silver.trips` (20,671,899 rows) is **real data, transformed** — union, rename,
-type, deduplicate. So is everything derived from it in `staging`, `marts/core`
-and `marts/agg`.
+`int_trips_conformed` (9,722,362 rows) is **real data, transformed** — union,
+rename, type, deduplicate. So is everything derived from it in `staging`,
+`marts/core` and `marts/agg`.
 
 Genuine in these tables: every timestamp, zone id, trip distance, fare, tip,
 toll, surcharge, payment type, rate code and vendor id. Including the mess —
@@ -44,7 +44,6 @@ that Tier 1 does not.
 
 | Where | What is genuine |
 | --- | --- |
-| `bronze.payment_type_ref`, `rate_code_ref`, `vendor_ref` | TLC code-to-label mappings |
 | `mdm_raw.rate_plan_master` | Rate codes 1–6 plus the observed 99; the JFK flat fare of $70 |
 | `mdm_raw.fare_regime_master` | Improvement surcharge $0.30 → $1.00; MTA tax $0.50; congestion surcharge $2.50 yellow / $2.75 green; airport access fee $1.25 → $1.75 |
 | `mdm_raw.vendor_master` | Vendor ids and names — CMT, VeriFone, Curb Mobility, Myle, Helix are the real TLC technology providers, and the VeriFone-to-Curb rebrand really happened |
@@ -100,11 +99,11 @@ No real counterpart. Invented wholesale.
 | `ops_raw.vehicle` | 420 |
 | `ops_raw.driver` | 760 |
 | `ops_raw.lease_agreement` | 760 |
-| `ops_raw.shift` | 73,041 |
-| `ops_raw.trip_assignment` | 977,754 |
-| `ops_raw.driver_status_event` | 3,775,364 |
+| `ops_raw.shift` | 38,205 |
+| `ops_raw.trip_assignment` | 463,848 |
+| `ops_raw.driver_status_event` | 1,807,117 |
 | `ops_raw.maintenance_event` | 848 |
-| `mdm_raw.weather_daily` | 1,092 |
+| `mdm_raw.weather_daily` | 546 |
 
 **Harbour Point Taxi Management does not exist.** Nor do its garages, medallion
 numbers, VINs, drivers, hack licence numbers, lease terms or maintenance
@@ -116,7 +115,7 @@ data and does not correspond to the weather on those dates.
 
 One qualification worth keeping in mind: the *identities* in `ops_raw` are
 invented, but the *timing skeleton* is real. Shifts are derived from actual gaps
-between real trip timestamps, `trip_assignment.trip_key` points at real trips,
+between real trip timestamps, `trip_assignment` identifies real trips by their natural columns,
 and the status stream brackets real pickup and dropoff times. So shift lengths,
 trip sequencing and occupancy distributions behave plausibly. Which driver drove
 which medallion is fiction.
@@ -132,11 +131,11 @@ surcharge patterns, or data quality in the TLC feed. Concretely, all of these
 are genuine properties of the source:
 
 - `service_zone = 'Airports'` excludes Newark
-- `Airport_fee` carries 1.75, −1.75, 1.25 and null in the same column
+- `Airport_fee` carries 1.75, 0.00, −1.75 and null in the same column
 - `Airport_fee` exists only on yellow, and only in bronze
-- cash trips record a tip on 0.04% of airport trips versus 94.2% on card
+- cash trips record a tip on 0.03% of airport trips versus 94.4% on card
 - zone ids 264 and 265 join the lookup cleanly and carry no real borough
-- the trip-to-zone join has zero unmatched rows and no fanout across all 20.67M trips
+- the trip-to-zone join has zero unmatched rows and no fanout across all 9.72M trips
 
 **Not real-world claims**
 

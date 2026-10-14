@@ -42,7 +42,7 @@ python3 orchestration/run_transform.py    # dbt build
 python3 -m pytest tests -q                # Python tests
 ```
 
-The command for each layer's tests is in `test-map.json`.
+The command for each layer's tests is in `test-map.json`. See `CONTRIBUTING.md` for the workflow before a push.
 
 ## Safety
 

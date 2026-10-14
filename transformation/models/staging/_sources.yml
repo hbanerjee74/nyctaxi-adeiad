@@ -28,10 +28,10 @@ sources:
             description: TLC pickup zone id.
           - name: Airport_fee
             description: >
-              Airport access fee. 1.75 under the current regime, 1.25 on
-              stragglers from the pre-December-2023 regime, negative on
-              reversals, and null where the vendor did not populate it.
-              Summing it without filtering is not a fee total.
+              Airport access fee. 1.75 under the current regime, zero on
+              trips that incur none, negative on reversals, and null where
+              the vendor did not populate it. Summing it without filtering
+              is not a fee total.
       - name: green_tripdata
         description: >
           Green (boro) taxi trips. Carries `ehail_fee` and `trip_type`,

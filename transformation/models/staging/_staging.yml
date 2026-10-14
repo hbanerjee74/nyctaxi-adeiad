@@ -27,9 +27,9 @@ models:
         tests: [unique, not_null]
       - name: airport_fee
         description: >
-          Airport access fee as published. Dirty by nature: 1.75 current, 1.25
-          pre-December-2023 stragglers, negative on reversals, null where the
-          vendor did not populate it.
+          Airport access fee as published. Dirty by nature: 1.75 current, zero on
+          trips that incur none, negative on reversals, null where the vendor did
+          not populate it.
 
   - name: stg_tlc__green_trip_extras
     description: Green-only columns, same reconstruction and dedup rule as yellow.
