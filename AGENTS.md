@@ -6,7 +6,7 @@ Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers
 
 ## Startup
 
-Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance.
+Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. Read `repo-map.json` whole, once, at the start of a task: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories (`find`, `ls -R`) or read it again in parts. List one folder only when the repo-map names it and the task needs what is in it.
 
 ## Medallion layers
 
@@ -28,7 +28,7 @@ Operator conventions live in `.agents/rules/`. Read the ones that match your tas
 | [`dlt.md`](.agents/rules/dlt.md) | Datasets, write disposition, schema contract, bronze carries no logic |
 | [`context.md`](.agents/rules/context.md) | What goes into `CONTEXT.md` |
 | [`adr.md`](.agents/rules/adr.md) | What goes into an ADR, and when |
-| [`workarounds.md`](.agents/rules/workarounds.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, the evaluator only for transformation changes. Each names what removes it |
+| [`workarounds.md`](.agents/rules/workarounds.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, the evaluator only for transformation changes, large files changed by script, ruff for lint, verify from the landed table, the Tier-1 dev dataset, one run per gate. Each names what removes it |
 | [`design-records.md`](.agents/rules/design-records.md) | What goes into a design record |
 | [`git-and-prs.md`](.agents/rules/git-and-prs.md) | Commit and pull request format |
 

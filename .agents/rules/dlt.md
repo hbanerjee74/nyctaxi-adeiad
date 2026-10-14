@@ -26,6 +26,8 @@ Never drop or alias them.
 
 A safety run or sample load sets `DLT_INGEST_LIMIT` (default 1,000 rows); a full load leaves it unset. No committed limit.
 
+In an intent, every run while the pipeline is being written is a sample load. A full load runs at most once, after the pipeline and its docs are final, and only when the requirement asks for loaded data. A change after the full load gets a sample load to prove it, not a second full load.
+
 ## Local-files feeds (D14)
 
 A local-files feed is a one-off load and is not scheduled. Not applicable until this repo has one.
@@ -37,6 +39,7 @@ Profile a remote source file once per intent: row count, columns and types, null
 ## Adding a source
 
 - A new source mirrors an existing entry in `repo-map.json` `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source.
+- Mirror `tlc.py` for a large file: it yields pyarrow tables per parquet row group, which is proven on three months of TLC data. Do not read dlt's installed source code to re-check how it writes or rotates files.
 - Sources are custom modules under `ingestion/sources/`, registered as `[sources.<name>]` with `connector = "custom"` and `connector_source = "local"`. The connector catalog is not used.
 - Then register the pipeline in `orchestration/run_ingest.py`, and add the source to `repo-map.json` and `test-map.json`.
 - `tests/test_maps.py` fails when a source's listed paths or its config section are missing.

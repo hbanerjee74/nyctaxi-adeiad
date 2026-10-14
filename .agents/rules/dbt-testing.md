@@ -14,6 +14,10 @@ Declare source freshness where a source is loaded on a schedule. A source loaded
 
 Live in `transformation/tests/`, named `assert_<what_must_hold>.sql`, and return the rows that violate the assertion.
 
+## Rejoin tests (C10)
+
+A left join on a derived key (a hashed or concatenated key built in two places) gets a singular test that every row on the left finds its match, or that the unmatched rows are the ones expected. Example: `assert_enrichment_rejoin_matches_every_trip.sql`. A left join reports a miss as a null, so a key mismatch builds green.
+
 ## Unit tests (C5)
 
 A model needs a unit test when its logic has a branch a reviewer could get wrong: ordering and tie-breaks, deduplication, and state classification. Today: `int_status_intervals`, `int_trips_enriched`, `int_trips_conformed`. Unit tests live in `_unit_tests.yml` beside the model.
