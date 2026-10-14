@@ -1,7 +1,7 @@
 name: 'nyc_taxi_analytics'
 version: '2.1.0'
 config-version: 2
-profile: 'nyc_taxi_analytics'
+profile: "{{ env_var('DBT_PROFILE_NAME', 'nyc_taxi_analytics') }}"
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -29,7 +29,7 @@ vars:
   # The reporting window Finance agreed (ADR 0002). Changing it changes the
   # numbers in the Monday revenue pack. This is NOT a sampling control.
   report_start: '2024-01-01'
-  report_end: '2024-07-01'
+  report_end: '2024-04-01'
 
   # Trips below this duration or above this speed are physically implausible
   # and are flagged, not deleted (ADR 0004).

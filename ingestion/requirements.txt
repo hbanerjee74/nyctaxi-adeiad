@@ -1,0 +1,4 @@
+dlt
+duckdb
+pyarrow
+requests
