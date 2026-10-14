@@ -14,16 +14,16 @@ Onboarding is an intent kind. It captures what the repo already does, so later i
 1. **This intent**: capture conventions, write the context, file the onboarding review, ship one PR.
 2. **Later intents**: each review finding an engineer picks up is a normal intent (requirement, design, build, verify, ship). An intent that changes code compares output before and after in its own session.
 
-So during onboarding you change no model, pipeline, config or human document. A problem you find goes in the review, even when the fix is one line.
+So during onboarding you change no model, pipeline, existing config or human document. A problem you find goes in the review, even when the fix is one line. The only files you add besides the context are the base setup in [base-setup.md](references/base-setup.md).
 
 ## Loop phases
 
 | Phase | Work |
 | --- | --- |
 | Requirement | Scope: which dbt projects and dlt pipelines. The deliverable is the context and the review. |
-| Design | Discover the repo (dbt project, dlt pipelines, profiles, CI, existing documents) and run a build on the sandbox `dev` target. The runtime provides that profile; the repo's own `profiles.yml` targets are for local and CI use, so do not ask which target the sandbox uses. Build the inventory: [inventory.md](references/inventory.md). Confirm it: [grilling.md](references/grilling.md). Find domain-skill candidates: [domain-skills.md](references/domain-skills.md). |
-| Build | `init` writes `repo-map.json`, `test-map.json`, the map tests, the `AGENTS.md` index and `.agents/rules/` from the confirmed inventory. Write confirmed domain skills under `.agents/skills/`. `domain-modeling` writes `CONTEXT.md` and the ADRs for decisions already in the code. Write design records as the `designing` skill and `.agents/rules/design-records.md` say, only where a model or pipeline makes a decision its code does not explain. A `D-NN` line is a choice plus its reason; a line that only says what the code does is not a decision. Handle existing documents: [existing-docs.md](references/existing-docs.md). Declare `docs/review/` and `docs/proposal/` in `repo-map.json`. Run `install-ci`. Run `reviewing` with type `onboarding`. |
-| Verify | Map tests, CI, ADR citations, then the dry run: [dry-run.md](references/dry-run.md). |
+| Design | Discover the repo (dbt project, dlt pipelines, profiles, CI, existing documents) and run a build on the sandbox `dev` target. The runtime provides that profile; the repo's own `profiles.yml` targets are for local and CI use, so do not ask which target the sandbox uses. First run the base commands: [base-setup.md](references/base-setup.md). Then build the inventory: [inventory.md](references/inventory.md). Confirm it: [grilling.md](references/grilling.md). Find domain-skill candidates: [domain-skills.md](references/domain-skills.md). |
+| Build | `init` writes `repo-map.json`, `test-map.json`, the map tests, the `AGENTS.md` index and `.agents/rules/` from the confirmed inventory, plus the base setup files and base rules in base-setup.md. Write confirmed domain skills under `.agents/skills/`. `domain-modeling` writes `CONTEXT.md` and the ADRs for decisions already in the code. Write design records as the `designing` skill and `.agents/rules/design-records.md` say, only where a model or pipeline makes a decision its code does not explain. A `D-NN` line is a choice plus its reason; a line that only says what the code does is not a decision. Handle existing documents: [existing-docs.md](references/existing-docs.md). Declare `docs/review/` and `docs/proposal/` in `repo-map.json`. Run `install-ci`. Run `reviewing` with type `onboarding`. |
+| Verify | Base commands, map tests in the sandbox, CI, ADR citations, then the dry run: [dry-run.md](references/dry-run.md). |
 | Ship | One PR. The description lists where each existing convention went, and recommends a trial intent after merge: a standard prompt, with its trajectory reviewed. |
 
 ## Where things go

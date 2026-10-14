@@ -26,6 +26,7 @@ The drafts live in this repo under `.agents/skills/` so they can be dry run agai
 | O-12 | After merge, the PR description recommends a real trial: a standard prompt run as its own intent, and its trajectory reviewed. |
 | O-13 | Onboarding is an intent kind. The `onboarding` skill is the kind playbook and maps each loop phase to its work; `reviewing` is a separate skill it calls. |
 | O-14 | Skill descriptions are narrow so neither is picked up by a build task (below). |
+| O-15 | Every onboarded repo gets the base setup: base commands in `repo-map.json`, run once in the design phase with failures filed; `tests/test_maps.py`, `ruff.toml` and `.gitignore` lines added when absent; and the base rules that come from how agents work in the sandbox (sample loads and one full load, profile once, source existence from the repo-map, what is not an ADR, the open platform workarounds). Learned from four HVFHV runs on this repo. |
 
 ## Skills
 
