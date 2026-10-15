@@ -1,12 +1,16 @@
 # Workarounds
+<!-- onboarding
+ask: no
+reason: A platform content rule or workaround; the same for every domain.
+-->
 
-Temporary rules that cover a gap in a platform skill or document. Each names the change that makes it redundant. When that change ships, delete the rule and its row in `AGENTS.md`. Track whether a rule helped in `docs/setup/skill-changes.md`.
+Temporary rules that cover a gap in a platform skill or document. Each names the change that makes it redundant. When that change ships, delete the rule and its row in `AGENTS.md`.
 
 ## Write `plan.md` and `verify.md` once per phase
 
 Draft the file once. Keep progress and evidence in your head or in a scratch note, and write them into the file in a single edit at the end of the phase. Do not edit the file after each task or check. Each edit echoes a snippet of the file back, and these files are large.
 
-Remove when: the `planning`, `executing-the-plan` and `verifying` skills write these files once per phase (`skill-changes.md`).
+Remove when: the `planning`, `executing-the-plan` and `verifying` skills write these files once per phase (plugin change).
 
 ## Run dbt in the sandbox
 
@@ -18,13 +22,13 @@ cd <dbt project> && <plugin>/scripts/vd-intent-context-run.sh "dbt <command> --t
 
 Run `dbt deps` the same way first if `dbt_packages/` is missing. The plain commands in `repo-map.json` `commands` are for a local checkout.
 
-Remove when: the platform `duckdb_local/dbt.md` states this command (`skill-changes.md`).
+Remove when: the platform `duckdb_local/dbt.md` states this command (plugin change).
 
 ## Run `dbt_project_evaluator` only for transformation changes
 
 The verifying skill runs `dbt_project_evaluator` whenever the package is installed. Run it only when the change touches dbt models, tests, macros, seeds or `dbt_project.yml`. Registering a new source in `_sources.yml` does not count: an ingestion change always adds that entry, and the evaluator has nothing to judge until a model reads the source. For an ingestion-only change, skip it and say so in `verify.md`. Enable it with `--vars '{dbt_project_evaluator_enabled: true}'`.
 
-Remove when: `skills/verifying/SKILL.md` step 3 gates the evaluator on the change kind (`skill-changes.md`).
+Remove when: `skills/verifying/SKILL.md` step 3 gates the evaluator on the change kind (plugin change).
 
 ## Change large files with a script, not the file editor
 
@@ -36,31 +40,31 @@ The file editor echoes the file back after every edit; for `repo-map.json`, YAML
 
 Never make two edits to the same file in parallel.
 
-Remove when: the editor caps its echo (`skill-changes.md`, platform file editor).
+Remove when: the editor caps its echo (platform file editor).
 
 ## Lint with ruff, not `check_python`
 
 Lint Python with `ruff check <files>`. It uses the repo's `ruff.toml`; the `check_python` tool applies rules this repo does not use, and its fixes are churn.
 
-Remove when: the skills name the repo's lint command from `repo-map.json` (`skill-changes.md`).
+Remove when: the skills name the repo's lint command from `repo-map.json` (plugin change).
 
 ## Verify from the landed table and the saved profile
 
 An independent recount at verify reads the landed table and `.agents_tmp/<source>-profile.json`. It never reads the remote source file again.
 
-Remove when: `verifying` says where independent figures come from for an ingestion change (`skill-changes.md`).
+Remove when: `verifying` says where independent figures come from for an ingestion change (plugin change).
 
 ## Tier-1 tests after a safety run
 
 A `DEV_MODE` safety run loads into a timestamped dev dataset (`bronze_<timestamp>`), printed by the run. Pass that name to `run_bronze_tier1_tests.py --dataset`, not `bronze`. After the full load, pass `bronze`.
 
-Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`).
+Remove when: the Tier-1 runner finds the dev dataset itself (plugin change).
 
 ## Run each gate once per commit
 
 Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are the intent's own Requirement, Plan or Certification: the certification commit's results stand.
 
-Remove when: `verifying` and `shipping` reuse recorded gate results at the same inputs (`skill-changes.md`).
+Remove when: `verifying` and `shipping` reuse recorded gate results at the same inputs (plugin change).
 
 ## The contract check at ship needs dbt packages
 
@@ -74,4 +78,4 @@ python3 <plugin>/scripts/diff_manifest_contract.py --materialize <base sha> <dbt
 
 Then diff it against `<dbt project>/target/manifest.json` as the skill says.
 
-Remove when: `--materialize` installs packages itself (`skill-changes.md`).
+Remove when: `--materialize` installs packages itself (plugin change).

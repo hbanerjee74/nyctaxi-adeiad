@@ -38,7 +38,7 @@ Only when the repo has none. When the repo has its own that conflicts, leave it 
 | `packages.yml` entry | `dbt-labs/dbt_project_evaluator`, `version: [">=1.1.0", "<2.0.0"]`, added to an existing `packages.yml` or a new one. The CI quality workflow builds it. |
 | `tests/test_maps.py` | Every map path exists; every source is registered; every `test-map.json` dbt selector resolves to a test. Its dbt calls name the repo's own profile (`--profiles-dir <dbt project> --profile <name>`) and run `dbt deps` once when `dbt_packages/` is missing, so they pass locally, in the sandbox and in CI. |
 | `ruff.toml` | `[lint] select = ["E4", "E7", "E9", "F"]`, and `extend-exclude` with any paths the repo's documented lint command or CI already excludes (for example `--extend-exclude ingestion/sources`). Ruff's default selection changes between releases. Fix nothing it reports; file the findings as `style`. |
-| `.gitignore` lines | Appended to the existing `.gitignore` (or a new one), only the lines missing: `**/secrets.toml`, `.agents_tmp/`, `*.log`, `dbt_packages/`, `target/`, `ingestion/last-run-preview.md` (or the dlt preview path the repo uses). |
+| `.gitignore` lines | Appended to the existing `.gitignore` (or a new one), only the lines missing from [`gitignore-fragment`](../templates/repo/gitignore-fragment), with the repo's own dlt preview path. If `.user.yml` files are tracked, `git rm --cached` them. |
 
 ## Rules
 

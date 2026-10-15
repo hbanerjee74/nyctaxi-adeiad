@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: "Use only when the user asks to onboard this repository into a Vibedata domain: an existing dbt and dlt repo that has no repo-map.json or .agents/rules yet. Do not use for adding sources or models, for any other build task, or to refresh an already onboarded repo."
+description: "Use only when the user asks to onboard this repository into a Vibedata domain: an empty repo, or an existing dbt and dlt repo that has no repo-map.json or .agents/rules yet. Do not use for adding sources or models, for any other build task, or to refresh an already onboarded repo."
 user-invocable: true
 triggers: [onboard this repo, onboard into vibedata, onboard into a vibedata domain]
 ---
@@ -8,6 +8,17 @@ triggers: [onboard this repo, onboard into vibedata, onboard into a vibedata dom
 # Onboarding
 
 Onboarding is an intent kind. It captures what the repo already does, so later intents can work in it, and files everything that should change for triage. It ships context, not code.
+
+## When it applies
+
+Decide at the requirement step, from the repo and the Domain database:
+
+| Repo | Domain database | Path |
+| --- | --- | --- |
+| Empty | Empty | Greenfield: [greenfield.md](references/greenfield.md) |
+| Has dbt or dlt code | Has data | Brownfield: the rest of this skill |
+| Has dbt or dlt code | Empty | Brownfield, with the empty-Domain check in [base-setup.md](references/base-setup.md) |
+| Empty | Has data | Not supported yet: say so and stop. A migration assessment of an existing warehouse is future work |
 
 ## The two stages
 
