@@ -56,7 +56,3 @@ seeds:
   nyc_taxi_analytics:
     +schema: seeds
     +quote_columns: false
-
-snapshots:
-  nyc_taxi_analytics:
-    +target_schema: snapshots

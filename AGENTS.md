@@ -8,6 +8,8 @@ Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers
 
 Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. Read `repo-map.json` whole, once, at the start of a task: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories (`find`, `ls -R`) or read it again in parts. List one folder only when the repo-map names it and the task needs what is in it.
 
+After the conversation is condensed, re-read `.agents/rules/workarounds.md` before the next tool call: its rules are easy to lose in a summary.
+
 ## Medallion layers
 
 - **Bronze**: raw data loaded by dlt (`ingestion/`) into `bronze` (TLC), `ops_raw` and `mdm_raw`.

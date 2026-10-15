@@ -26,7 +26,7 @@ models:
         tests: [unique, not_null]
       - name: service_type
         tests:
-          - accepted_values: {values: ['yellow', 'green']}
+          - accepted_values: {arguments: {values: ['yellow', 'green']}}
       - name: pickup_location_id
         description: Joins the zone dimension.
       - name: trip_seconds
@@ -47,7 +47,7 @@ models:
           (yellow, column present but null) from 'present'. Collapsing the first
           two is how a fleet-blind average goes wrong.
         tests:
-          - accepted_values: {values: ['present', 'missing', 'not_applicable']}
+          - accepted_values: {arguments: {values: ['present', 'missing', 'not_applicable']}}
 
   - name: int_trip_fare_components
     description: Fare decomposition with an explicit residual.

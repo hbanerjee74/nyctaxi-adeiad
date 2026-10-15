@@ -1,29 +1,6 @@
-# Direct requests
+# Pending requests
 
-A second set, unlike the numbered intents. Those arrive as emails describing a
-business problem and leave the deliverable entirely open. These arrive already
-knowing what they want built — a table, an aggregate, a column — and they name
-the objects they mean.
-
-What they leave open is the part that decides whether the result is any good:
-the grain, the filters, the measure definitions, and what happens at the edges.
-That is the harder shape to grill. An open business problem invites questions. A
-request that names its own deliverable sounds finished, and the temptation is to
-start building instead of asking what a row is supposed to mean.
-
-Models are named explicitly so no effort goes into working out which object was
-meant. The work is in what the new one should contain.
-
-None of them state a grain. None define their measures. Several are more
-expensive than they look, one asks for something the warehouse already answers,
-and at least one asks for data that is not present at all — noticing that is the
-correct outcome, not a failure.
-
-**Give one at a time.** Answer follow-ups as the requester would, from the
-business. Anything settleable by reading the warehouse should be read rather
-than asked.
-
----
+This is the set of requests that have come from the driver ops team for their Queens office launch.
 
 **R1.** Build a vehicle scorecard — same idea as `ops.mart_driver_scorecard`,
 but per medallion and month by month. The depot managers want to compare
