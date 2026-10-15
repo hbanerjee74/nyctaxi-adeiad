@@ -28,7 +28,7 @@ Turn the fleet operator's driver status events into a time basis that supports o
 
 ## Out of scope
 
-- The trip fact (see `intents/trip-fact`).
+- The trip fact (see `docs/requirement/2026-08-29-the-trip-fact.md`).
 - Maintenance scheduling.
 
 ## Open questions

@@ -13,7 +13,7 @@ One row per calendar date.
 ## Decisions
 
 - `D-01` `week_start_date` truncates a date to its week; weeks start on Monday, and this column is the only week boundary in the warehouse ([ADR 0014](../../../adr/0014-weeks-start-on-monday.md)). Source: [ADR 0014](../../../adr/0014-weeks-start-on-monday.md).
-- `D-02` Holiday, weekend and school-term flags come from master data rather than being computed, so a calendar correction restates reports without a code change. A combined `is_non_working_day` is kept beside the separate flags. Source: intents/trip-fact/requirement.md R-04.
+- `D-02` Holiday, weekend and school-term flags come from master data rather than being computed, so a calendar correction restates reports without a code change. A combined `is_non_working_day` is kept beside the separate flags. Source: docs/requirement/2026-08-29-the-trip-fact.md R-04.
 
 ## Rejected
 

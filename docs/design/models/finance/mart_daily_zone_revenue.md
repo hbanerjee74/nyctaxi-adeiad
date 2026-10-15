@@ -12,7 +12,7 @@ One row per pickup zone and trip date.
 
 ## Decisions
 
-- `D-01` Apply the billable rule and the reporting window here, in gold, and nowhere upstream, so quality work can still see the rows this excludes ([ADR 0003](../../../adr/0003-billable-trip-definition-and-where-it-applies.md)). Source: intents/trip-fact/requirement.md R-03, [ADR 0003](../../../adr/0003-billable-trip-definition-and-where-it-applies.md).
+- `D-01` Apply the billable rule and the reporting window here, in gold, and nowhere upstream, so quality work can still see the rows this excludes ([ADR 0003](../../../adr/0003-billable-trip-definition-and-where-it-applies.md)). Source: docs/requirement/2026-08-29-the-trip-fact.md R-03, [ADR 0003](../../../adr/0003-billable-trip-definition-and-where-it-applies.md).
 
 ## Rejected
 

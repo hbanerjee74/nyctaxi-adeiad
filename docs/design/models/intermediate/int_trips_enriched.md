@@ -12,9 +12,9 @@ One row per conformed trip (`trip_key`).
 
 ## Decisions
 
-- `D-01` Rejoin through the two dedicated, deduplicated extras models on `trip_key`. Joining raw rows would allow duplicate source records to multiply a trip; carrying all fleet-specific columns in the conformed model would reverse the conformed-intersection contract ([ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md)). Source: intents/trip-fact/requirement.md R-02, [ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md).
-- `D-02` Preserve three airport-fee states: `present`, `missing` and `not_applicable`. A null green fee is not missing data; it is a field that does not exist for that fleet. Collapsing the states would corrupt fleet-blind fee metrics. Source: intents/trip-fact/requirement.md R-02.
-- `D-03` Use left joins. Every conformed trip survives even when its optional, fleet-specific companion is absent; the extras models enforce the required at-most-one match. Source: intents/trip-fact/requirement.md R-02.
+- `D-01` Rejoin through the two dedicated, deduplicated extras models on `trip_key`. Joining raw rows would allow duplicate source records to multiply a trip; carrying all fleet-specific columns in the conformed model would reverse the conformed-intersection contract ([ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md)). Source: docs/requirement/2026-08-29-the-trip-fact.md R-02, [ADR 0006](../../../adr/0006-silver-is-built-in-dbt.md).
+- `D-02` Preserve three airport-fee states: `present`, `missing` and `not_applicable`. A null green fee is not missing data; it is a field that does not exist for that fleet. Collapsing the states would corrupt fleet-blind fee metrics. Source: docs/requirement/2026-08-29-the-trip-fact.md R-02.
+- `D-03` Use left joins. Every conformed trip survives even when its optional, fleet-specific companion is absent; the extras models enforce the required at-most-one match. Source: docs/requirement/2026-08-29-the-trip-fact.md R-02.
 - `D-04` Materialise as a view. The trip grain is stored once, in `fct_trip`; storing it again here made the seeded Domain file 1,158 MiB for one month, over Studio's 1 GiB upload, and only `fct_trip`'s build reads this model in full. Source: user answer, new-intent seed-domain (2026-10-15).
 
 ## Rejected

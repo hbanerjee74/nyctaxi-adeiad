@@ -12,8 +12,8 @@ One row per driver.
 
 ## Decisions
 
-- `D-01` Rank on revenue per online hour, not gross revenue: gross rewards whoever worked the most hours, which is a roster fact ([ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md)). Source: intents/status-occupancy/requirement.md R-05, [ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md).
-- `D-02` Flag drivers below a minimum number of online hours with `is_below_ranking_floor`, so a rank built on a few shifts is visible as noise ([ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md)). Source: intents/status-occupancy/requirement.md R-05, [ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md).
+- `D-01` Rank on revenue per online hour, not gross revenue: gross rewards whoever worked the most hours, which is a roster fact ([ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md)). Source: docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md R-05, [ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md).
+- `D-02` Flag drivers below a minimum number of online hours with `is_below_ranking_floor`, so a rank built on a few shifts is visible as noise ([ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md)). Source: docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md R-05, [ADR 0010](../../../adr/0010-driver-ranking-and-utilisation-definitions.md).
 - `D-03` Every rate is a ratio of summed numerators and denominators, null when the denominator is zero ([ADR 0016](../../../adr/0016-rates-are-rebuilt-from-summed-numerators-and-denominators.md)). Source: [ADR 0016](../../../adr/0016-rates-are-rebuilt-from-summed-numerators-and-denominators.md).
 
 ## Rejected

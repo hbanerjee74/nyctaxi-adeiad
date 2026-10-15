@@ -58,7 +58,7 @@ Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`)
 
 ## Run each gate once per commit
 
-Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are under `intents/`: the certification commit's results stand.
+Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are the intent's own Requirement, Plan or Certification: the certification commit's results stand.
 
 Remove when: `verifying` and `shipping` reuse recorded gate results at the same inputs (`skill-changes.md`).
 
