@@ -11,6 +11,10 @@
     {
       "name": "pip",
       "manifest": "ingestion/requirements.txt"
+    },
+    {
+      "name": "pip",
+      "manifest": "requirements-dev.txt"
     }
   ],
   "build_systems": [

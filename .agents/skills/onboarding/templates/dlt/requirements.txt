@@ -2,3 +2,4 @@ dlt
 duckdb
 pyarrow
 requests
+vibedata-dlt-duckdb-studio

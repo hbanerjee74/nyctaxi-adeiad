@@ -73,8 +73,7 @@ reproducible from the code and the public TLC files.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r ingestion/requirements.txt dbt-duckdb pytest \
-  vibedata-dlt-duckdb-studio
+python -m pip install -r requirements-dev.txt
 ```
 
 ## Full rebuild
