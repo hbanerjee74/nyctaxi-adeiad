@@ -79,6 +79,10 @@ python -m pip install -r ingestion/requirements.txt dbt-duckdb pytest \
 
 ## Full rebuild
 
+To build the file you upload as the Studio Domain database, see
+`docs/setup/seeding-the-domain.md`.
+
+
 From the repository root:
 
 ```bash
@@ -101,9 +105,10 @@ python3 orchestration/run_transform.py   # dbt build
 
 ```bash
 cd transformation
+export VD_EPHM_DUCKDB_LOCAL_PATH="$PWD/../domain.duckdb"
 dbt deps                    # once: installs the packages in packages.yml
-dbt build --target domain
-dbt docs generate --target domain
+dbt build
+dbt docs generate
 dbt docs serve --port 8085
 ```
 
@@ -112,8 +117,10 @@ dbt docs serve --port 8085
 
 ## dbt targets and model layers
 
-`transformation/profiles.yml` defines `domain` (`../domain.duckdb`) and `slice`
-(`../slice.duckdb`) targets. The project is organised as:
+`transformation/profiles.yml` has one target, `dev`, whose path comes from
+`VD_EPHM_DUCKDB_LOCAL_PATH`, the variable a Studio sandbox also sets. Sources name
+a schema and never a database, so the project builds in any copy of the file.
+The project is organised as:
 
 - **staging**: views, one per source table, renamed and typed.
 - **intermediate**: conformed trip, status, occupancy, fare and quality logic.

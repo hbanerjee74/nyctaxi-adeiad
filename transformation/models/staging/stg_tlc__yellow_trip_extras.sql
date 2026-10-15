@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='view') }}
 
 -- Yellow-only columns that conforming drops. Recomputes the trip natural key so
 -- the fleet-specific fee can be rejoined to a trip. Staging reads only source():

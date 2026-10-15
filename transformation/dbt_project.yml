@@ -13,18 +13,6 @@ target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
 vars:
-  # --- Source location indirection -------------------------------------
-  # Production defaults. A cache-backed target overrides only the database,
-  # never the schema, so source() resolution is identical in both places.
-  bronze_database: domain
-  bronze_schema: bronze
-  silver_database: domain
-  silver_schema: silver
-  ops_database: domain
-  ops_schema: ops_raw
-  mdm_database: domain
-  mdm_schema: mdm_raw
-
   # --- Business rules ---------------------------------------------------
   # The reporting window the business agreed (ADR 0003). Changing it changes the
   # numbers in every revenue mart. This is NOT a sampling control.

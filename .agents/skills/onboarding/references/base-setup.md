@@ -15,6 +15,8 @@ The only edits to existing files. List each in the PR description.
 | File | Change | Why |
 | --- | --- | --- |
 | `dbt_project.yml` | `profile: "{{ env_var('DBT_PROFILE_NAME', '<current name>') }}"` | The sandbox wrapper selects its profile through `DBT_PROFILE_NAME`; a fixed name means no dbt command runs in the sandbox. Local and CI runs keep the current name. |
+| `_sources.yml` (every sources file) | Remove each source's `database:` and any var that feeds it or its `schema:`; give the schema as a literal. Remove the then-unused vars from `dbt_project.yml`. | The Studio sandbox is a byte copy of the Domain file under another name, so its catalog differs and a source that names one fails with `Catalog ... does not exist`. Schemas carry over unchanged. |
+| `profiles.yml` (the repo's own, used locally and to seed the Domain) | One `dev` target whose `path` is `"{{ env_var('VD_EPHM_DUCKDB_LOCAL_PATH') }}"`, no literal path; run scripts set the variable. | Matches the runtime profile the sandbox uses, so local runs and Intents build the same way; Studio ignores this file in an Intent. |
 | `dbt_project.yml` | Under `models:` and `seeds:`, `dbt_project_evaluator: +enabled: "{{ var('dbt_project_evaluator_enabled', false) }}"` | Keeps the evaluator out of normal builds; the CI quality workflow and `verifying` switch it on. Only with the `packages.yml` entry below. |
 
 ## Files onboarding adds
@@ -23,6 +25,7 @@ Only when the repo has none. When the repo has its own that conflicts, leave it 
 
 | File | Content |
 | --- | --- |
+| `macros/relations.sql` (dbt) | Override `ref()` and `source()` to return the relation with `.include(database=False)`. | dbt-duckdb writes the catalog name into every view it stores; in the renamed sandbox copy those views fail with `Catalog ... does not exist`. |
 | `packages.yml` entry | `dbt-labs/dbt_project_evaluator`, `version: [">=1.1.0", "<2.0.0"]`, added to an existing `packages.yml` or a new one. The CI quality workflow builds it. |
 | `tests/test_maps.py` | Every map path exists; every source is registered; every `test-map.json` dbt selector resolves to a test. Its dbt calls name the repo's own profile (`--profiles-dir <dbt project> --profile <name>`) and run `dbt deps` once when `dbt_packages/` is missing, so they pass locally, in the sandbox and in CI. |
 | `ruff.toml` | `[lint] select = ["E4", "E7", "E9", "F"]`, and `extend-exclude` with any paths the repo's documented lint command or CI already excludes (for example `--extend-exclude ingestion/sources`). Ruff's default selection changes between releases. Fix nothing it reports; file the findings as `style`. |
@@ -47,6 +50,7 @@ Write these into the repo's own rule files beside its conventions:
 | `dlt.md` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. `replace` is proven with two sample loads (the limit's row count and one load package), never a second full load. |
 | `dlt.md` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
 | `dlt.md` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
+| `dbt-models.md` | Sources name a schema and tables, never a database, and no var feeds either. |
 | `dlt.md` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
 | `adr.md` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
 | `dbt-models.md` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
@@ -70,7 +74,8 @@ File each as a finding when it fails; change nothing.
 | Run scripts install dbt packages before building | `bug` |
 | A CI job runs the pytest suite | `gap` |
 | `.sqlfluff` (or the SQL lint config) resolves its profile and project paths | `gap` |
+| The Domain database is not empty: Studio copies it into every sandbox, so an empty one leaves every Intent nothing to read | `platform`; recommend seeding it (load the sources, build, upload the file under 1 GiB) before the first build Intent |
 
 ## Verify
 
-The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox.
+The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox. A renamed copy of the built database (what the sandbox is) passes the data tests without a rebuild, so every stored view resolves.

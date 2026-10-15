@@ -1,4 +1,4 @@
-"""Run the dlt pipelines: tlc, then ops, then mdm. Loads domain.duckdb at the repo root."""
+"""Run the dlt pipelines: tlc, then ops, then mdm. Loads domain.duckdb at the repo root by default."""
 
 from __future__ import annotations
 
@@ -16,18 +16,21 @@ def _run(command, cwd, env):
     return subprocess.run(command, cwd=cwd, env=env, check=False)
 
 
-def ingest_environment() -> dict[str, str]:
+DEFAULT_DB = ROOT / "domain.duckdb"
+
+
+def ingest_environment(db_path: Path = DEFAULT_DB) -> dict[str, str]:
     """The three variables vibedata's setup_environment() needs on a DuckDB-local domain."""
     env = os.environ.copy()
-    env["VD_EPHM_DUCKDB_LOCAL_PATH"] = str(ROOT / "domain.duckdb")
+    env["VD_EPHM_DUCKDB_LOCAL_PATH"] = str(db_path)
     env["VD_DOMAIN_DATA_PLATFORM"] = "duckdb_local"
     env["VD_DOMAIN_SECRET_STORE_KIND"] = "local_toml"
     return env
 
 
-def run_ingest(runner: Callable = _run) -> int:
+def run_ingest(runner: Callable = _run, db_path: Path = DEFAULT_DB) -> int:
     """Run each pipeline from the ingestion root; stop at the first failure and return its code."""
-    env = ingest_environment()
+    env = ingest_environment(db_path)
     for pipeline in PIPELINES:
         result = runner([sys.executable, pipeline], cwd=ROOT / "ingestion", env=env)
         if result.returncode != 0:

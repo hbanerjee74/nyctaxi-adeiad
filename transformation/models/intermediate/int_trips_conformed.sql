@@ -1,3 +1,5 @@
+{{ config(materialized='view') }}
+
 -- Yellow and green trips conformed onto one grain: shared column names, a
 -- service_type discriminator, one row per distinct trip. Columns that exist on
 -- only one fleet are dropped here rather than carried as a column that is null
