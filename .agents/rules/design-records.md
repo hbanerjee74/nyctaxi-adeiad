@@ -20,3 +20,7 @@
 ## Evidence
 
 What settled the decisions: profiling, reconciliation, the slice used. One line each, with the query or path.
+
+## Areas
+
+A decision shared by several models is recorded once, in an area design at `docs/design/<area>/<subject>.md` (for example `docs/design/trips/trip-identity.md`), and each model's record cites it. An area is never named `models` or `pipelines`.

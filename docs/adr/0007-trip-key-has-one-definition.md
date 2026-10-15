@@ -25,3 +25,4 @@ date: 2026-10-14
 - [`models/staging/stg_ops__trip_assignments.md`](../design/models/staging/stg_ops__trip_assignments.md)
 - [`pipelines/ops.md`](../design/pipelines/ops.md)
 - [`models/core/fct_trip.md`](../design/models/core/fct_trip.md)
+- [`trips/trip-identity.md`](../design/trips/trip-identity.md)
