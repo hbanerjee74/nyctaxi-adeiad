@@ -1,4 +1,8 @@
 # What goes into an ADR (E3, E11)
+<!-- onboarding
+ask: no
+reason: A platform content rule or workaround; the same for every domain.
+-->
 
 ## Write an ADR when all three hold
 

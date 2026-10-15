@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: "Use only when the user asks to onboard this repository into a Vibedata domain: an existing dbt and dlt repo that has no repo-map.json or .agents/rules yet. Do not use for adding sources or models, for any other build task, or to refresh an already onboarded repo."
+description: "Use only when the user asks to onboard this repository into a Vibedata domain: an empty repo, or an existing dbt and dlt repo that has no repo-map.json or .agents/rules yet. Do not use for adding sources or models, for any other build task, or to refresh an already onboarded repo."
 user-invocable: true
 triggers: [onboard this repo, onboard into vibedata, onboard into a vibedata domain]
 ---
@@ -8,6 +8,17 @@ triggers: [onboard this repo, onboard into vibedata, onboard into a vibedata dom
 # Onboarding
 
 Onboarding is an intent kind. It captures what the repo already does, so later intents can work in it, and files everything that should change for triage. It ships context, not code.
+
+## When it applies
+
+Decide at the requirement step, from the repo and the Domain database:
+
+| Repo | Domain database | Path |
+| --- | --- | --- |
+| Empty | Empty | Greenfield: [greenfield.md](references/greenfield.md) |
+| Has dbt or dlt code | Has data | Brownfield: the rest of this skill |
+| Has dbt or dlt code | Empty | Brownfield, with the empty-Domain check in [base-setup.md](references/base-setup.md) |
+| Empty | Has data | Not supported yet: say so and stop. A migration assessment of an existing warehouse is future work |
 
 ## The two stages
 
@@ -22,7 +33,7 @@ So during onboarding you change no model, pipeline or human document. A problem 
 | --- | --- |
 | Requirement | Scope: which dbt projects and dlt pipelines. The deliverable is the context and the review. |
 | Design | Discover the repo (dbt project, dlt pipelines, profiles, CI, existing documents) and run a build on the sandbox `dev` target. The runtime provides that profile; the repo's own `profiles.yml` targets are for local and CI use, so do not ask which target the sandbox uses. First run the base commands: [base-setup.md](references/base-setup.md). Then build the inventory: [inventory.md](references/inventory.md). Confirm it: [grilling.md](references/grilling.md). Find domain-skill candidates: [domain-skills.md](references/domain-skills.md). |
-| Build | `init` writes `repo-map.json`, `test-map.json`, the map tests, the `AGENTS.md` index and `.agents/rules/` from the confirmed inventory, plus the base setup files and base rules in base-setup.md. Write confirmed domain skills under `.agents/skills/`. `domain-modeling` writes `CONTEXT.md` and the ADRs for decisions already in the code. Write design records as the `designing` skill and `.agents/rules/design-records.md` say, only where a model or pipeline makes a decision its code does not explain. A `D-NN` line is a choice plus its reason; a line that only says what the code does is not a decision. Handle existing documents: [existing-docs.md](references/existing-docs.md). Declare `docs/review/` and `docs/proposal/` in `repo-map.json`. Run `install-ci`. Run `reviewing` with type `onboarding`, including the checks in base-setup.md. |
+| Build | Write `repo-map.json`, `test-map.json`, the map tests, the `AGENTS.md` index and `.agents/rules/` from the confirmed inventory, starting from [templates/](templates/), plus the base setup files and base rules in base-setup.md. Write confirmed domain skills under `.agents/skills/`. `domain-modeling` writes `CONTEXT.md` and the ADRs for decisions already in the code. Write design records as the `designing` skill and `.agents/rules/design-records.md` say, only where a model or pipeline makes a decision its code does not explain. A `D-NN` line is a choice plus its reason; a line that only says what the code does is not a decision. Handle existing documents: [existing-docs.md](references/existing-docs.md). Declare `docs/review/` and `docs/proposal/` in `repo-map.json`. Run `install-ci`. Run `reviewing` with type `onboarding`, including the checks in base-setup.md. |
 | Verify | Base commands, map tests in the sandbox, CI, ADR citations, then the dry run: [dry-run.md](references/dry-run.md). |
 | Ship | One PR. The description lists where each existing convention went, and recommends a trial intent after merge: a standard prompt, with its trajectory reviewed. |
 

@@ -31,7 +31,7 @@ A trip-level fact that anyone can use: one row per TLC trip across yellow and gr
 ## Out of scope
 
 - Aggregates and marts built on the fact.
-- Fleet-operations measures (see `intents/status-occupancy`).
+- Fleet-operations measures (see `docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md`).
 
 ## Open questions
 

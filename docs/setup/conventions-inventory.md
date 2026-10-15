@@ -25,7 +25,7 @@ Operator-owned when it is a preference that does not change whether the platform
 
 | # | Convention | Today in | Proposed | Decision |
 | --- | --- | --- | --- | --- |
-| A1 | Requirement / plan / certification / case live at `intents/<slug>/{requirement,plan,verify,case}.md` | artifact-paths (all stage skills) | Skill (Studio sets `VD_INTENT_DOCS_ROOT`) | Skill (Studio sets `VD_INTENT_DOCS_ROOT`) |
+| A1 | Requirement / plan / certification / case live at the plugin defaults: `docs/requirement/`, `docs/plans/`, `docs/verify/`, `docs/cases/`, named `<date>-<title>-<slug suffix>.md` (artifact-paths convention, `c5c4ba7`) | artifact-paths (all stage skills) | Skill | Skill; no `AGENTS.md` override table (`skill-changes.md`) |
 | A2 | Model design record at `docs/design/models/<model>.md`; layered `<layer>/<model>.md` is an override | designing, artifact-paths | Repo-map | Repo-map |
 | A3 | Pipeline design at `docs/design/pipelines/<pipeline>.md`; area design at `docs/design/<area>/<subject>.md` | designing | Repo-map | Repo-map |
 | A4 | One durable design record per model, amended by later intents, never per intent | designing, planning | Skill | Skill |

@@ -12,9 +12,9 @@ One row per driver status event, read as the interval from that event until the 
 
 ## Decisions
 
-- `D-01` Order within each shift by `event_ts`, with `event_id` as the deterministic tie-breaker. `received_ts` is arrival metadata and can invert the business event order. Source: intents/status-occupancy/requirement.md R-01.
-- `D-02` Close a terminal event at the shift's effective end. Leaving it open drops real time; using an arbitrary wall-clock boundary fabricates it. Source: intents/status-occupancy/requirement.md R-02.
-- `D-03` Floor a negative duration at zero but retain `is_negative_interval`. Rejecting the record would hide feed disorder, while retaining a negative measure would invalidate every rollup. Source: intents/status-occupancy/requirement.md R-03.
+- `D-01` Order within each shift by `event_ts`, with `event_id` as the deterministic tie-breaker. `received_ts` is arrival metadata and can invert the business event order. Source: docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md R-01.
+- `D-02` Close a terminal event at the shift's effective end. Leaving it open drops real time; using an arbitrary wall-clock boundary fabricates it. Source: docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md R-02.
+- `D-03` Floor a negative duration at zero but retain `is_negative_interval`. Rejecting the record would hide feed disorder, while retaining a negative measure would invalidate every rollup. Source: docs/requirement/2026-08-29-driver-status-occupancy-and-utilisation.md R-03.
 
 ## Rejected
 

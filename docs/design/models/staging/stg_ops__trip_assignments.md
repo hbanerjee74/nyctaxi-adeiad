@@ -12,8 +12,8 @@ One row per trip assignment (`assignment_id`), one per attributed trip.
 
 ## Decisions
 
-- `D-01` Derive `trip_key` with the `trip_natural_key` macro from the natural columns the operator's records carry; the operator source has no key of its own ([ADR 0007](../../../adr/0007-trip-key-has-one-definition.md)). Source: intents/setup-dlt-ingestion/requirement.md R-03, [ADR 0007](../../../adr/0007-trip-key-has-one-definition.md).
-- `D-02` Convert the operator's UTC-tagged timestamps to plain timestamps before the key is computed, so the key equals the one `int_trips_conformed` produces ([ADR 0008](../../../adr/0008-simulated-sources-are-generated-inside-their-pipelines.md)). Source: intents/setup-dlt-ingestion/requirement.md R-03, [ADR 0008](../../../adr/0008-simulated-sources-are-generated-inside-their-pipelines.md).
+- `D-01` Derive `trip_key` with the `trip_natural_key` macro from the natural columns the operator's records carry; the operator source has no key of its own ([ADR 0007](../../../adr/0007-trip-key-has-one-definition.md)). Source: docs/requirement/2026-10-14-load-every-raw-source-with-dlt-and-build-silver-in-dbt.md R-03, [ADR 0007](../../../adr/0007-trip-key-has-one-definition.md).
+- `D-02` Convert the operator's UTC-tagged timestamps to plain timestamps before the key is computed, so the key equals the one `int_trips_conformed` produces ([ADR 0008](../../../adr/0008-simulated-sources-are-generated-inside-their-pipelines.md)). Source: docs/requirement/2026-10-14-load-every-raw-source-with-dlt-and-build-silver-in-dbt.md R-03, [ADR 0008](../../../adr/0008-simulated-sources-are-generated-inside-their-pipelines.md).
 
 ## Rejected
 

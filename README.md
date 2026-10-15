@@ -61,7 +61,7 @@ reproducible from the code and the public TLC files.
 - `docs/setup/`: repo maintenance: how this repo was built and the skill changes it implies.
 - `docs/setup/data-provenance.md`: real versus generated data, tier by tier.
 - `docs/proposal/pending-requests.md`: requests from the driver ops team for the Queens office launch.
-- `intents/`: requirements for past work.
+- `docs/requirement/`: requirements for past work.
 - `.github/` and `.workflow/`: Domain CI.
 
 ## Prerequisites
@@ -73,8 +73,7 @@ reproducible from the code and the public TLC files.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r ingestion/requirements.txt dbt-duckdb pytest \
-  vibedata-dlt-duckdb-studio
+python -m pip install -r requirements-dev.txt
 ```
 
 ## Full rebuild

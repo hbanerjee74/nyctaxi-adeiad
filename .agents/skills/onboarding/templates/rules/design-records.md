@@ -1,4 +1,8 @@
 # What goes into a design record (E9)
+<!-- onboarding
+ask: no
+reason: A platform content rule or workaround; the same for every domain.
+-->
 
 ## Scope
 
@@ -20,3 +24,7 @@
 ## Evidence
 
 What settled the decisions: profiling, reconciliation, the slice used. One line each, with the query or path.
+
+## Areas
+
+A decision shared by several models is recorded once, in an area design at `docs/design/<area>/<subject>.md` (for example `docs/design/orders/order-identity.md`), and each model's record cites it. An area is never named `models` or `pipelines`.

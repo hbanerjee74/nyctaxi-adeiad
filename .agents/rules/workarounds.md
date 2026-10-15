@@ -4,7 +4,7 @@ Temporary rules that cover a gap in a platform skill or document. Each names the
 
 ## Write `plan.md` and `verify.md` once per phase
 
-Draft the file once. Keep progress and evidence in your head or in a scratch note, and write them into the file in a single edit at the end of the phase. Do not edit the file after each task or check. Each edit echoes a snippet of the file back, and these files are large.
+Draft the file once. Keep progress and evidence in your head or in a scratch note, and write them into the file in a single edit at the end of the phase. Do not edit the file after each task or check. Each edit echoes a snippet of the file back, and these files are large. When the work comes back on a return, rewrite the file whole in one write; do not patch it section by section.
 
 Remove when: the `planning`, `executing-the-plan` and `verifying` skills write these files once per phase (`skill-changes.md`).
 
@@ -58,7 +58,7 @@ Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`)
 
 ## Run each gate once per commit
 
-Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are under `intents/`: the certification commit's results stand.
+Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are the intent's own Requirement, Plan or Certification: the certification commit's results stand.
 
 Remove when: `verifying` and `shipping` reuse recorded gate results at the same inputs (`skill-changes.md`).
 

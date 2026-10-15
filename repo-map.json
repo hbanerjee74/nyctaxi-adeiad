@@ -11,6 +11,10 @@
     {
       "name": "pip",
       "manifest": "ingestion/requirements.txt"
+    },
+    {
+      "name": "pip",
+      "manifest": "requirements-dev.txt"
     }
   ],
   "build_systems": [
@@ -225,13 +229,13 @@
       "path": "docs/design/",
       "description": "Design records per model and pipeline."
     },
+    "requirements": {
+      "path": "docs/requirement/",
+      "description": "Requirements, one file per intent, named by the plugin's artifact-path convention. Plans go to docs/plans/ and certifications to docs/verify/ when first written."
+    },
     "rules": {
       "path": ".agents/rules/",
       "description": "Operator conventions: naming, style, testing, dlt, and what goes in context, ADRs and design records."
-    },
-    "intents": {
-      "path": "intents/",
-      "description": "Requirements for past work."
     },
     "setup": {
       "path": "docs/setup/",
@@ -253,7 +257,7 @@
     "tests/": "pytest tests",
     "docs/adr/": "ADRs",
     "docs/design/": "design records",
-    "intents/": "requirements",
+    "docs/requirement/": "requirements",
     ".agents/rules/": "operator rules",
     ".github/": "Domain CI workflows and scripts",
     "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies and the script that seeds the Studio Domain database. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
@@ -291,6 +295,7 @@
     "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Then register it in orchestration/run_ingest.py and test-map.json.",
     "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work.",
     "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it.",
-    "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file, so a catalog name never resolves there. dbt runs use the dev target."
+    "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file, so a catalog name never resolves there. dbt runs use the dev target.",
+    "artifact_paths": "Requirements, plans and certifications use the plugin's default paths (docs/requirement/, docs/plans/, docs/verify/). Design records are layered: artifact_paths.design_record_model."
   }
 }
