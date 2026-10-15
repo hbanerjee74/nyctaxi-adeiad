@@ -41,7 +41,7 @@ Copy these from [templates/rules/](../templates/rules/) as they are; only exampl
 | `design-records.md` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
 | `adr.md` | The three tests, what is not an ADR, content, supersession. |
 | `git-and-prs.md` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
-| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), the evaluator only for model changes, `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, one run per gate. |
+| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), the evaluator only for model changes, `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, one run per gate, dbt packages for the ship-time contract check. |
 
 Write these into the repo's own rule files beside its conventions:
 
