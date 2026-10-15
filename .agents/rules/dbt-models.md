@@ -12,6 +12,10 @@ Operator conventions for dbt models in `transformation/`. Where files live is de
 
 dlt lands naive Arrow timestamps as `TIMESTAMPTZ`, and the session time zone is not always UTC (the sandbox is not). Staging converts every dlt-loaded timestamp with `timezone('UTC', col)`, so later models see the wall-clock value the source recorded. A model that reads bronze without the conversion, or hashes a key from a converted and an unconverted timestamp, matches nothing and stays green.
 
+## Sources name no database (B18)
+
+A source in `_sources.yml` names its `schema` and tables, never a `database`, and no var feeds either. In a Studio Intent the sandbox is a copy of the Domain file under another name, so its catalog differs; a source that names one fails with `Catalog ... does not exist`.
+
 ## Naming (B2, B3)
 
 | Prefix | Layer | Responsibility |
@@ -46,5 +50,7 @@ None unless a requirement asks for them. When one does: gold only, all or none o
 | staging | view |
 | intermediate | table |
 | gold | table |
+
+The trip-grain models below `fct_trip` are views, so the trip grain is stored once: `stg_tlc__yellow_trip_extras`, `stg_tlc__green_trip_extras`, `int_trips_conformed`, `int_trips_enriched`, `int_trip_fare_components` and `int_trip_quality_flags`. This keeps a seeded Domain file under Studio's 1 GiB upload.
 
 `fct_trip` is incremental by `trip_key`; a late-arriving trip at or before the loaded boundary needs a full refresh (see its design record).

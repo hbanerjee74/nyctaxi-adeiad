@@ -61,3 +61,17 @@ Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`)
 Record each gate's command, commit and result in `plan.md` when it runs. Verify re-runs a gate only when a file it covers changed after the recorded commit; otherwise it cites the recorded result. Shipping re-runs nothing when the only changes since verify are under `intents/`: the certification commit's results stand.
 
 Remove when: `verifying` and `shipping` reuse recorded gate results at the same inputs (`skill-changes.md`).
+
+## The contract check at ship needs dbt packages
+
+`shipping` materialises the base commit's manifest with `diff_manifest_contract.py --materialize`, which checks the base out into a fresh git worktree and runs `dbt parse` there. A fresh worktree has no `dbt_packages/`, so the parse fails on a project with a `packages.yml`. Run `dbt deps` first through `--dbt-command`, from the repo root:
+
+```bash
+printf '#!/bin/sh\ndbt deps --quiet || exit $?\nexec "$@"\n' > .agents_tmp/dbt-deps-then.sh && chmod +x .agents_tmp/dbt-deps-then.sh
+python3 <plugin>/scripts/diff_manifest_contract.py --materialize <base sha> <dbt project> .agents_tmp/base_manifest.json \
+  --dbt-command ".agents_tmp/dbt-deps-then.sh dbt parse"
+```
+
+Then diff it against `<dbt project>/target/manifest.json` as the skill says.
+
+Remove when: `--materialize` installs packages itself (`skill-changes.md`).

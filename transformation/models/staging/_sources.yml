@@ -11,8 +11,7 @@ sources:
       inconsistent casing (`VendorID`, `Airport_fee`), so that a schema
       change at TLC shows up here as a change rather than as a silent
       re-interpretation.
-    database: "{{ var('bronze_database') }}"
-    schema: "{{ var('bronze_schema') }}"
+    schema: bronze
     tables:
       - name: yellow_tripdata
         description: >
@@ -50,8 +49,7 @@ sources:
       Regenerated and replaced on every run. The TLC feed describes the journey; this describes who
       drove it, in which medallion, on which shift, and what the driver was
       doing when not carrying a fare.
-    database: "{{ var('ops_database') }}"
-    schema: "{{ var('ops_schema') }}"
+    schema: ops_raw
     tables:
       - name: garage
         description: Physical depots. Six of them.
@@ -112,8 +110,7 @@ sources:
       The master-data platform's landing schema. Takes TLC's code-and-label
       lists and adds the attributes the business actually reasons about --
       settlement terms, flat-fare amounts, zone geography, contract tiers.
-    database: "{{ var('mdm_database') }}"
-    schema: "{{ var('mdm_schema') }}"
+    schema: mdm_raw
     tables:
       - name: zone_master
         description: >

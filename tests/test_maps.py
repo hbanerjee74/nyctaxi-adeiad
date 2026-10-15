@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 import sys
@@ -85,20 +86,22 @@ DBT_PROJECT = ROOT / "transformation"
 # DBT_PROFILE_NAME point at the runtime profile, which plain `dbt ls` would otherwise use.
 DBT = [sys.executable, "-m", "dbt.cli.main"]
 DBT_PROFILE = ["--profiles-dir", str(DBT_PROJECT), "--profile", "nyc_taxi_analytics"]
+# The profile reads its path from the sandbox variable; parsing never opens the file.
+DBT_ENV = {**os.environ, "VD_EPHM_DUCKDB_LOCAL_PATH": str(ROOT / "domain.duckdb")}
 
 
 @pytest.fixture(scope="session")
 def dbt_packages():
     """Install packages.yml once on a fresh checkout; `dbt ls` refuses to run without them."""
     if not (DBT_PROJECT / "dbt_packages").exists():
-        subprocess.run([*DBT, "deps", *DBT_PROFILE], cwd=DBT_PROJECT, capture_output=True, check=True)
+        subprocess.run([*DBT, "deps", *DBT_PROFILE], cwd=DBT_PROJECT, env=DBT_ENV, capture_output=True, check=True)
 
 
 def _dbt_ls(select: str, resource_type: str, exclude: str | None = None) -> list[str]:
     command = [*DBT, "ls", *DBT_PROFILE, "--select", select, "--resource-type", resource_type]
     if exclude:
         command += ["--exclude", exclude]
-    out = subprocess.run(command, cwd=DBT_PROJECT, capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(command, cwd=DBT_PROJECT, env=DBT_ENV, capture_output=True, text=True, check=True).stdout
     return [line for line in out.splitlines() if ":" in line and not line.startswith(" ")]
 
 
@@ -170,3 +173,23 @@ def test_proposals_and_review_findings_point_at_each_other():
     for (review, finding), status in findings.items():
         if status.startswith("proposal → "):
             assert status[-4:] in proposals, (review, finding)
+
+
+def test_dbt_sources_name_a_schema_and_never_a_catalog():
+    """The Studio sandbox is a renamed copy of the domain file, so a source's catalog never resolves there."""
+    import yaml
+
+    sources = yaml.safe_load((ROOT / REPO_MAP["artifact_paths"]["dbt_sources"]).read_text())["sources"]
+    assert [s["name"] for s in sources if "database" in s] == []
+    assert [s["name"] for s in sources if "{{" in str(s.get("schema", ""))] == []
+
+
+def test_compiled_references_name_no_catalog(dbt_packages):
+    """macros/relations.sql: a view that stores a catalog breaks in the renamed sandbox copy."""
+    subprocess.run(
+        [*DBT, "compile", *DBT_PROFILE, "--select", "int_trips_enriched"],
+        cwd=DBT_PROJECT, env=DBT_ENV, capture_output=True, check=True,
+    )
+    compiled = next((DBT_PROJECT / "target/compiled").rglob("int_trips_enriched.sql")).read_text()
+    assert '"intermediate"."int_trips_conformed"' in compiled
+    assert not re.search(r'"[^"]+"\."intermediate"\."int_trips_conformed"', compiled)

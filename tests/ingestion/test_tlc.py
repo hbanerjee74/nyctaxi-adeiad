@@ -50,3 +50,21 @@ def test_zone_rows_keep_the_types_the_csv_reader_infers():
         {"LocationID": 1, "Borough": "EWR", "Zone": "Newark Airport", "service_zone": "EWR"},
         {"LocationID": 2, "Borough": "Queens", "Zone": "Jamaica Bay", "service_zone": "Boro Zone"},
     ]
+
+
+def test_source_loads_only_the_months_it_is_given():
+    fetched = []
+
+    def fetch(url):
+        fetched.append(url)
+        return _fetch(url)
+
+    source = tlc.tlc_source(fetch=fetch, months=["2024-01"])
+    assert len(list(source.resources["yellow_tripdata"])) == 1
+    assert [u for u in fetched if "tripdata" in u] == [tlc.trip_url("yellow", "2024-01")]
+
+
+def test_months_can_be_set_from_the_environment(monkeypatch):
+    monkeypatch.setenv("SOURCES__TLC__MONTHS", '["2024-01"]')
+    source = tlc.tlc_source.clone(name="tlc", section="tlc")(fetch=_fetch)
+    assert len(list(source.resources["green_tripdata"])) == 1

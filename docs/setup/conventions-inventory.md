@@ -54,6 +54,7 @@ Operator-owned when it is a preference that does not change whether the platform
 | B15 | Default materialisation per layer (view / table / incremental) | not specified | Rule | Rule |
 | B16 | `.gitignore` fragments for dbt (`*/target/`, `*/logs/`, `dbt_packages/`, `.user.yml`) | generating-dbt-model | Skill | Skill |
 | B17 | dlt-loaded timestamps are converted with `timezone('UTC', col)` in staging | trip-key bug in setup | Rule | Rule |
+| B18 | Sources name a schema, never a database | Studio sandbox is a renamed copy of the Domain file | Rule | Rule |
 
 ## C. Testing and quality
 

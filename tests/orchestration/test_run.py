@@ -42,13 +42,22 @@ def test_ingest_stops_at_the_first_failing_pipeline():
     assert [Path(c[-1]).name for c, _, _ in runner.calls] == ["tlc_pipeline.py", "ops_pipeline.py"]
 
 
-def test_transform_installs_packages_then_builds_against_the_domain_target():
+def test_transform_installs_packages_then_builds_against_the_dev_target():
     runner = Recorder()
     assert run_transform.run_transform(runner) == 0
-    (deps, deps_cwd, _), (build, build_cwd, _) = runner.calls
+    (deps, deps_cwd, _), (build, build_cwd, env) = runner.calls
     assert deps[-1] == "deps"
-    assert build[-3:] == ["build", "--target", "domain"]
+    assert build[-3:] == ["build", "--target", "dev"]
     assert deps_cwd == build_cwd == ROOT / "transformation"
+    assert env["VD_EPHM_DUCKDB_LOCAL_PATH"] == str(ROOT / "domain.duckdb")
+
+
+def test_ingest_and_transform_write_to_the_database_they_are_given(tmp_path):
+    db = tmp_path / "seed.duckdb"
+    runner = Recorder()
+    run_ingest.run_ingest(runner, db_path=db)
+    run_transform.run_transform(runner, db_path=db)
+    assert {env["VD_EPHM_DUCKDB_LOCAL_PATH"] for _, _, env in runner.calls} == {str(db)}
 
 
 def test_transform_does_not_build_when_package_install_fails():

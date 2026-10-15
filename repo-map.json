@@ -207,7 +207,7 @@
     },
     "macros": {
       "path": "transformation/macros/",
-      "description": "trip_natural_key (the only definition of trip_key), report window, schema naming, finance helpers."
+      "description": "trip_natural_key (the only definition of trip_key), report window, schema naming, finance helpers, and relations.sql, which renders ref() and source() without a catalog so stored views work in the renamed sandbox copy."
     },
     "tests": {
       "path": "transformation/tests/",
@@ -256,7 +256,7 @@
     "intents/": "requirements",
     ".agents/rules/": "operator rules",
     ".github/": "Domain CI workflows and scripts",
-    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies, and the candidate requests used to test agents (future-requests/). Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
+    "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies, the candidate requests used to test agents (future-requests/), and the script that seeds the Studio Domain database. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
     "docs/review/": "Review findings for triage. Not read during build tasks.",
     "docs/proposal/": "Proposals that become intents. Read one only when the intent links to it."
   },
@@ -290,6 +290,7 @@
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
     "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Then register it in orchestration/run_ingest.py and test-map.json.",
     "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work.",
-    "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it."
+    "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it.",
+    "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file, so a catalog name never resolves there. dbt runs use the dev target."
   }
 }

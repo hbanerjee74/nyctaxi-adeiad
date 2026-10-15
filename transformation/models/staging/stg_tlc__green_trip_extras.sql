@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='view') }}
 
 -- Green-only columns dropped when conforming (ADR 0006). Same natural-key
 -- reconstruction as the yellow side, the same timestamp conversion, and the

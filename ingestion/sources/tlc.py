@@ -1,7 +1,8 @@
 """NYC TLC open data: yellow and green trip files and the zone lookup.
 
-Fetched from the public TLC CDN for the three-month window below. Nothing is
-cast, filtered or sampled: each resource yields what the source file holds.
+Fetched from the public TLC CDN for the three-month window below, or the months
+given in `[sources.tlc] months` (env `SOURCES__TLC__MONTHS`). Nothing is cast,
+filtered or sampled: each resource yields what the source file holds.
 """
 
 from __future__ import annotations
@@ -40,20 +41,22 @@ def zone_rows(fetch: Fetch = http_get) -> list[dict]:
     return pacsv.read_csv(io.BytesIO(fetch(zone_url()))).to_pylist()
 
 
-def trip_tables(fleet: str, fetch: Fetch = http_get) -> Iterator:
-    for month in MONTHS:
+def trip_tables(fleet: str, fetch: Fetch = http_get, months: list[str] = MONTHS) -> Iterator:
+    for month in months:
         yield pq.read_table(io.BytesIO(fetch(trip_url(fleet, month))))
 
 
 @dlt.source(name="tlc")
-def tlc_source(fetch: Fetch = http_get):
+def tlc_source(fetch: Fetch = http_get, months: list[str] | None = None):
+    months = months or MONTHS
+
     @dlt.resource(name="yellow_tripdata")
     def yellow_tripdata():
-        yield from trip_tables("yellow", fetch)
+        yield from trip_tables("yellow", fetch, months)
 
     @dlt.resource(name="green_tripdata")
     def green_tripdata():
-        yield from trip_tables("green", fetch)
+        yield from trip_tables("green", fetch, months)
 
     @dlt.resource(name="taxi_zone_lookup")
     def taxi_zone_lookup():
