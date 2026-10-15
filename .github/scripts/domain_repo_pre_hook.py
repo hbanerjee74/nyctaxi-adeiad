@@ -12,7 +12,7 @@ _scan_secret_content) are internal — they have no call site outside
 evaluate_publish and are deliberately not exported or tested directly (this
 repo's doctrine: test the thin interface, not decomposed internals).
 
-Design contracts (docs/design/domain-repo-pre-hook/README.md):
+Design contracts:
     DC-1  _classify_path           — path-anchored artifact-class recognition.
                                      Dependency-manager directories (vendored
                                      packages) are matched at any depth, since
@@ -22,7 +22,7 @@ Design contracts (docs/design/domain-repo-pre-hook/README.md):
                                      under it.
     DC-2  _is_secret_filename      — conventional secret-holding filenames
     DC-3  _scan_secret_content     — secret-shaped content, independent of filename
-                                     (VD-4622 extended this with context-independent
+                                     (extended with context-independent
                                      GitHub/Slack/Stripe/Google/JWT patterns and a
                                      bearer-token header pattern; see D5a)
     DC-4  evaluate_publish         — block iff any finding exists
@@ -73,7 +73,7 @@ _SECRET_FILENAME_RE = re.compile(
 # gate, always paired with another signal (their entropy check; here, the
 # keyword prefix + "contains a digit" requirement) — 16 was picked, not
 # derived, and sits within the 10-20 char range those tools use for the same
-# purpose. Per D5 (docs/design/domain-repo-pre-hook/README.md), this hook is
+# purpose. Per D5, this hook is
 # intentionally the fast/shallow local layer, not entropy-scored like
 # gitleaks — `ci/static-check`'s gitleaks scan is the deeper backstop.
 _SECRET_CONTENT_PATTERNS = [
@@ -85,7 +85,7 @@ _SECRET_CONTENT_PATTERNS = [
     ),
 ]
 
-# VD-4622 (D5a) — context-independent vendor-shaped patterns: matched on the
+# D5a — context-independent vendor-shaped patterns: matched on the
 # value's own shape alone, no keyword neighbor required, the same way AKIA and
 # the PEM header above already work. Realizes AC-DRPH-39..43.
 _VENDOR_SECRET_PATTERNS = [
@@ -96,7 +96,7 @@ _VENDOR_SECRET_PATTERNS = [
     re.compile(rb"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+"),  # AC-DRPH-43 — JWT
 ]
 
-# VD-4622 (D5a) — bearer-token header shape has no vendor-specific charset of
+# D5a — bearer-token header shape has no vendor-specific charset of
 # its own, so it is the one new pattern that needs its own placeholder guard:
 # a value that looks like a documentation placeholder (all-caps/underscore,
 # or containing `<`, `>`, or a repeated-`x` run) is excluded. Realizes

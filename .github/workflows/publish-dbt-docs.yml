@@ -12,7 +12,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-        if: vars.FAKE_WORLD == ''
 
       - name: Resolve layout
         run: echo "PROJ=$([ -f transformation/dbt_project.yml ] && echo transformation || echo .)" >> "$GITHUB_ENV"
@@ -23,10 +22,6 @@ jobs:
 
       - name: Install dbt-duckdb
         run: pip install -c .github/managed-constraints.txt dbt-duckdb --quiet
-
-      - name: Add fake-world dbt shim to PATH
-        if: vars.FAKE_WORLD != ''
-        run: echo "/fakeworld-shims" >> "$GITHUB_PATH"
 
       - name: Parse dbt project
         run: |

@@ -40,7 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        if: vars.FAKE_WORLD == ''
 
       - name: Resolve layout
         run: echo "PROJ=$([ -f transformation/dbt_project.yml ] && echo transformation || echo .)" >> "$GITHUB_ENV"
@@ -60,10 +59,6 @@ jobs:
           curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_${gitleaks_arch}.tar.gz" \
             | tar xz -C /usr/local/bin gitleaks
 
-      - name: Add fake-world dbt shim to PATH
-        if: vars.FAKE_WORLD != ''
-        run: echo "/fakeworld-shims" >> "$GITHUB_PATH"
-
       - name: Python lint
         run: ruff check . --extend-exclude .github,ingestion/sources
 
@@ -82,7 +77,7 @@ jobs:
           # sequence_files(), from the lint's ROOT config (./.sqlfluff) only;
           # a nearer $PROJ/.sqlfluff is applied per file, after that. So the
           # root file must carry these keys. An existing $PROJ/.sqlfluff gets
-          # them too, so it can't override the root templater (VD-6511).
+          # them too, so it can't override the root templater.
           sqlfluff_paths = [".sqlfluff"]
           proj_sqlfluff = os.path.join(proj, ".sqlfluff")
           if proj != "." and os.path.exists(proj_sqlfluff):

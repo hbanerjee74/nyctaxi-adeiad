@@ -100,8 +100,7 @@ def summarize_parse_failure(output: str) -> str:
     """One line naming why dbt refused to parse the project, for a commit status.
 
     A gate that cannot parse the project has to say what broke it: "see job
-    logs" leaves the PR reader with a red check and no artifact to look at
-    (VD-5918). Returns "" when the output carries no line dbt itself labelled
+    logs" leaves the PR reader with a red check and no artifact to look at. Returns "" when the output carries no line dbt itself labelled
     as an error, so the caller keeps its own generic message rather than
     inventing a cause — or relaying an arbitrary log line, which the same log's
     `dbt deps` half can make a credential-bearing one.
@@ -138,7 +137,7 @@ def main() -> None:
             # $PROJ is trusted as the resolved dbt project dir here; it is not
             # cross-checked against dbt_args' own --project-dir value. The two
             # agree today only because every ci.yml call site passes
-            # --project-dir "$PROJ" literally (VD-4656).
+            # --project-dir "$PROJ" literally.
             with open(runner_io.target_path("target/run_results.json")) as f:
                 data = json.load(f)
             summary = prr.summarize(data)
