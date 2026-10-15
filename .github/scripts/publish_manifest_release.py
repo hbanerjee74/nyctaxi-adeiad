@@ -1,4 +1,4 @@
-"""Imperative shell for the immutable per-build manifest release (AC-14..AC-18).
+"""Imperative shell for the immutable per-build manifest release.
 
 Gathers, for `dbt-manifest-<sha>`: whether it exists, and if so, per-asset presence and content
 match against this run's assets -- yielding one of `absent` / `complete_match` / `incomplete` /
@@ -125,7 +125,7 @@ def main(target_dir: str, sha: str, asset_names: list[str]) -> int:
         # Matches _gather_release_state's existing safety net for `gh release view`: a
         # bare CalledProcessError with no visible reason is exactly what made three
         # separate real CI failures on this exact call undiagnosable without guessing
-        # (VD-5839). Print everything available -- stdout included, since a partial
+        #. Print everything available -- stdout included, since a partial
         # response before a mid-stream failure can also be diagnostic.
         print(
             f"gh release list exited {exc.returncode}:\n"
