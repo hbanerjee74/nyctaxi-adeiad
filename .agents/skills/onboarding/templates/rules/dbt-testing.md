@@ -45,6 +45,14 @@ reason: A key mismatch builds green; learned from a real defect.
 
 A left join on a derived key (a hashed or concatenated key built in two places) gets a singular test that every row on the left finds its match, or that the unmatched rows are the ones expected. A left join reports a miss as a null, so a key mismatch builds green.
 
+## Comparing values
+<!-- onboarding
+ask: no
+reason: A DuckDB property; an exact comparison of rebuilt measures never settles.
+-->
+
+DuckDB float aggregation is not reproducible bit for bit: two builds of the same model from the same inputs can differ in the last bits of a `double`. Compare money at the cent (`round(x, 2)`) and other measures with an explicit tolerance, never by hashing raw values. A column the change does not touch counts as unchanged when every row agrees at that precision.
+
 ## Unit tests (C5)
 <!-- onboarding
 ask: yes
