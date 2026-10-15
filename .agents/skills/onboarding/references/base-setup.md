@@ -64,6 +64,7 @@ Write these into the repo's own rule files beside its conventions:
 | `adr.md` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
 | `dbt-models.md` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
 | `dbt-testing.md` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
+| `dbt-testing.md` | Rebuilt values are compared at the cent for money and at a stated tolerance otherwise, never by hashing raw doubles: DuckDB float aggregation is not reproducible bit for bit. |
 
 ## Agent entry points
 
