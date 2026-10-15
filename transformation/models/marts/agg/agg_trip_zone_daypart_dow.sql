@@ -1,4 +1,6 @@
--- The workhorse demand cube: pickup zone x daypart x day-of-week x fleet.
+-- The workhorse demand cube: pickup zone x day-of-week x non-working-day flag
+-- x daypart x peak flag x fleet. The two flags split rows: a holiday Monday is
+-- not a working Monday, and the early daypart has an off-peak and a peak hour.
 --
 -- This is the grain most operational questions land on -- "where and when do we
 -- actually earn" -- and materialising it means those questions do not each
