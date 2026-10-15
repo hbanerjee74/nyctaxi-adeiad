@@ -81,6 +81,9 @@
       "sources": [
         "transformation/models/marts/agg/"
       ],
+      "data": [
+        "transformation/tests/assert_daypart_cube_one_row_per_grain.sql"
+      ],
       "selectors": {
         "data": "path:models/marts/agg"
       },
