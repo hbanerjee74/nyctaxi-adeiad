@@ -97,7 +97,8 @@ sources:
           - name: status_code
             tests:
               - accepted_values:
-                  values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
+                  arguments:
+                    values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
       - name: maintenance_event
         description: Vehicle downtime. Removes a vehicle from the utilisation denominator.
 

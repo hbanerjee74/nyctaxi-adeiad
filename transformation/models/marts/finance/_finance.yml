@@ -12,7 +12,7 @@ models:
         tests: [not_null]
       - name: pickup_location_id
         tests:
-          - relationships: {to: ref('dim_zone'), field: zone_natural_key}
+          - relationships: {arguments: {to: ref('dim_zone'), field: zone_natural_key}}
 
   - name: mart_monthly_service_summary
     description: Monthly volume and revenue by fleet and payment method.
@@ -21,7 +21,7 @@ models:
         tests: [not_null]
       - name: service_type
         tests:
-          - accepted_values: {values: ['yellow', 'green']}
+          - accepted_values: {arguments: {values: ['yellow', 'green']}}
 
   - name: mart_revenue_component_bridge
     description: >

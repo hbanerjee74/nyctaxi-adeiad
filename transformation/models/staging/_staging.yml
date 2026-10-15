@@ -86,7 +86,7 @@ models:
         tests: [unique, not_null]
       - name: garage_id
         tests:
-          - relationships: {to: ref('stg_ops__garages'), field: garage_id}
+          - relationships: {arguments: {to: ref('stg_ops__garages'), field: garage_id}}
   - name: stg_ops__drivers
     description: "One row per driver."
     columns:
@@ -118,7 +118,7 @@ models:
         tests: [not_null]
       - name: shift_id
         tests:
-          - relationships: {to: ref('stg_ops__shifts'), field: shift_id}
+          - relationships: {arguments: {to: ref('stg_ops__shifts'), field: shift_id}}
   - name: stg_ops__status_events
     description: >
       The occupancy stream. `skew_seconds` exposes the gap between assigned
@@ -130,7 +130,8 @@ models:
       - name: status_code
         tests:
           - accepted_values:
-              values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
+              arguments:
+                values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
   - name: stg_ops__maintenance
     description: "One row per maintenance event, with its end date."
     columns:

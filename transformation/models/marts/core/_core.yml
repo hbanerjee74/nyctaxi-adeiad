@@ -30,7 +30,8 @@ models:
       - name: borough_name
         tests:
           - accepted_values:
-              values: ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR','Unknown','N/A']
+              arguments:
+                values: ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR','Unknown','N/A']
 
   - name: dim_vendor
     description: |
@@ -79,7 +80,7 @@ models:
         tests: [unique, not_null]
       - name: garage_key
         tests:
-          - relationships: {to: ref('dim_garage'), field: garage_key}
+          - relationships: {arguments: {to: ref('dim_garage'), field: garage_key}}
 
   - name: dim_vehicle
     description: Type 1, with maintenance downtime folded in.
@@ -125,20 +126,20 @@ models:
       - name: pickup_zone_key
         description: Role-playing zone key, resolved as of the trip's own date.
         tests:
-          - relationships: {to: ref('dim_zone'), field: zone_key}
+          - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
       - name: dropoff_zone_key
         description: The same dimension in its destination role.
         tests:
-          - relationships: {to: ref('dim_zone'), field: zone_key}
+          - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
       - name: vendor_key
         tests:
-          - relationships: {to: ref('dim_vendor'), field: vendor_key}
+          - relationships: {arguments: {to: ref('dim_vendor'), field: vendor_key}}
       - name: trip_quality_key
         tests:
-          - relationships: {to: ref('dim_trip_quality'), field: trip_quality_key}
+          - relationships: {arguments: {to: ref('dim_trip_quality'), field: trip_quality_key}}
       - name: payment_method_key
         tests:
-          - relationships: {to: ref('dim_payment_method'), field: payment_method_key}
+          - relationships: {arguments: {to: ref('dim_payment_method'), field: payment_method_key}}
       - name: is_fleet_attributed
         description: '{{ doc("fleet_attribution") }}'
         tests: [not_null]
@@ -156,10 +157,10 @@ models:
         tests: [unique, not_null]
       - name: driver_key
         tests:
-          - relationships: {to: ref('dim_driver'), field: driver_key}
+          - relationships: {arguments: {to: ref('dim_driver'), field: driver_key}}
       - name: vehicle_key
         tests:
-          - relationships: {to: ref('dim_vehicle'), field: vehicle_key}
+          - relationships: {arguments: {to: ref('dim_vehicle'), field: vehicle_key}}
       - name: occupancy_rate
         description: '{{ doc("occupancy_rate") }}'
 
@@ -173,7 +174,8 @@ models:
       - name: status_code
         tests:
           - accepted_values:
-              values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
+              arguments:
+                values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
 
   - name: fct_maintenance
     description: >
