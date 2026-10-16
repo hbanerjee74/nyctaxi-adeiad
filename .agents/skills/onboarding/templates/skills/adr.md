@@ -1,3 +1,8 @@
+---
+name: adr
+description: "Use when recording a decision, when a choice might need an ADR, or when writing, superseding or reviewing a file in docs/adr/."
+---
+
 # What goes into an ADR (E3, E11)
 <!-- onboarding
 ask: no

@@ -14,8 +14,8 @@
 | Per-pipeline docs or runbooks | Pipeline design | `docs/design/pipelines/` |
 | Cross-model or subject-area design docs | Area design | `docs/design/<area>/` |
 | Incident write-ups and root-cause analyses | Case record | `docs/cases/` |
-| `CLAUDE.md`, `.cursor/rules`, `.github/copilot-instructions.md` or similar | Mine their conventions into the inventory. Once the rules hold them, reduce the file to one line pointing at `AGENTS.md`. |
-| An existing `AGENTS.md` | Rewrite it as the index. Every convention it held lands in a rule; the PR description lists where each went. |
+| `CLAUDE.md`, `.cursor/rules`, `.github/copilot-instructions.md` or similar | Mine their conventions into the inventory. Once the convention skills hold them, reduce the file to one line pointing at `AGENTS.md`. |
+| An existing `AGENTS.md` | Rewrite it as the index. Every convention it held lands in a convention skill; the PR description lists where each went. |
 | dbt YAML descriptions and doc blocks | Leave them. Take `CONTEXT.md` terms from them. |
 | README, CONTRIBUTING and other human documents | Leave them unchanged, including broken links. Add `notes_for_agents` in `repo-map.json` saying agents do not read them for build tasks. Broken links or stale content are `gap` findings. |
 | Code comments citing decisions that have no document (`ADR 0004`) | Write the ADR only if the user confirms the decision; otherwise a `gap` finding. |

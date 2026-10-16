@@ -1,3 +1,8 @@
+---
+name: dbt-testing
+description: "Use when writing, changing or running dbt tests, unit tests or Python tests, or when comparing rebuilt values."
+---
+
 # dbt testing
 <!-- onboarding
 ask: no

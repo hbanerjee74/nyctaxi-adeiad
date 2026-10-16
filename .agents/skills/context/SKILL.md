@@ -1,8 +1,9 @@
+---
+name: context
+description: "Use when adding, changing or removing a term in CONTEXT.md."
+---
+
 # What goes into CONTEXT.md (E1, E10)
-<!-- onboarding
-ask: no
-reason: A platform content rule or workaround; the same for every domain.
--->
 
 `CONTEXT.md` is the vocabulary of the data product. Nothing else.
 

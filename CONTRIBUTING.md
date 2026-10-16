@@ -22,14 +22,14 @@ needs only its layer's tests until the final run.
 
 ## Conventions
 
-The operator conventions are in [`.agents/rules/`](.agents/rules/), indexed by
+The operator conventions are skills in [`.agents/skills/`](.agents/skills/), indexed by
 [`AGENTS.md`](AGENTS.md):
 
-- model and file naming, layers and materialisation: [`dbt-models.md`](.agents/rules/dbt-models.md)
-- SQL formatting: [`sql-style.md`](.agents/rules/sql-style.md)
-- tests: [`dbt-testing.md`](.agents/rules/dbt-testing.md)
-- pipelines: [`dlt.md`](.agents/rules/dlt.md)
-- commits and pull requests: [`git-and-prs.md`](.agents/rules/git-and-prs.md)
+- model and file naming, layers and materialisation: [`dbt-models`](.agents/skills/dbt-models/SKILL.md)
+- SQL formatting: [`sql-style`](.agents/skills/sql-style/SKILL.md)
+- tests: [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md)
+- pipelines: [`dlt`](.agents/skills/dlt/SKILL.md)
+- commits and pull requests: [`git-and-prs`](.agents/skills/git-and-prs/SKILL.md)
 
 `repo-map.json` says where each kind of file lives. Update it, and `test-map.json`,
 when a layer, entrypoint, command or location changes; `tests/test_maps.py`
@@ -39,16 +39,16 @@ fails when either names something that does not exist.
 
 - A decision that is hard to reverse, surprising without context and a real
   trade-off is an ADR in `docs/adr/`. Standing business answers are ADRs too.
-  See [`adr.md`](.agents/rules/adr.md). Never edit a decision that still holds;
+  See [`adr`](.agents/skills/adr/SKILL.md). Never edit a decision that still holds;
   supersede one that does not.
 - Each model and pipeline has a design record under `docs/design/`, and an ADR
   lists the design records it affects. See
-  [`design-records.md`](.agents/rules/design-records.md).
+  [`design-records`](.agents/skills/design-records/SKILL.md).
 - New terms go in `CONTEXT.md` only when a model, ADR or design record uses them.
-  See [`context.md`](.agents/rules/context.md).
+  See [`context`](.agents/skills/context/SKILL.md).
 - Requirements for a piece of work go in `docs/requirement/`, plans in `docs/plans/` and verifications in `docs/verify/`, as `repo-map.json` `artifact_paths` declares.
 
 ## Pull requests
 
-Use the four sections in [`git-and-prs.md`](.agents/rules/git-and-prs.md): Summary,
+Use the four sections in [`git-and-prs`](.agents/skills/git-and-prs/SKILL.md): Summary,
 Verification, Approved contract changes, Remaining manual checks.

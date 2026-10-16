@@ -13,7 +13,7 @@ Use the `grilling` skill. Every template under [templates/](../templates/) marks
 - `ask: yes`: a question, a recommended answer and the alternatives. Ask these.
 - `ask: no`: platform-driven, with the reason. Show them, do not ask.
 
-Go file by file, in this order: `AGENTS.md`, then `dbt-models.md`, `dlt.md`, `dbt-testing.md`, `sql-style.md`, `git-and-prs.md`, then the content rules and workarounds. For each file, show every section's recommended text in one message and ask its `ask: yes` sections one at a time, recommendation first; the user may also override an `ask: no` section. A section answered once (for example the layers, in `AGENTS.md` and `dbt-models.md`) is not asked again.
+Go file by file, in this order: `AGENTS.md`, then the `dbt-models`, `dlt`, `dbt-testing`, `sql-style` and `git-and-prs` skills, then the content skills and `workarounds`. For each file, show every section's recommended text in one message and ask its `ask: yes` sections one at a time, recommendation first; the user may also override an `ask: no` section. A section answered once (for example the layers, in `AGENTS.md` and `dbt-models.md`) is not asked again.
 
 Also ask the dbt project name (recommended: the domain slug with underscores), and pass the first business terms to `domain-modeling` for `CONTEXT.md`.
 
@@ -34,7 +34,7 @@ Write from [templates/](../templates/), filling the confirmed answers:
 | `AGENTS.md`, `ruff.toml`, `requirements-dev.txt`, `.gitignore` (`gitignore-fragment`) | `templates/repo/`, `<!-- onboarding -->` blocks removed |
 | `.sqlfluff` | `templates/repo/sqlfluff.cfg`; its profile comes from `.github/profiles/`, which `install-ci` writes |
 | `docs/adr/`, `docs/review/`, `docs/proposal/` | empty, with a `.gitkeep` |
-| `.agents/rules/*.md` | `templates/rules/`, with the confirmed answers in place of the placeholders and every `<!-- onboarding -->` block removed |
+| `.agents/skills/<name>/SKILL.md`, one per convention skill | `templates/skills/<name>.md`, with the confirmed answers in place of the placeholders and every `<!-- onboarding -->` block removed |
 | `CONTEXT.md` and any ADR a confirmed decision earns | `domain-modeling` |
 | CI, `.github/profiles/`, `.github/scripts/adr_lint.py` | `install-ci`. Not optional: `.sqlfluff` and the `adr_lint` command depend on it |
 

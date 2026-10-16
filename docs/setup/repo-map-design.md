@@ -5,7 +5,7 @@ Modelled on the studio `repo-map.json` (`~/src/studio/repo-map.json`, schema in 
 ## Role
 
 - `repo-map.json`: where things are. Directories, artifact locations, entrypoints, commands. Skills resolve it to find or write a file.
-- `.agents/rules/`: how to work. Naming, style, test policy, commit format, business defaults.
+- `.agents/skills/`: how to work. Naming, style, test policy, commit format, business defaults.
 - `AGENTS.md`: the entry point that indexes both.
 
 Test for edge cases: if a skill must resolve it to find or write a file, it goes in the repo-map; if it is a judgment applied while writing, it is a rule.
@@ -72,7 +72,7 @@ Added for data engineering: `layers` (one entry per schema), `sources`, `artifac
     "unit_tests": "cd transformation && dbt test --select test_type:unit",
     "docs": "cd transformation && dbt docs generate"
   },
-  "key_references": {"provenance": "docs/setup/data-provenance.md", "rules": ".agents/rules/"},
+  "key_references": {"provenance": "docs/setup/data-provenance.md", "rules": ".agents/skills/"},
   "notes_for_agents": {
     "reporting_window": "report_start/report_end are dbt vars, not a sampling control",
     "synthetic_data": "ops_raw and mdm_raw are generated; see docs/setup/data-provenance.md"

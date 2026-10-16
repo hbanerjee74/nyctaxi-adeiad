@@ -1,8 +1,9 @@
+---
+name: design-records
+description: "Use when writing or amending a design record under docs/design/ for a model or pipeline."
+---
+
 # What goes into a design record (E9)
-<!-- onboarding
-ask: no
-reason: A platform content rule or workaround; the same for every domain.
--->
 
 ## Scope
 
@@ -27,4 +28,4 @@ What settled the decisions: profiling, reconciliation, the slice used. One line 
 
 ## Areas
 
-A decision shared by several models is recorded once, in an area design at `docs/design/<area>/<subject>.md` (for example `docs/design/orders/order-identity.md`), and each model's record cites it. An area is never named `models` or `pipelines`.
+A decision shared by several models is recorded once, in an area design at `docs/design/<area>/<subject>.md` (for example `docs/design/trips/trip-identity.md`), and each model's record cites it. An area is never named `models` or `pipelines`.

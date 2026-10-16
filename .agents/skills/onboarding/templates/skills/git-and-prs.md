@@ -1,3 +1,8 @@
+---
+name: git-and-prs
+description: "Use when committing, naming a branch or writing a pull request description."
+---
+
 # Git and pull requests
 
 ## Commits (G4)

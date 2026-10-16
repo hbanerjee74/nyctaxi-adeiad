@@ -1,3 +1,8 @@
+---
+name: dlt
+description: "Use when adding or changing a dlt source or pipeline in ingestion/, or when running a sample or full load."
+---
+
 # dlt ingestion
 
 Operator conventions for the pipelines in `ingestion/`. Where files live is declared in `repo-map.json`.

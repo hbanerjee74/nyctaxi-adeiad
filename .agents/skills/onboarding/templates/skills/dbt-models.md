@@ -1,3 +1,8 @@
+---
+name: dbt-models
+description: "Use when creating, renaming or editing a dbt model, its properties file or its materialisation in transformation/."
+---
+
 # dbt models
 <!-- onboarding
 ask: no

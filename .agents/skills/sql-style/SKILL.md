@@ -1,3 +1,8 @@
+---
+name: sql-style
+description: "Use when writing, formatting or linting SQL in dbt models, tests or macros."
+---
+
 # SQL style (B7)
 
 - Lowercase keywords.

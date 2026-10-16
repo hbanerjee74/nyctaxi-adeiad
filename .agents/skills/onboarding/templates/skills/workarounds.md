@@ -1,3 +1,8 @@
+---
+name: workarounds
+description: "Use after a conversation is condensed, and before editing plan.md or verify.md, running dbt in the sandbox, linting Python, running Tier-1 tests or doing a sample load."
+---
+
 # Workarounds
 <!-- onboarding
 ask: no

@@ -238,9 +238,9 @@
       "path": "docs/requirement/",
       "description": "Requirements, one file per intent at artifact_paths.requirement; plans and verifications go to artifact_paths.plan and artifact_paths.verification when first written."
     },
-    "rules": {
-      "path": ".agents/rules/",
-      "description": "Operator conventions: naming, style, testing, dlt, and what goes in context, ADRs and design records."
+    "conventions": {
+      "path": ".agents/skills/",
+      "description": "Operator conventions as skills (OpenHands lists each one): naming, style, testing, dlt, and what goes in context, ADRs and design records."
     },
     "setup": {
       "path": "docs/setup/",
@@ -263,7 +263,7 @@
     "docs/adr/": "ADRs",
     "docs/design/": "design records",
     "docs/requirement/": "requirements",
-    ".agents/rules/": "operator rules",
+    ".agents/skills/": "convention and procedure skills",
     ".github/": "Domain CI workflows and scripts",
     "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies and the script that seeds the Studio Domain database. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
     "docs/review/": "Review findings for triage. Not read during build tasks.",
@@ -286,12 +286,12 @@
   "key_references": {
     "agents": "AGENTS.md",
     "vocabulary": "CONTEXT.md",
-    "rules": ".agents/rules/",
+    "conventions": ".agents/skills/",
     "test_map": "test-map.json",
     "schema": "repo-map.schema.json"
   },
   "notes_for_agents": {
-    "startup": "Read this file first. AGENTS.md says how to work; .agents/rules/ has the conventions.",
+    "startup": "Read this file first. AGENTS.md says how to work; the skills in .agents/skills/ hold the conventions.",
     "reporting_window": "report_start and report_end are dbt vars in dbt_project.yml and define the business reporting window. They are not a sampling control.",
     "synthetic_data": "ops_raw and mdm_raw are simulated. TLC trips are real.",
     "trip_key": "Produced only by the trip_natural_key macro. The operator source carries natural columns, not the key.",
