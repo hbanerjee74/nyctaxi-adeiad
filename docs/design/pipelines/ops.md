@@ -35,11 +35,6 @@ Eight resources, one row per entity: garage, vehicle, driver, lease agreement, s
 
 Depended on by: `stg_ops__drivers`, `stg_ops__garages`, `stg_ops__leases`, `stg_ops__maintenance`, `stg_ops__shifts`, `stg_ops__status_events`, `stg_ops__trip_assignments`, `stg_ops__vehicles`.
 
-## Evidence
-
-- Counts on the three-month load: driver 760; driver_status_event 1,807,117; garage 6; lease_agreement 760; maintenance_event 848; shift 38,205; trip_assignment 463,848 (4.8% of yellow trips); vehicle 420. A second run leaves them unchanged, and `bronze` is untouched by the ops run.
-- Pipeline: `ingestion/ops_pipeline.py`; source: `ingestion/sources/ops.py`; resource docs: `ingestion/docs/ops.yml`.
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written when the generator moved from a script into a dlt pipeline — D-01 to D-13

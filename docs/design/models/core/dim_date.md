@@ -23,10 +23,6 @@ One row per calendar date.
 
 Depended on by: `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_weather_demand_daily`, `fct_trip`, `mart_daily_zone_revenue`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`.
 
-## Evidence
-
-- Every `week_start_date` is a Monday (checked on all 397 dates).
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written — D-01, D-02

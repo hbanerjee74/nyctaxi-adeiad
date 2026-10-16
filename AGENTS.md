@@ -8,6 +8,8 @@ Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers
 
 Before a task, read `repo-map.json` and invoke the convention skill for the task. To add a source, invoke [`dlt`](.agents/skills/dlt/SKILL.md); for a model, [`dbt-models`](.agents/skills/dbt-models/SKILL.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. Read `repo-map.json` whole, once, at the start of a task: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories (`find`, `ls -R`) or read it again in parts. List one folder only when the repo-map names it and the task needs what is in it.
 
+Do not read the installed source code of dbt, dlt or any other library to work out how it behaves. The repo's own models, pipelines and tests show how this repo uses them; for anything else, rely on the library's documented behaviour.
+
 After the conversation is condensed, invoke the [`workarounds`](.agents/skills/workarounds/SKILL.md) skill again before the next tool call: its rules are easy to lose in a summary.
 
 ## Medallion layers

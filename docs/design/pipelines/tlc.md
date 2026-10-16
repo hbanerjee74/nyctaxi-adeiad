@@ -29,12 +29,6 @@ Three resources: one row per row of each source file (`yellow_tripdata`, `green_
 
 Depended on by: `stg_tlc__yellow_tripdata`, `stg_tlc__green_tripdata`; and by the `ops` and `mdm` pipelines, which reuse its source code (the yellow trips and the zone lookup).
 
-## Evidence
-
-- Counts on the three-month load: `yellow_tripdata` 9,554,778; `green_tripdata` 167,585; `taxi_zone_lookup` 265. A second run leaves the counts unchanged. A run takes about 12 seconds.
-- `finalize()` also writes `audit_runs` and `audit_table_loads` into the dataset.
-- Pipeline: `ingestion/tlc_pipeline.py`; source: `ingestion/sources/tlc.py`; resource docs: `ingestion/docs/tlc.yml`.
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written when TLC loading moved from scripts to dlt — D-01 to D-07

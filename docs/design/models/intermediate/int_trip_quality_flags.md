@@ -27,11 +27,6 @@ One row per trip (`trip_key`).
 
 Depended on by: `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_weather_demand_daily`, `dim_trip_quality`, `fct_trip`, `mart_daily_zone_revenue`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`.
 
-## Evidence
-
-- On the three-month load: refunds 116,453; zero distance 224,501; implausibly short 89,472; implausibly fast 0; negative duration 180; unresolved pickup zone 37,228; unresolved dropoff zone 86,714.
-- `fct_trip` keeps every trip, so these counts are flags on trips that remain in the fact.
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written — D-01, D-02, D-03, D-04

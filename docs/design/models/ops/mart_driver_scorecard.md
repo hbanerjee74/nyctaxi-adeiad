@@ -25,10 +25,6 @@ One row per driver.
 
 None in this repo.
 
-## Evidence
-
-- 760 drivers on the three-month load, none below the floor.
-
 ## History
 
 - - 2026-10-14 — status-occupancy — design record written — D-01, D-02, D-03

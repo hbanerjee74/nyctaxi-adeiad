@@ -23,11 +23,6 @@ One row per row of `bronze.yellow_tripdata`.
 
 Depended on by: `agg_driver_daily`, `agg_driver_monthly`, `agg_garage_monthly`, `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_vehicle_daily`, `agg_vehicle_monthly`, `agg_weather_demand_daily`, `dim_trip_quality`, `fct_shift`, `fct_trip`, `int_shift_economics`, `int_trip_fare_components`, `int_trip_quality_flags`, `int_trips_conformed`, `int_trips_enriched`, `mart_daily_zone_revenue`, `mart_driver_scorecard`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`, `mart_vehicle_utilisation`.
 
-## Evidence
-
-- Row count equals the bronze table (9,554,778 on the three-month load).
-- The loader tags timestamps UTC; the source files carry plain timestamps.
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written — D-01, D-02

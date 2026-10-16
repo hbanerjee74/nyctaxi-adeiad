@@ -60,7 +60,7 @@ Copy these from [templates/skills/](../templates/skills/) as they are, each `<na
 | Skill | What it holds |
 | --- | --- |
 | `context` | What goes in `CONTEXT.md` and what does not. |
-| `design-records` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
+| `design-records` | What goes in a design record: decisions with sources, consumers from lineage; no evidence (that is for verification). |
 | `adr` | The three tests, what is not an ADR, content, supersession. |
 | `git-and-prs` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
 | `workarounds` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), `plan.md` and `verify.md` written once per phase, large files changed by script, verify from the landed table and saved profile, the Tier-1 dev dataset, sample loads that land whole pages. |
@@ -73,7 +73,7 @@ Write these into the repo's own convention skills beside its conventions:
 | `dlt` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
 | `dlt` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
 | `dbt-models` | Sources name a schema and tables, never a database, and no var feeds either. |
-| `dlt` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
+| `dlt` | Mirror the repo's existing source of the same kind for batching and file handling. |
 | `adr` | Check citations with the `adr_lint` command (or the repo's equivalent) and the two-way links with `tests/test_adr_links.py`; run them, do not read the scripts. |
 | `dbt-models` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
 | `dbt-testing` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
@@ -82,6 +82,7 @@ Write these into the repo's own convention skills beside its conventions:
 ## Agent entry points
 
 - `AGENTS.md` starts with a Startup section: before a task, invoke the convention skill for the task (`dlt` to add a source, `dbt-models` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change. Read `repo-map.json` whole, once: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories or read it again in parts.
+- The Startup section also says not to read the installed source of dbt, dlt or any other library: the repo's own models, pipelines and tests are the reference, and the library's documentation covers the rest. Agents otherwise read dbt's package source to answer questions such as how a unit test overrides a var.
 - Material that is not for build tasks (setup or maintenance notes, demo or evaluation prompts, answer keys) is declared in `key_directories` and `notes_for_agents` as not read. Prompts used to test agents are an answer key: file a `gap` finding recommending a move into the maintenance folder.
 - Artifact paths: no `## Artifact Paths` table in `AGENTS.md`. The plugin has no default locations, so `repo-map.json` `artifact_paths` declares every class it writes: `requirement`, `plan`, `verification` and `case_record` (each with the `{intent}` name the plugin gives an intent), `design_record_model`, `design_record_pipeline` and `design_record_area`. A repo without them makes the build agent stop and ask for onboarding.
 - `repo-map.json` `notes_for_agents` has at least: `startup`; `new_source` (a new source mirrors an existing `sources` entry and creates every artifact it lists); `reviews_and_proposals`; and, when pipelines use the Vibedata dlt package, the environment variables they need outside Studio.
