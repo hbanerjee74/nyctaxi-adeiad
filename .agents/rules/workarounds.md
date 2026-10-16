@@ -49,3 +49,9 @@ Remove when: `verifying` says where independent figures come from for an ingesti
 A `DEV_MODE` safety run loads into a timestamped dev dataset (`bronze_<timestamp>`), printed by the run. Pass that name to `run_bronze_tier1_tests.py --dataset`, not `bronze`. After the full load, pass `bronze`.
 
 Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`).
+
+## A sample load lands whole pages, not N rows
+
+`DLT_INGEST_LIMIT` bounds pages, not rows, and dlt does not trim the last page. A file source with row groups lands a whole row group: a Parquet sample load can land about a million rows for a limit of 1,000. Do not write "N rows" for a sample load into a Requirement or Plan, and do not read a larger count as a failed limit. Check the landed count against the source's row-group size instead.
+
+Remove when: `duckdb_local/dlt.md` and `generating-dlt-pipeline` state that the limit bounds pages (`skill-changes.md`).
