@@ -21,8 +21,7 @@ The onboarding skill (`.agents/skills/onboarding/`) replaces `init` for both an 
 
 ## Changes by skill
 
-| Skill | Reference | Suggested change |
-| --- | --- | --- |
+None open. A new row uses the columns Skill, Reference and Suggested change.
 
 ## Tracked in Linear
 
