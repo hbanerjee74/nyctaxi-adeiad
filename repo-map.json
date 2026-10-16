@@ -156,6 +156,7 @@
   "artifact_paths": {
     "design_record_model": "docs/design/models/{layer}/{model}.md",
     "design_record_pipeline": "docs/design/pipelines/{pipeline}.md",
+    "design_record_area": "docs/design/{area}/{subject}.md",
     "context": "CONTEXT.md",
     "adr": "docs/adr/{nnnn}-{slug}.md",
     "dbt_project": "transformation/",
@@ -170,7 +171,11 @@
     "source_tests": "tests/ingestion/test_{name}.py",
     "source_config": "ingestion/.dlt/config.toml",
     "review": "docs/review/{date}-{type}-{slug}.md",
-    "proposal": "docs/proposal/{nnnn}-{slug}.md"
+    "proposal": "docs/proposal/{nnnn}-{slug}.md",
+    "requirement": "docs/requirement/{intent}.md",
+    "plan": "docs/plans/{intent}.md",
+    "verification": "docs/verify/{intent}.md",
+    "case_record": "docs/cases/{intent}.md"
   },
   "modules": {
     "ingestion": {
@@ -231,7 +236,7 @@
     },
     "requirements": {
       "path": "docs/requirement/",
-      "description": "Requirements, one file per intent, named by the plugin's artifact-path convention. Plans go to docs/plans/ and certifications to docs/verify/ when first written."
+      "description": "Requirements, one file per intent at artifact_paths.requirement; plans and verifications go to artifact_paths.plan and artifact_paths.verification when first written."
     },
     "rules": {
       "path": ".agents/rules/",
@@ -296,6 +301,6 @@
     "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work.",
     "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it.",
     "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file, so a catalog name never resolves there. dbt runs use the dev target.",
-    "artifact_paths": "Requirements, plans and certifications use the plugin's default paths (docs/requirement/, docs/plans/, docs/verify/). Design records are layered: artifact_paths.design_record_model."
+    "artifact_paths": "Every artifact location is declared here: requirement, plan, verification and case_record per intent, design records per model or pipeline (layered: design_record_model) or area. The plugin names an intent's artifacts; this map places them."
   }
 }

@@ -46,7 +46,7 @@ fails when either names something that does not exist.
   [`design-records.md`](.agents/rules/design-records.md).
 - New terms go in `CONTEXT.md` only when a model, ADR or design record uses them.
   See [`context.md`](.agents/rules/context.md).
-- Requirements for a piece of work go in `docs/requirement/`, plans in `docs/plans/` and certifications in `docs/verify/` (the plugin's artifact-path convention).
+- Requirements for a piece of work go in `docs/requirement/`, plans in `docs/plans/` and verifications in `docs/verify/`, as `repo-map.json` `artifact_paths` declares.
 
 ## Pull requests
 

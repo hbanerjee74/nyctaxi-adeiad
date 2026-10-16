@@ -37,6 +37,10 @@ Depended on by: `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_da
 - 11 trips have a pickup time before any zone or vendor version, so their zone and vendor keys are null (malformed timestamps); they stay in the fact.
 - Airport-fee states: present 8,802,815, missing 751,962, not applicable 167,585.
 - Model SQL: `transformation/models/marts/core/fct_trip.sql`.
+- Slice: the complete January seed, no sample; its 3,021,175 trips build in under a minute in the sandbox, and every minority class the requirements depend on (green trips, refunds, missing fees, unattributed trips, out-of-window and malformed pickups) is present in full.
+- January seed: bronze yellow 2,964,624 and green 56,551; conforming loses or adds no row; the fact holds 3,021,175 rows and 3,021,175 distinct `trip_key`.
+- Every conformed trip finds its fleet's extras row: `assert_enrichment_rejoin_matches_every_trip` returns no rows.
+- Fleet attribution is optional: 147,434 of 3,021,175 January trips; `is_fleet_attributed` agrees with driver, vehicle and shift presence in every row.
 
 ## Semantic Model
 

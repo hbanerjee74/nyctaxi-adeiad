@@ -32,7 +32,7 @@ Everything downstream of `int_trips_conformed` and `fct_trip`; see their design 
 
 ## Supporting evidence
 
-- [`docs/design/data-slices/2026-08-29-the-trip-fact-slice.md`](../data-slices/2026-08-29-the-trip-fact-slice.md): every conformed trip has a distinct key and finds its extras row.
+- [`fct_trip`](../models/core/fct_trip.md) `## Evidence`: every conformed trip has a distinct key and finds its extras row.
 - `assert_enrichment_rejoin_matches_every_trip`: guards `D-02`.
 - `int_trips_conformed` unit tests `trips_conformed_keeps_one_row_per_distinct_trip` and `trips_conformed_distinguishes_fleets_with_the_same_natural_columns`: pin `D-01` and `D-04`.
 

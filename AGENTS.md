@@ -38,7 +38,7 @@ Operator conventions live in `.agents/rules/`. Read the ones that match your tas
 
 - Decisions are ADRs in `docs/adr/`. Standing business answers (week boundary, null handling) are ADRs too: check them before asking a requirement question.
 - Each model and pipeline has a design record under `docs/design/`. A design record cites its ADRs as `ADR NNNN`, and an ADR lists the designs it affects.
-- Requirements, plans and certifications follow the plugin's artifact-path convention: `docs/requirement/`, `docs/plans/` and `docs/verify/`, named `<date>-<intent title>-<slug suffix>.md`. Past requirements are in `docs/requirement/`.
+- Each intent's Requirement, Plan and Verification live where `repo-map.json` `artifact_paths` says (`requirement`, `plan`, `verification`); the plugin names each one for its intent.
 - Review findings for triage are in `docs/review/`; do not read them for a build task. Read a proposal in `docs/proposal/` only when the intent's requirement links to it.
 
 ## Commands
