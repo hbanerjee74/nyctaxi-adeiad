@@ -115,3 +115,17 @@ The onboarding skill (`.agents/skills/onboarding/`) replaces `init` for both an 
 2. Change the skills that restate a rule to read it (`domain-modeling`, `designing`, `generating-dbt-model`, `generating-dlt-pipeline`, `shipping`), one at a time, each with its eval cases.
 3. Add the new routes (`add-or-update-source` for custom sources, `generating-orchestration` for `duckdb_local`).
 4. Update CI (`install-ci`, `adr_lint.py`, `design_drift.py`).
+
+## VD-6872 journey findings (2026-10-15)
+
+Two journeys replayed real Studio intents on this repo through to shipping (vibedata-data-engineering#797, branch `feature/vd-6872-simplify-ways-of-working`): the surcharge split and tip rate (transformation, 20 min, 160 LLM calls) and the HVFHV 2024-01 source (ingestion, 40 min, 171 LLM calls). Both shipped; each failed one judged criterion.
+
+| Owner | Reference | Finding | Change | Status |
+| --- | --- | --- | --- | --- |
+| capturing-requirements | `skills/capturing-requirements/SKILL.md` step 3 | A January-only window was recorded without naming its conflict with ADR 0005's three-month window | A request that contradicts a decided ADR is named in the question with the ADR, and the user's answer recorded; neither side is applied silently | done, shipped in vibedata-data-engineering#797 |
+| transformation playbook | `_shared/playbooks/kinds/transformation.md` `## Intent`, Population row | Missing airport fees were summed as zero because an existing model did so; no question was asked | How an existing model treats a measure does not settle it for a new column | done, shipped in vibedata-data-engineering#797 |
+| build | `agents/_sources/build.md` `## Stops` | After a `verified` Verification the agent asked a separate "continue to shipping?" question | A skill that hands off without a question (verified → shipping) asks nothing | done, shipped in vibedata-data-engineering#797 |
+| platform (evals) | `tests/evals/scripts/openhands-provider.js` | The provider replaced the scenario's `VD_INTENT_TITLE` and `VD_INTENT_SLUG` with a synthetic identity, so artifacts were named `<date>-intent-journeys-…` | The provider keeps an identity the scenario assigns | done, shipped in vibedata-data-engineering#797 |
+| this repo | `AGENTS.md`, `CONTRIBUTING.md`, `repo-map.json` (`modules.intents`, `notes_for_agents.artifact_paths`), `.agents/rules/workarounds.md` | Cited the deleted plugin artifact-path convention and the old word "certification"; the agent repeated "Certification" | Point at `repo-map.json` `artifact_paths`; say Verification | done in this repo (this PR) |
+| onboarding | `references/base-setup.md`, `references/existing-docs.md`, `templates/repo/AGENTS.md`, `templates/repo/repo-map.json`, `templates/rules/workarounds.md` | Relied on plugin default paths that no longer exist | `artifact_paths` declares every class (requirement, plan, verification, case_record, design records); Verification wording | done in this repo (this PR) |
+| add-or-update-source | `agents/build.md` `## Sizing` | The ingestion run loaded `add-or-update-source` before `capturing-requirements`; it wrote nothing before the Requirement | None yet; watch in the next runs | open |
