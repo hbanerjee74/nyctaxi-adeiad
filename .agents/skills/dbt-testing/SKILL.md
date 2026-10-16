@@ -1,3 +1,8 @@
+---
+name: dbt-testing
+description: "Use when writing or changing dbt or Python tests: generic, singular and unit tests, comparing values, and which models need which."
+---
+
 # dbt testing
 
 ## Generic tests (C1)

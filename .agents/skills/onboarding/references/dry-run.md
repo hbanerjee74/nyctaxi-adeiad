@@ -8,7 +8,7 @@ Then pick three tasks a user of this repo would ask for:
 2. Add or change a mart model.
 3. The most used domain skill, or a change to the most connected intermediate model.
 
-For each, using only `AGENTS.md`, `repo-map.json` and `.agents/rules/`, write down:
+For each, using only `AGENTS.md`, `repo-map.json` and `.agents/skills/`, write down:
 
 | Task | Files read | Files changed or created | Commands |
 | --- | --- | --- | --- |

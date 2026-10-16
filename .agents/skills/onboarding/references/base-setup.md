@@ -40,35 +40,35 @@ Only when the repo has none. When the repo has its own that conflicts, leave it 
 | `ruff.toml` | `[lint] select = ["E4", "E7", "E9", "F"]`, and `extend-exclude` with any paths the repo's documented lint command or CI already excludes (for example `--extend-exclude ingestion/sources`). Ruff's default selection changes between releases. Fix nothing it reports; file the findings as `style`. |
 | `.gitignore` lines | Appended to the existing `.gitignore` (or a new one), only the lines missing from [`gitignore-fragment`](../templates/repo/gitignore-fragment), with the repo's own dlt preview path. If `.user.yml` files are tracked, `git rm --cached` them. |
 
-## Rules
+## Convention skills
 
-Copy these from [templates/rules/](../templates/rules/) as they are; only examples may change to the repo's own. When the repo's confirmed inventory says otherwise (its own commit format, for example), the inventory wins for that line.
+Copy these from [templates/skills/](../templates/skills/) as they are, each `<name>.md` becoming `.agents/skills/<name>/SKILL.md` (the templates are not named `SKILL.md`, so the agent does not load them as skills); only examples may change to the repo's own. When the repo's confirmed inventory says otherwise (its own commit format, for example), the inventory wins for that line.
 
-| Rule file | What it holds |
+| Skill | What it holds |
 | --- | --- |
-| `context.md` | What goes in `CONTEXT.md` and what does not. |
-| `design-records.md` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
-| `adr.md` | The three tests, what is not an ADR, content, supersession. |
-| `git-and-prs.md` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
-| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, sample loads that land whole pages. |
+| `context` | What goes in `CONTEXT.md` and what does not. |
+| `design-records` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
+| `adr` | The three tests, what is not an ADR, content, supersession. |
+| `git-and-prs` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
+| `workarounds` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, sample loads that land whole pages. |
 
-Write these into the repo's own rule files beside its conventions:
+Write these into the repo's own convention skills beside its conventions:
 
-| Rule file | Rule |
+| Skill | Rule |
 | --- | --- |
-| `dlt.md` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. `replace` is proven with two sample loads (the limit's row count and one load package), never a second full load. |
-| `dlt.md` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
-| `dlt.md` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
-| `dbt-models.md` | Sources name a schema and tables, never a database, and no var feeds either. |
-| `dlt.md` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
-| `adr.md` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
-| `dbt-models.md` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
-| `dbt-testing.md` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
-| `dbt-testing.md` | Rebuilt values are compared at the cent for money and at a stated tolerance otherwise, never by hashing raw doubles: DuckDB float aggregation is not reproducible bit for bit. |
+| `dlt` | Sample loads (`DLT_INGEST_LIMIT`) while a pipeline is written; one full load at most per intent, at the end, only when the requirement asks for loaded data. `replace` is proven with two sample loads (the limit's row count and one load package), never a second full load. |
+| `dlt` | Profile a remote source file once per intent into `.agents_tmp/<source>-profile.json`, and take every later figure from it. |
+| `dlt` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
+| `dbt-models` | Sources name a schema and tables, never a database, and no var feeds either. |
+| `dlt` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
+| `adr` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
+| `dbt-models` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
+| `dbt-testing` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
+| `dbt-testing` | Rebuilt values are compared at the cent for money and at a stated tolerance otherwise, never by hashing raw doubles: DuckDB float aggregation is not reproducible bit for bit. |
 
 ## Agent entry points
 
-- `AGENTS.md` starts with a Startup section: before a task, read `repo-map.json` and the rule file for the task (`dlt.md` to add a source, `dbt-models.md` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change. Read `repo-map.json` whole, once: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories or read it again in parts.
+- `AGENTS.md` starts with a Startup section: before a task, invoke the convention skill for the task (`dlt` to add a source, `dbt-models` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change. Read `repo-map.json` whole, once: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories or read it again in parts.
 - Material that is not for build tasks (setup or maintenance notes, demo or evaluation prompts, answer keys) is declared in `key_directories` and `notes_for_agents` as not read. Prompts used to test agents are an answer key: file a `gap` finding recommending a move into the maintenance folder.
 - Artifact paths: no `## Artifact Paths` table in `AGENTS.md`. The plugin has no default locations, so `repo-map.json` `artifact_paths` declares every class it writes: `requirement`, `plan`, `verification` and `case_record` (each with the `{intent}` name the plugin gives an intent), `design_record_model`, `design_record_pipeline` and `design_record_area`. A repo without them makes the build agent stop and ask for onboarding.
 - `repo-map.json` `notes_for_agents` has at least: `startup`; `new_source` (a new source mirrors an existing `sources` entry and creates every artifact it lists); `reviews_and_proposals`; and, when pipelines use the Vibedata dlt package, the environment variables they need outside Studio.

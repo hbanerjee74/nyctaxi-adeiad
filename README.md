@@ -11,7 +11,7 @@ driver, vehicle, garage or weather data is real. A copy of this domain is also
 published at <https://github.com/vibedata-showcase/nyc-taxi-duckdb>.
 
 It is built as a model answer for a data product worked on by Vibedata agents:
-conventions live in `AGENTS.md` and `.agents/rules/`, locations in
+conventions live in `AGENTS.md` and `.agents/skills/`, locations in
 `repo-map.json`, decisions in `docs/adr/`, and a design record for each model and
 pipeline in `docs/design/`.
 
@@ -55,7 +55,7 @@ reproducible from the code and the public TLC files.
 - `tests/`: pytest tests for ingestion, orchestration and the two maps.
 - `tools/dq.py`: local profiling and join-evidence utility.
 - `repo-map.json` and `test-map.json`: where things are, and which tests protect them.
-- `AGENTS.md` and `.agents/rules/`: how to work in this repo.
+- `AGENTS.md` and `.agents/skills/`: how to work in this repo.
 - `CONTEXT.md`: the vocabulary of the data product.
 - `docs/adr/` and `docs/design/`: decisions, and design records per model and pipeline.
 - `docs/setup/`: repo maintenance: how this repo was built and the skill changes it implies.

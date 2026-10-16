@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "repo-map",
-  "description": "Compact map of a data-engineering repository for agent startup. Modelled on studio's repo-map schema, tailored for dlt and dbt: adds layers, sources and artifact_paths; has no conventions (those are .agents/rules/). Refresh when a layer, entrypoint, command, artifact location or directory changes.",
+  "description": "Compact map of a data-engineering repository for agent startup. Modelled on studio's repo-map schema, tailored for dlt and dbt: adds layers, sources and artifact_paths; has no conventions (those are skills in .agents/skills/). Refresh when a layer, entrypoint, command, artifact location or directory changes.",
   "type": "object",
   "required": [
     "generated_at",

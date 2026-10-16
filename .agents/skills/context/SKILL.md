@@ -1,3 +1,8 @@
+---
+name: context
+description: "Use when adding or changing CONTEXT.md: what belongs in the vocabulary of the data product and what does not."
+---
+
 # What goes into CONTEXT.md (E1, E10)
 
 `CONTEXT.md` is the vocabulary of the data product. Nothing else.

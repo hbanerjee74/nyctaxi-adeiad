@@ -6,9 +6,9 @@ Read [`repo-map.json`](repo-map.json) first. It says where everything is: layers
 
 ## Startup
 
-Before a task, read `repo-map.json` and the rule file for the task. To add a source, read [`dlt.md`](.agents/rules/dlt.md); for a model, [`dbt-models.md`](.agents/rules/dbt-models.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. Read `repo-map.json` whole, once, at the start of a task: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories (`find`, `ls -R`) or read it again in parts. List one folder only when the repo-map names it and the task needs what is in it.
+Before a task, read `repo-map.json` and invoke the convention skill for the task. To add a source, invoke [`dlt`](.agents/skills/dlt/SKILL.md); for a model, [`dbt-models`](.agents/skills/dbt-models/SKILL.md). Read other documents only when the task needs them: not `README.md` or `CONTRIBUTING.md` for a pipeline or model change, and never `docs/setup/`, which is repo maintenance. Read `repo-map.json` whole, once, at the start of a task: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories (`find`, `ls -R`) or read it again in parts. List one folder only when the repo-map names it and the task needs what is in it.
 
-After the conversation is condensed, re-read `.agents/rules/workarounds.md` before the next tool call: its rules are easy to lose in a summary.
+After the conversation is condensed, invoke the [`workarounds`](.agents/skills/workarounds/SKILL.md) skill again before the next tool call: its rules are easy to lose in a summary.
 
 ## Medallion layers
 
@@ -18,21 +18,21 @@ After the conversation is condensed, re-read `.agents/rules/workarounds.md` befo
 
 Layer, schema and builder for each are in `repo-map.json` under `layers`.
 
-## Rules
+## Conventions
 
-Operator conventions live in `.agents/rules/`. Read the ones that match your task.
+Operator conventions are skills in `.agents/skills/`, and the agent's skill list shows each one. Invoke the ones that match your task.
 
-| Rule | Covers |
+| Skill | Covers |
 | --- | --- |
-| [`dbt-models.md`](.agents/rules/dbt-models.md) | Layer mapping, model naming, properties files, materialisation |
-| [`sql-style.md`](.agents/rules/sql-style.md) | SQL formatting |
-| [`dbt-testing.md`](.agents/rules/dbt-testing.md) | Generic, singular, unit and Python tests |
-| [`dlt.md`](.agents/rules/dlt.md) | Datasets, write disposition, schema contract, bronze carries no logic |
-| [`context.md`](.agents/rules/context.md) | What goes into `CONTEXT.md` |
-| [`adr.md`](.agents/rules/adr.md) | What goes into an ADR, and when |
-| [`workarounds.md`](.agents/rules/workarounds.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, ruff for lint, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages. Each names what removes it |
-| [`design-records.md`](.agents/rules/design-records.md) | What goes into a design record |
-| [`git-and-prs.md`](.agents/rules/git-and-prs.md) | Commit and pull request format |
+| [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
+| [`sql-style`](.agents/skills/sql-style/SKILL.md) | SQL formatting |
+| [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md) | Generic, singular, unit and Python tests |
+| [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, bronze carries no logic |
+| [`context`](.agents/skills/context/SKILL.md) | What goes into `CONTEXT.md` |
+| [`adr`](.agents/skills/adr/SKILL.md) | What goes into an ADR, and when |
+| [`workarounds`](.agents/skills/workarounds/SKILL.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, ruff for lint, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages. Each names what removes it |
+| [`design-records`](.agents/skills/design-records/SKILL.md) | What goes into a design record |
+| [`git-and-prs`](.agents/skills/git-and-prs/SKILL.md) | Commit and pull request format |
 
 ## Decisions and designs
 
@@ -67,6 +67,6 @@ Keep these current in the same change that makes them stale.
 | `repo-map.json` | A layer, source, pipeline, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
 | `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
-| `.agents/rules/` | A convention changes | none |
+| `.agents/skills/` | A convention changes | none |
 | `AGENTS.md` | A durable fact the code does not show: an environment constraint or a workflow gotcha | none |
 

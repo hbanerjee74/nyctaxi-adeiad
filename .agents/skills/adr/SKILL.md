@@ -1,3 +1,8 @@
+---
+name: adr
+description: "Use when deciding whether a decision needs an ADR, or when writing, superseding or reviewing one: what goes into an ADR, when, and what does not."
+---
+
 # What goes into an ADR (E3, E11)
 
 ## Write an ADR when all three hold

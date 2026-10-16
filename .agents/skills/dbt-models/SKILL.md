@@ -1,3 +1,8 @@
+---
+name: dbt-models
+description: "Use when adding or changing a dbt model in transformation/: medallion layer mapping, model naming, properties files and materialisation."
+---
+
 # dbt models
 
 Operator conventions for dbt models in `transformation/`. Where files live is declared in `repo-map.json`; this file covers naming and shape.

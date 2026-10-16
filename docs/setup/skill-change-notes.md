@@ -5,7 +5,7 @@ Findings that feed `R-11` (list of skill changes, with what `init` must do for g
 ## init
 
 - Brownfield: detect the existing layout (dbt project dir, design-record layout, test location, existing ADRs and `CONTEXT.md`) and write `repo-map.json` from it, rather than seeding template defaults.
-- Greenfield: write `repo-map.json` with default locations, plus `AGENTS.md` and `.agents/rules/`.
+- Greenfield: write `repo-map.json` with default locations, plus `AGENTS.md` and `.agents/skills/`.
 - Today `init` writes only `AGENTS.md`, with no Artifact Paths table and a staging layout (`staging/<source>/`) that existing repos may not use.
 
 ## Locations
@@ -17,7 +17,7 @@ Findings that feed `R-11` (list of skill changes, with what `init` must do for g
 
 ## Conventions restated in skills
 
-- Naming, folder layout, SQL style, test policy, commit format and business defaults are restated across several skills. They move to `.agents/rules/`; see `conventions-inventory.md`.
+- Naming, folder layout, SQL style, test policy, commit format and business defaults are restated across several skills. They move to `.agents/skills/`; see `conventions-inventory.md`.
 
 ## add-or-update-source / generating-dlt-pipeline
 
@@ -29,7 +29,7 @@ Findings that feed `R-11` (list of skill changes, with what `init` must do for g
 
 ## Content bars
 
-- `domain-modeling` and `designing` carry the bars for what goes into `CONTEXT.md`, ADRs and design records. Decision: they are operator rules (`.agents/rules/context.md`, `adr.md`, `design-records.md`), so the skills shrink to "read the rule, then write". Formats read by CI stay in the skill.
+- `domain-modeling` and `designing` carry the bars for what goes into `CONTEXT.md`, ADRs and design records. Decision: they are operator rules (`.agents/skills/context/SKILL.md`, `adr.md`, `design-records.md`), so the skills shrink to "read the rule, then write". Formats read by CI stay in the skill.
 
 ## Orchestration
 

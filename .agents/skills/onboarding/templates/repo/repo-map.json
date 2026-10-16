@@ -51,7 +51,7 @@
     "orchestration": {"path": "orchestration/", "description": "Scripts that run ingestion and the dbt build, in order."},
     "transformation": {"path": "transformation/", "description": "The dbt project."},
     "python_tests": {"path": "tests/", "description": "pytest tests for ingestion, orchestration and the two maps."},
-    "rules": {"path": ".agents/rules/", "description": "Operator conventions."},
+    "conventions": {"path": ".agents/skills/", "description": "Operator conventions."},
     "decisions": {"path": "docs/adr/", "description": "ADRs, including the standing business answers."},
     "reviews": {"path": "docs/review/", "description": "Review findings for triage: intent, proposal, declined or deferred."},
     "proposals": {"path": "docs/proposal/", "description": "Proposed work, read only when an intent's requirement links to it."}
@@ -61,7 +61,7 @@
     "orchestration/": "run scripts",
     "transformation/": "dbt project",
     "tests/": "pytest tests",
-    ".agents/rules/": "operator rules",
+    ".agents/skills/": "convention and procedure skills",
     "docs/adr/": "decisions",
     "docs/review/": "review findings",
     "docs/proposal/": "proposals"
@@ -80,9 +80,9 @@
     "python_lint": "ruff check .",
     "adr_lint": "python3 .github/scripts/adr_lint.py"
   },
-  "key_references": {"agents": "AGENTS.md", "vocabulary": "CONTEXT.md", "rules": ".agents/rules/", "test_map": "test-map.json", "schema": "repo-map.schema.json"},
+  "key_references": {"agents": "AGENTS.md", "vocabulary": "CONTEXT.md", "conventions": ".agents/skills/", "test_map": "test-map.json", "schema": "repo-map.schema.json"},
   "notes_for_agents": {
-    "startup": "Read this file first. AGENTS.md says how to work; .agents/rules/ has the conventions.",
+    "startup": "Read this file first. AGENTS.md says how to work; the skills in .agents/skills/ hold the conventions.",
     "new_source": "The first source sets the pattern; every later source mirrors an existing entry in `sources` and creates every artifact it lists. Register it in orchestration/run_ingest.py and test-map.json.",
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
     "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file. dbt runs use the dev target.",

@@ -1,3 +1,8 @@
+---
+name: dbt-models
+description: "Use when adding or changing a dbt model in transformation/: medallion layer mapping, model naming, properties files and materialisation."
+---
+
 # dbt models
 <!-- onboarding
 ask: no

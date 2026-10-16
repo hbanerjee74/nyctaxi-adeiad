@@ -38,4 +38,4 @@ Data-loss check: the fix adds no deduplication or filter. ADR check: consistent 
 
 ## Outcome
 
-Fixed in `18b2e55` ("fleet-specific extras read staging so the trip key matches"), with the new singular test. `2f58ba5` later moved the extras back to `source()` under the staging-reads-only-`source()` rule, applying the same `timezone('UTC', col)` conversion inline. After the fix, on the three-month load: `airport_fee_status` present 8,802,815, missing 751,962, not_applicable 167,585, and the rejoin test returns no rows. The input rule became `.agents/rules/dbt-models.md` B17 and the rejoin test rule C10.
+Fixed in `18b2e55` ("fleet-specific extras read staging so the trip key matches"), with the new singular test. `2f58ba5` later moved the extras back to `source()` under the staging-reads-only-`source()` rule, applying the same `timezone('UTC', col)` conversion inline. After the fix, on the three-month load: `airport_fee_status` present 8,802,815, missing 751,962, not_applicable 167,585, and the rejoin test returns no rows. The input rule became `.agents/skills/dbt-models/SKILL.md` B17 and the rejoin test rule C10.
