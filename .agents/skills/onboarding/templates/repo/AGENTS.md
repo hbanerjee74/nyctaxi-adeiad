@@ -60,14 +60,14 @@ Operator conventions live in `.agents/rules/`. Read the ones that match your tas
 <!-- onboarding
 ask: yes
 question: Where do design records go?
-recommended: Layered, `docs/design/models/<layer>/<model>.md`; ADRs, requirements, plans and certifications at the plugin's default paths.
+recommended: Layered, `docs/design/models/<layer>/<model>.md`; ADRs, requirements, plans and verifications at the locations repo-map.json artifact_paths declares.
 alternatives: flat `docs/design/models/<model>.md`.
 fills: the design-record wording here, and repo-map.json artifact_paths.design_record_model
 -->
 
 - Decisions are ADRs in `docs/adr/`. Standing business answers are ADRs too: check them before asking a requirement question.
 - Each model and pipeline with a decision its code does not explain has a design record under `docs/design/` (models layered by folder). A design record cites its ADRs as `ADR NNNN`, and an ADR lists the designs it affects.
-- Requirements, plans and certifications follow the plugin's artifact-path convention: `docs/requirement/`, `docs/plans/` and `docs/verify/`.
+- Each intent's Requirement, Plan and Verification live where `repo-map.json` `artifact_paths` says (`requirement`, `plan`, `verification`); the plugin names each one for its intent.
 - Review findings for triage are in `docs/review/`; do not read them for a build task. Read a proposal in `docs/proposal/` only when the intent's requirement links to it.
 
 ## Commands

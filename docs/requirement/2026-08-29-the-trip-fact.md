@@ -40,3 +40,4 @@ None.
 ## Approvals
 
 - 2026-08-29 — requirement approved — reconstructed from the repository; no recorded answer exists — 97862f7
+- 2026-08-29 — ship approved — reconstructed: shipped before Studio recorded ship approvals; no recorded answer exists — 97862f7

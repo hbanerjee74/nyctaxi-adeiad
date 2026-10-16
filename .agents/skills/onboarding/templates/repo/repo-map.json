@@ -25,6 +25,7 @@
   "artifact_paths": {
     "design_record_model": "docs/design/models/{layer}/{model}.md",
     "design_record_pipeline": "docs/design/pipelines/{pipeline}.md",
+    "design_record_area": "docs/design/{area}/{subject}.md",
     "context": "CONTEXT.md",
     "adr": "docs/adr/{nnnn}-{slug}.md",
     "dbt_project": "transformation/",
@@ -39,7 +40,11 @@
     "source_tests": "tests/ingestion/test_{name}.py",
     "source_config": "ingestion/.dlt/config.toml",
     "review": "docs/review/{date}-{type}-{slug}.md",
-    "proposal": "docs/proposal/{nnnn}-{slug}.md"
+    "proposal": "docs/proposal/{nnnn}-{slug}.md",
+    "requirement": "docs/requirement/{intent}.md",
+    "plan": "docs/plans/{intent}.md",
+    "verification": "docs/verify/{intent}.md",
+    "case_record": "docs/cases/{intent}.md"
   },
   "modules": {
     "ingestion": {"path": "ingestion/", "description": "dlt pipelines (one per source), their modules under sources/, resource docs under docs/, and .dlt/config.toml."},
@@ -81,7 +86,7 @@
     "new_source": "The first source sets the pattern; every later source mirrors an existing entry in `sources` and creates every artifact it lists. Register it in orchestration/run_ingest.py and test-map.json.",
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
     "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file. dbt runs use the dev target.",
-    "artifact_paths": "Requirements, plans and certifications use the plugin's default paths. Design records are layered: artifact_paths.design_record_model.",
+    "artifact_paths": "Every artifact location is declared here: requirement, plan, verification and case_record per intent, design records per model or pipeline (layered: design_record_model) or area. The plugin names an intent's artifacts; this map places them.",
     "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it."
   }
 }

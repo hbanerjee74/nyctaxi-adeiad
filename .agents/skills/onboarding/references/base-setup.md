@@ -50,7 +50,7 @@ Copy these from [templates/rules/](../templates/rules/) as they are; only exampl
 | `design-records.md` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
 | `adr.md` | The three tests, what is not an ADR, content, supersession. |
 | `git-and-prs.md` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
-| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), the evaluator only for model changes, `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset, one run per gate, dbt packages for the ship-time contract check. |
+| `workarounds.md` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), `plan.md` and `verify.md` written once per phase, large files changed by script, ruff for lint, verify from the landed table and saved profile, the Tier-1 dev dataset. |
 
 Write these into the repo's own rule files beside its conventions:
 
@@ -70,7 +70,7 @@ Write these into the repo's own rule files beside its conventions:
 
 - `AGENTS.md` starts with a Startup section: before a task, read `repo-map.json` and the rule file for the task (`dlt.md` to add a source, `dbt-models.md` for a model); do not read README, CONTRIBUTING or other human documents for a pipeline or model change. Read `repo-map.json` whole, once: its `modules`, `artifact_paths` and `sources` are the index of the repo, so do not list directories or read it again in parts.
 - Material that is not for build tasks (setup or maintenance notes, demo or evaluation prompts, answer keys) is declared in `key_directories` and `notes_for_agents` as not read. Prompts used to test agents are an answer key: file a `gap` finding recommending a move into the maintenance folder.
-- Artifact paths: no `## Artifact Paths` table in `AGENTS.md`. Requirements, plans and certifications use the plugin defaults; any layout the repo keeps that differs from a default (for example layered design records) goes in `repo-map.json` `artifact_paths`, with a `notes_for_agents` entry naming it.
+- Artifact paths: no `## Artifact Paths` table in `AGENTS.md`. The plugin has no default locations, so `repo-map.json` `artifact_paths` declares every class it writes: `requirement`, `plan`, `verification` and `case_record` (each with the `{intent}` name the plugin gives an intent), `design_record_model`, `design_record_pipeline` and `design_record_area`. A repo without them makes the build agent stop and ask for onboarding.
 - `repo-map.json` `notes_for_agents` has at least: `startup`; `new_source` (a new source mirrors an existing `sources` entry and creates every artifact it lists); `reviews_and_proposals`; and, when pipelines use the Vibedata dlt package, the environment variables they need outside Studio.
 
 ## Checks for the onboarding review
