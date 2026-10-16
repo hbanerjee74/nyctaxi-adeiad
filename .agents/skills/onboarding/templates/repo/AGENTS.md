@@ -83,7 +83,7 @@ python3 orchestration/run_transform.py    # dbt build
 python3 -m pytest tests -q                # Python tests
 ```
 
-The command for each layer's tests is in `test-map.json`.
+The command for each layer's tests is in `test-map.json`. Lint Python with `ruff check` (the `python_lint` command in `repo-map.json`), which reads `ruff.toml`; do not use the `check_python` tool, which applies rules this repo does not use.
 
 ## Safety
 <!-- onboarding
