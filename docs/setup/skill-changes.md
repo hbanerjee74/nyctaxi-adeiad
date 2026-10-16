@@ -21,7 +21,9 @@ The onboarding skill (`.agents/skills/onboarding/`) replaces `init` for both an 
 
 ## Changes by skill
 
-None open. A new row uses the columns Skill, Reference and Suggested change.
+| Skill | Reference | Suggested change |
+| --- | --- | --- |
+| platform (Studio runtime) | conversation condensation | Once VD-6910 has shipped, check in the next long run that the agent still follows the repo's rules after a condensation. In run b2f37191 and the seventh HVFHV run it stopped following `workarounds` after condensing (repeated `verify.md` edits, a missed contract-check workaround). If it still drifts, the fix is to keep `AGENTS.md` and the skills it names in context through a condensation. |
 
 ## Tracked in Linear
 
