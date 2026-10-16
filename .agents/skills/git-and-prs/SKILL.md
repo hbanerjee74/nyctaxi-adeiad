@@ -1,6 +1,6 @@
 ---
 name: git-and-prs
-description: "Use when committing, naming a branch or raising a pull request: the commit subject format and the pull request sections."
+description: "Use when committing, naming a branch or writing a pull request description."
 ---
 
 # Git and pull requests

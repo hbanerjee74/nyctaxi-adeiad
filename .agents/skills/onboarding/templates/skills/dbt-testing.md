@@ -1,6 +1,6 @@
 ---
 name: dbt-testing
-description: "Use when writing or changing dbt or Python tests: generic, singular and unit tests, comparing values, and which models need which."
+description: "Use when writing, changing or running dbt tests, unit tests or Python tests, or when comparing rebuilt values."
 ---
 
 # dbt testing

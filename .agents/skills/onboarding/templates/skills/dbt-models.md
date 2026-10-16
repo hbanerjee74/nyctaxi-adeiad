@@ -1,6 +1,6 @@
 ---
 name: dbt-models
-description: "Use when adding or changing a dbt model in transformation/: medallion layer mapping, model naming, properties files and materialisation."
+description: "Use when creating, renaming or editing a dbt model, its properties file or its materialisation in transformation/."
 ---
 
 # dbt models

@@ -1,6 +1,6 @@
 ---
 name: dlt
-description: "Use when adding or changing a dlt source or pipeline in ingestion/: datasets, write disposition, schema contract, sample and full loads, and keeping bronze free of logic."
+description: "Use when adding or changing a dlt source or pipeline in ingestion/, or when running a sample or full load."
 ---
 
 # dlt ingestion

@@ -1,6 +1,6 @@
 ---
 name: workarounds
-description: "Use after a conversation is condensed, and before editing plan or verify files, running dbt in the sandbox, linting, or running Tier-1 tests: the temporary rules that cover gaps in the platform skills."
+description: "Use after a conversation is condensed, and before editing plan.md or verify.md, running dbt in the sandbox, linting Python, running Tier-1 tests or doing a sample load."
 ---
 
 # Workarounds

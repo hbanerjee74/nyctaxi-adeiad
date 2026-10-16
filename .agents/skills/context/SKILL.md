@@ -1,6 +1,6 @@
 ---
 name: context
-description: "Use when adding or changing CONTEXT.md: what belongs in the vocabulary of the data product and what does not."
+description: "Use when adding, changing or removing a term in CONTEXT.md."
 ---
 
 # What goes into CONTEXT.md (E1, E10)

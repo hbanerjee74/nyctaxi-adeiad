@@ -1,6 +1,6 @@
 ---
 name: sql-style
-description: "Use when writing or formatting SQL in dbt models, tests or macros: keyword case, identifiers and joins."
+description: "Use when writing, formatting or linting SQL in dbt models, tests or macros."
 ---
 
 # SQL style (B7)

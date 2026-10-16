@@ -1,6 +1,6 @@
 ---
 name: design-records
-description: "Use when writing or amending the design record for a model or pipeline: what goes into it and how it cites ADRs."
+description: "Use when writing or amending a design record under docs/design/ for a model or pipeline."
 ---
 
 # What goes into a design record (E9)

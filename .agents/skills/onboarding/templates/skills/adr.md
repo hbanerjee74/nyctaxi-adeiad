@@ -1,6 +1,6 @@
 ---
 name: adr
-description: "Use when deciding whether a decision needs an ADR, or when writing, superseding or reviewing one: what goes into an ADR, when, and what does not."
+description: "Use when recording a decision, when a choice might need an ADR, or when writing, superseding or reviewing a file in docs/adr/."
 ---
 
 # What goes into an ADR (E3, E11)
