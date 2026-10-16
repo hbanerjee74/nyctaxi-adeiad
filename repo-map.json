@@ -204,7 +204,7 @@
     },
     "finance": {
       "path": "transformation/models/marts/finance/",
-      "description": "Revenue marts. Apply the billable rule."
+      "description": "Revenue marts. Apply the billable rule (ADR 0003): filter on `fct_trip.is_billable`, inside the report window."
     },
     "ops": {
       "path": "transformation/models/marts/ops/",

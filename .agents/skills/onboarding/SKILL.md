@@ -17,7 +17,7 @@ Decide at the requirement step, from the repo and the Domain database:
 | --- | --- | --- |
 | Empty | Empty | Greenfield: [greenfield.md](references/greenfield.md) |
 | Has dbt or dlt code | Has data | Brownfield: the rest of this skill |
-| Has dbt or dlt code | Empty | Brownfield, with the empty-Domain check in [base-setup.md](references/base-setup.md) |
+| Has dbt or dlt code | Empty | Brownfield, loading the Domain first: [base-setup.md](references/base-setup.md) (Empty Domain database) |
 | Empty | Has data | Not supported yet: say so and stop. A migration assessment of an existing warehouse is future work |
 
 ## The two stages

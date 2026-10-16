@@ -34,6 +34,18 @@
       "commands": {
         "structural": "python3 -m pytest tests/test_maps.py -q"
       }
+    },
+    "decisions": {
+      "sources": [
+        "docs/adr/",
+        "docs/design/"
+      ],
+      "structural": [
+        "tests/test_adr_links.py"
+      ],
+      "commands": {
+        "structural": "python3 -m pytest tests/test_adr_links.py -q"
+      }
     }
   }
 }

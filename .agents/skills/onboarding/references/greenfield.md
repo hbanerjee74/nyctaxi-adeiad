@@ -29,7 +29,8 @@ Write from [templates/](../templates/), filling the confirmed answers:
 | `ingestion/.dlt/config.toml`, `ingestion/sources/`, `ingestion/requirements.txt` | `templates/dlt/` |
 | `tests/conftest.py`, `tests/orchestration/test_run.py` | `templates/tests/` (`test_run.py` goes under `tests/orchestration/`) |
 | `orchestration/run_ingest.py`, `run_transform.py`, `run_all.py` | `templates/orchestration/` |
-| `tests/test_maps.py` | `templates/tests/` |
+| `tests/test_maps.py`, `tests/test_adr_links.py` | `templates/tests/` |
+| Where the repo checks run | The Repo checks question in [base-setup.md](base-setup.md); recommended `.github/workflows/repo-checks.yml` from `templates/repo/` |
 | `repo-map.json`, `repo-map.schema.json`, `test-map.json` | `templates/repo/`, layers from the answers, `sources` empty |
 | `AGENTS.md`, `ruff.toml`, `requirements-dev.txt`, `.gitignore` (`gitignore-fragment`) | `templates/repo/`, `<!-- onboarding -->` blocks removed |
 | `.sqlfluff` | `templates/repo/sqlfluff.cfg`; its profile comes from `.github/profiles/`, which `install-ci` writes |

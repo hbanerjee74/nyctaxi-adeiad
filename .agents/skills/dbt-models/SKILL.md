@@ -58,4 +58,4 @@ None unless a requirement asks for them. When one does: gold only, all or none o
 
 The trip-grain models below `fct_trip` are views, so the trip grain is stored once: `stg_tlc__yellow_trip_extras`, `stg_tlc__green_trip_extras`, `int_trips_conformed`, `int_trips_enriched`, `int_trip_fare_components` and `int_trip_quality_flags`. This keeps a seeded Domain file under Studio's 1 GiB upload.
 
-`fct_trip` is incremental by `trip_key`; a late-arriving trip at or before the loaded boundary needs a full refresh (see its design record).
+`fct_trip` is incremental by `trip_key` with no `on_schema_change`; a late-arriving trip at or before the loaded boundary, or a new or changed column upstream of it, needs `dbt build --full-refresh --select fct_trip` (see its design record).

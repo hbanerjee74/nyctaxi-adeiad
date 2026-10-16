@@ -32,4 +32,4 @@ Not an ADR: a choice one model or pipeline makes that is easy to change later, s
 - Cite ADRs as `ADR NNNN` so the CI citation check finds them.
 - A design record that starts citing an ADR is added to that ADR's `## Affected designs` in the same commit, and a record that stops citing it is removed.
 - When an ADR is superseded, the design records it lists move their citations to the new ADR in the same commit, and the new ADR's `## Affected designs` lists them.
-- Check citations and links with the `adr_lint` command in `repo-map.json`. Run it; do not read the CI scripts to work out what they check.
+- Check citations with the `adr_lint` command in `repo-map.json` (numbering and dangling citations) and the two-way links with `tests/test_adr_links.py` (part of `python_tests`). Run them; do not read the scripts to work out what they check.
