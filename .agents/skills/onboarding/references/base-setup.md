@@ -2,6 +2,14 @@
 
 What every onboarded repo has, so the first build intent does not spend its calls discovering the environment. It comes from how agents, the sandbox and the CI bundle work, not from the repo's code.
 
+## Empty Domain database
+
+Check the Domain database first. When it has no tables, every Intent's sandbox (a copy of it) starts empty, and the base commands, data tests and dry run have nothing to read. Load it in this sandbox before the base commands: a sample load of every source (`DLT_INGEST_LIMIT`), then `dbt build`.
+
+When that cannot be done, or is a lot of work (missing source credentials, very large sources, run scripts that fail), do not attempt it: write a proposal under `docs/proposal/` for seeding the Domain database (the sources, their size, the steps, what blocks it) and continue without data.
+
+Either way the data stays in this sandbox: the Domain database is still empty for later Intents. Say so in the PR description.
+
 ## Base commands
 
 Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them, and one entry per CI check script an agent should run rather than read (for example `adr_lint` for `.github/scripts/adr_lint.py`).
@@ -36,9 +44,14 @@ Only when the repo has none. When the repo has its own that conflicts, leave it 
 | --- | --- |
 | `macros/relations.sql` (dbt) | Copy [templates/dbt/relations.sql](../templates/dbt/relations.sql) into the project's macro path. It overrides `ref()` and `source()` to render `schema.table`. If the project already overrides either macro, merge the `.include(database=False)` into it and say so in the PR. | dbt-duckdb writes the catalog name into every view it stores; in the renamed sandbox copy those views fail with `Catalog ... does not exist`. Part of setting up the dbt models, not a review finding. |
 | `packages.yml` entry | `dbt-labs/dbt_project_evaluator`, `version: [">=1.1.0", "<2.0.0"]`, added to an existing `packages.yml` or a new one. The CI quality workflow builds it. |
+| `tests/test_adr_links.py` | Copy [templates/tests/test_adr_links.py](../templates/tests/test_adr_links.py): every design record that cites an ADR is in that ADR's `## Affected designs`, and every record listed there exists and cites it. `adr_lint` checks only numbering and dangling citations. |
 | `tests/test_maps.py` | Every map path exists; every source is registered; every `test-map.json` dbt selector resolves to a test. Its dbt calls name the repo's own profile (`--profiles-dir <dbt project> --profile <name>`) and run `dbt deps` once when `dbt_packages/` is missing, so they pass locally, in the sandbox and in CI. |
 | `ruff.toml` | `[lint] select = ["E4", "E7", "E9", "F"]`, and `extend-exclude` with any paths the repo's documented lint command or CI already excludes (for example `--extend-exclude ingestion/sources`). Ruff's default selection changes between releases. Fix nothing it reports; file the findings as `style`. |
 | `.gitignore` lines | Appended to the existing `.gitignore` (or a new one), only the lines missing from [`gitignore-fragment`](../templates/repo/gitignore-fragment), with the repo's own dlt preview path. If `.user.yml` files are tracked, `git rm --cached` them. |
+
+## Repo checks
+
+The map tests and the ADR link test are the Domain's own checks; the CI bundle does not run them. Ask the user where they run, as one grilling question. Recommended: a repo workflow, [templates/repo/repo-checks.yml](../templates/repo/repo-checks.yml) at `.github/workflows/repo-checks.yml`, which installs `requirements-dev.txt` and runs `python_tests` on every pull request. A pre-commit hook is the other option; if the user wants one, say that setting `core.hooksPath` stops git reading `.git/hooks`, where the CI bundle installs its own hooks, so the repo hook must call them.
 
 ## Convention skills
 
@@ -61,7 +74,7 @@ Write these into the repo's own convention skills beside its conventions:
 | `dlt` | To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions. |
 | `dbt-models` | Sources name a schema and tables, never a database, and no var feeds either. |
 | `dlt` | Mirror the repo's existing source of the same kind for batching and file handling; do not read the installed dlt (or dbt) source code to re-check how it behaves. |
-| `adr` | Check citations and links with the `adr_lint` command (or the repo's equivalent); run it, do not read the CI scripts. |
+| `adr` | Check citations with the `adr_lint` command (or the repo's equivalent) and the two-way links with `tests/test_adr_links.py`; run them, do not read the scripts. |
 | `dbt-models` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
 | `dbt-testing` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
 | `dbt-testing` | Rebuilt values are compared at the cent for money and at a stated tolerance otherwise, never by hashing raw doubles: DuckDB float aggregation is not reproducible bit for bit. |
@@ -83,9 +96,7 @@ File each as a finding when it fails; change nothing.
 | Staging reads bronze only through `source()` | `platform` |
 | Staging converts dlt-loaded timestamps to UTC | `bug` if a key or join depends on them, else `convention` |
 | Run scripts install dbt packages before building | `bug` |
-| A CI job runs the pytest suite | `gap` |
 | `.sqlfluff` (or the SQL lint config) resolves its profile and project paths | `gap` |
-| The Domain database is not empty: Studio copies it into every sandbox, so an empty one leaves every Intent nothing to read | `platform`; recommend seeding it (load the sources, build, upload the file under 1 GiB) before the first build Intent |
 
 ## Verify
 

@@ -1,6 +1,6 @@
 # Dry run
 
-Checks first: the map tests pass, CI is green, every `ADR NNNN` citation resolves, and ADRs and design records list each other.
+Checks first: the map tests and the ADR link test pass, CI is green, and every `ADR NNNN` citation resolves.
 
 Then pick three tasks a user of this repo would ask for:
 
