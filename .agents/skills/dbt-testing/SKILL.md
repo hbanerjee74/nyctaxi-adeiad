@@ -33,6 +33,8 @@ A model needs a unit test when its logic has a branch a reviewer could get wrong
 
 Run data tests and unit tests as separate commands. The command for each layer is in `test-map.json`.
 
+A unit test whose model reads a project var sets the var in the test itself, under `overrides: {vars: {<name>: <value>}}`; the project's value does not apply.
+
 ## Python tests
 
 pytest tests live in `tests/`, run offline, and are mapped in `test-map.json`.
