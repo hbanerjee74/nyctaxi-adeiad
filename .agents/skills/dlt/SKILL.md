@@ -51,3 +51,10 @@ Profile a remote source file once per intent: row count, columns and types, null
 - Then register the pipeline in `orchestration/run_ingest.py`, and add the source to `repo-map.json` and `test-map.json`.
 - `tests/test_maps.py` fails when a source's listed paths or its config section are missing.
 - To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions.
+
+## Adding a resource to an existing source
+
+Another table from a source that is already loaded (for example another TLC trip file) is a resource on that source, not a new source:
+
+- Add it to the source module's resources, and a `resources.<name>` block to the source's resource docs (`ingestion/docs/<source>.yml`). Each column there has exactly one of `source_ref` or `source_fields`; `tests/ingestion/test_docs.py` checks it.
+- Extend the source's tests, its pipeline design record, `_sources.yml` and a new `stg_` model.

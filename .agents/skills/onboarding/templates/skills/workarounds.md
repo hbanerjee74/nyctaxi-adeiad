@@ -49,7 +49,7 @@ Remove when: `verifying` says where independent figures come from for an ingesti
 
 ## Tier-1 tests after a safety run
 
-A `DEV_MODE` safety run loads into a timestamped dev dataset (`bronze_<timestamp>`), printed by the run. Pass that name to `run_bronze_tier1_tests.py --dataset`, not `bronze`. After the full load, pass `bronze`.
+A `DEV_MODE` safety run (the `generating-dlt-pipeline` skill's) loads into a timestamped dev dataset (`bronze_<timestamp>`), printed by the run. Pass that name to the plugin's `scripts/run_bronze_tier1_tests.py --dataset`, not `bronze`. After the full load, pass `bronze`.
 
 Remove when: the Tier-1 runner finds the dev dataset itself (plugin change).
 

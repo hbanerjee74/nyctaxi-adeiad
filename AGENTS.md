@@ -50,7 +50,9 @@ python3 orchestration/run_transform.py    # dbt build
 python3 -m pytest tests -q                # Python tests
 ```
 
-The command for each layer's tests is in `test-map.json`. Lint Python with `ruff check` (the `python_lint` command in `repo-map.json`), which reads `ruff.toml`; do not use the `check_python` tool, which applies rules this repo does not use. See `CONTRIBUTING.md` for the workflow before a push.
+The Python tests need `requirements-dev.txt` installed in the same interpreter (`pip install -r requirements-dev.txt`): the map tests call dbt through `python3 -m dbt.cli.main`, and fail with `No module named 'dbt'` otherwise.
+
+The command for each layer's tests is in `test-map.json`. Lint Python with `ruff check` (the `python_lint` command in `repo-map.json`), which reads `ruff.toml`; do not use the `check_python` tool, which applies rules this repo does not use. Before a push, run `python_tests`, `python_lint`, `sqlfluff lint transformation/models` and the dbt data and unit tests (`dbt_data_tests`, `dbt_unit_tests` in `repo-map.json`).
 
 ## Safety
 
