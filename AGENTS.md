@@ -30,7 +30,7 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, bronze carries no logic |
 | [`context`](.agents/skills/context/SKILL.md) | What goes into `CONTEXT.md` |
 | [`adr`](.agents/skills/adr/SKILL.md) | What goes into an ADR, and when |
-| [`workarounds`](.agents/skills/workarounds/SKILL.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, ruff for lint, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages. Each names what removes it |
+| [`workarounds`](.agents/skills/workarounds/SKILL.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages. Each names what removes it |
 | [`design-records`](.agents/skills/design-records/SKILL.md) | What goes into a design record |
 | [`git-and-prs`](.agents/skills/git-and-prs/SKILL.md) | Commit and pull request format |
 
@@ -50,7 +50,7 @@ python3 orchestration/run_transform.py    # dbt build
 python3 -m pytest tests -q                # Python tests
 ```
 
-The command for each layer's tests is in `test-map.json`. See `CONTRIBUTING.md` for the workflow before a push.
+The command for each layer's tests is in `test-map.json`. Lint Python with `ruff check` (the `python_lint` command in `repo-map.json`), which reads `ruff.toml`; do not use the `check_python` tool, which applies rules this repo does not use. See `CONTRIBUTING.md` for the workflow before a push.
 
 ## Safety
 

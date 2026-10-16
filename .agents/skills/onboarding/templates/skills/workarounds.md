@@ -41,12 +41,6 @@ Never make two edits to the same file in parallel.
 
 Remove when: the editor caps its echo (platform file editor).
 
-## Lint with ruff, not `check_python`
-
-Lint Python with `ruff check <files>`. It uses the repo's `ruff.toml`; the `check_python` tool applies rules this repo does not use, and its fixes are churn.
-
-Remove when: the skills name the repo's lint command from `repo-map.json` (plugin change).
-
 ## Verify from the landed table and the saved profile
 
 An independent recount at verify reads the landed table and `.agents_tmp/<source>-profile.json`. It never reads the remote source file again.
