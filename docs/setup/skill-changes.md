@@ -2,7 +2,7 @@
 
 What should change in the `vibedata-data-engineering` plugin (`~/src/studio/ext/vd-data-engineering/plugins/vibedata-data-engineering`), derived from building this repo. Paths in the Reference column are relative to the plugin root. The conventions behind each row are in `conventions-inventory.md`; the gaps found while building are in `skill-change-notes.md`.
 
-Rows whose change has shipped, or whose target no longer exists after the VD-6872 simplification (vibedata-data-engineering#797), were removed on 2026-10-16. What remains is open or partly done. On the same day the rest were filed in Linear (below), or done in this repo's onboarding: the ADR link test and the repo-checks workflow (`tests/test_adr_links.py`, `.github/workflows/repo-checks.yml`), and loading an empty Domain database in the onboarding sandbox or proposing its seeding. The dlt preview row was dropped: onboarding's `.gitignore` lines cover it.
+Rows whose change has shipped, or whose target no longer exists after the VD-6872 simplification (vibedata-data-engineering#797), were removed on 2026-10-16. What remains is open or partly done. On the same day the rest were filed in Linear (below), or done in this repo's onboarding: the ADR link test and the repo-checks workflow (`tests/test_adr_links.py`, `.github/workflows/repo-checks.yml`), and loading an empty Domain database in the onboarding sandbox or proposing its seeding. The dlt preview row was dropped: onboarding's `.gitignore` lines cover it. The `duckdb_local` orchestration row was dropped: DuckDB has no native orchestrator, so orchestration is the repo's own run scripts (`orchestration/`, from onboarding's templates, named in `repo-map.json` `entrypoints` and `commands`).
 
 ## Principle
 
@@ -23,7 +23,6 @@ The onboarding skill (`.agents/skills/onboarding/`) replaces `init` for both an 
 
 | Skill | Reference | Suggested change |
 | --- | --- | --- |
-| generating-orchestration | `skills/generating-orchestration/SKILL.md` steps 1 and 3; `_shared/platforms/<platform>/orchestration.md` | Add a `duckdb_local` route: scripts at `artifact_paths.orchestration`, run in order (ingestion, then `dbt build`), named in `repo-map.json` `entrypoints` and `commands`. Today the skill halts or omits when the platform file is absent. |
 
 ## Tracked in Linear
 
