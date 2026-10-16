@@ -53,7 +53,7 @@ So during onboarding you change no model, pipeline or human document. A problem 
 
 | Mistake | Instead |
 | --- | --- |
-| Design record lists inputs, tests, columns, SQL, or decisions that only describe the code ("vendor resolved the same way", "key is an md5 of the flags") | Grain, `D-NN` decisions with their source, rejected alternatives, consumers, evidence, history. No record when there is nothing beyond the code. |
+| Design record lists inputs, tests, columns, SQL, or decisions that only describe the code ("vendor resolved the same way", "key is an md5 of the flags") | Grain, `D-NN` decisions with their source, rejected alternatives, consumers, history. Figures and check results go in a verification file, never the record. No record when there is nothing beyond the code. |
 | Conventions written into `AGENTS.md` | `AGENTS.md` is an index; conventions go to convention skills. |
 | Editing README or CONTRIBUTING, or linking agents to them | Leave human documents alone. Tell agents not to read them. |
 | Fixing a tracked generated file, a broken config path or a lint setting now | A review finding. |

@@ -26,13 +26,6 @@ One row per conformed trip (`trip_key`).
 
 Depended on by: `agg_driver_daily`, `agg_driver_monthly`, `agg_garage_monthly`, `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_vehicle_daily`, `agg_vehicle_monthly`, `agg_weather_demand_daily`, `dim_trip_quality`, `fct_shift`, `fct_trip`, `int_shift_economics`, `int_trip_fare_components`, `int_trip_quality_flags`, `mart_daily_zone_revenue`, `mart_driver_scorecard`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`, `mart_vehicle_utilisation`.
 
-## Evidence
-
-- `assert_enrichment_rejoin_matches_every_trip`: every conformed trip finds its extras row. A key computed from differently typed inputs matches nothing, and a left join then reports every fee as missing without failing anything else; this test caught exactly that.
-- `assert_airport_fee_only_on_yellow` and the `airport_fee_status` accepted-values test protect the fleet asymmetry; a unit test covers the three states.
-- Airport-fee states on the three-month load: present 8,802,815, missing 751,962, not applicable 167,585.
-- The model restores attributes; it does not apply finance filters, quality filters or fleet attribution. Rebuild it whenever its inputs (`int_trips_conformed`, `stg_tlc__yellow_trip_extras`, `stg_tlc__green_trip_extras`) are rebuilt.
-
 ## History
 
 - - 2026-08-29 — trip-fact — design record written (commit 97862f7) — D-01, D-02, D-03

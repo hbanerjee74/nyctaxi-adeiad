@@ -30,12 +30,6 @@ Deterministic: the same source rows give the same keys on every run and in every
 
 Everything downstream of `int_trips_conformed` and `fct_trip`; see their design records.
 
-## Supporting evidence
-
-- [`fct_trip`](../models/core/fct_trip.md) `## Evidence`: every conformed trip has a distinct key and finds its extras row.
-- `assert_enrichment_rejoin_matches_every_trip`: guards `D-02`.
-- `int_trips_conformed` unit tests `trips_conformed_keeps_one_row_per_distinct_trip` and `trips_conformed_distinguishes_fleets_with_the_same_natural_columns`: pin `D-01` and `D-04`.
-
 ## Gotchas
 
 - A key mismatch does not fail the build: the left join reports every fee as missing and everything stays green. Only the rejoin test catches it.

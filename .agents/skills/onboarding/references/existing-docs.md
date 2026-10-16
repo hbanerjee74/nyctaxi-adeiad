@@ -10,7 +10,7 @@
 | Specs or tickets for a piece of work, an `intents/` folder | Requirement | `docs/requirement/` |
 | Implementation plans | Plan | `docs/plans/` |
 | Sign-offs or QA reports for a piece of work | Verification | `docs/verify/` |
-| Profiling or sample-selection notes for a piece of work | Evidence in the model's design record | that record's `## Evidence` |
+| Profiling or sample-selection notes for a piece of work | Verification | `docs/verify/` |
 | Per-pipeline docs or runbooks | Pipeline design | `docs/design/pipelines/` |
 | Cross-model or subject-area design docs | Area design | `docs/design/<area>/` |
 | Incident write-ups and root-cause analyses | Case record | `docs/cases/` |

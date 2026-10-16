@@ -24,11 +24,6 @@ One row per zone version: `zone_key` is the md5 of the zone's natural key and th
 
 Depended on by: `agg_od_flow_matrix`, `agg_trip_band_profile`, `agg_trip_zone_daily`, `agg_trip_zone_daypart_dow`, `agg_weather_demand_daily`, `agg_zone_occupancy_hourly`, `fct_status_interval`, `fct_trip`, `mart_daily_zone_revenue`, `mart_monthly_service_summary`, `mart_revenue_component_bridge`, `mart_trip_quality_scorecard`.
 
-## Evidence
-
-- 272 versions for 265 zones; two zones are unresolved.
-- `assert_scd2_zone_intervals_do_not_overlap` holds the half-open intervals apart.
-
 ## History
 
 - - 2026-10-14 — setup-dlt-ingestion — design record written — D-01, D-02, D-03

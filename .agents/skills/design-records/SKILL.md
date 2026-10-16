@@ -22,9 +22,9 @@ description: "Use when writing or amending a design record under docs/design/ fo
 - No teams, reports, packs or audiences.
 - When nothing in the repo depends on it, write "None in this repo".
 
-## Evidence
+## No evidence
 
-What settled the decisions: profiling, reconciliation, the slice used. One line each, with the query or path.
+A design record holds decisions, not measurements. Counts, profiling results, reconciliation figures and check outcomes go in the intent's verification file: they change with every load, and a copy in the design record drifts from the data. A decision whose reason is a measurement says so in words and names that verification file.
 
 ## Areas
 

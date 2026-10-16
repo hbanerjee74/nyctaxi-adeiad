@@ -24,11 +24,6 @@ One row per driver sign-on (`shift_id`).
 
 Depended on by: `agg_driver_daily`, `agg_driver_monthly`, `agg_garage_monthly`, `agg_vehicle_daily`, `agg_vehicle_monthly`, `mart_driver_scorecard`, `mart_vehicle_utilisation`.
 
-## Evidence
-
-- 38,205 shifts on the three-month load; 618 are unclosed.
-- `assert_shift_time_budget_reconciles` holds the time budget (on-trip, available, break and the unaccounted residual) against online time.
-
 ## Semantic Model
 
 ```yaml

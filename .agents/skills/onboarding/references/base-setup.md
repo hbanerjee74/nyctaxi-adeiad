@@ -60,7 +60,7 @@ Copy these from [templates/skills/](../templates/skills/) as they are, each `<na
 | Skill | What it holds |
 | --- | --- |
 | `context` | What goes in `CONTEXT.md` and what does not. |
-| `design-records` | What goes in a design record: decisions with sources, consumers from lineage, evidence. |
+| `design-records` | What goes in a design record: decisions with sources, consumers from lineage; no evidence (that is for verification). |
 | `adr` | The three tests, what is not an ADR, content, supersession. |
 | `git-and-prs` | Commit format, staging named files (never `git add .`), the four PR-body sections the `shipping` skill fills. |
 | `workarounds` | The open platform gaps, each with what removes it: the sandbox dbt command (and never opening `profiles.yml`), `plan.md` and `verify.md` written once per phase, large files changed by script, verify from the landed table and saved profile, the Tier-1 dev dataset, sample loads that land whole pages. |

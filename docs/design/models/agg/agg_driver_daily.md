@@ -23,10 +23,6 @@ One row per driver and shift date.
 
 Depended on by: `agg_driver_monthly`, `mart_driver_scorecard`.
 
-## Evidence
-
-- 32,153 driver-days on the three-month load, one row per driver and shift date.
-
 ## History
 
 - - 2026-10-14 — status-occupancy — design record written — D-01, D-02

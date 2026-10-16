@@ -22,10 +22,6 @@ One row per pickup zone and trip date.
 
 None in this repo.
 
-## Evidence
-
-- 20,770 rows from the first to the last day of the window; trip counts sum to 9,604,511, which is the number of billable trips with a pickup inside the window (24 more billable trips fall outside it).
-
 ## History
 
 - - 2026-10-14 — trip-fact — design record written; audience wording removed from the model description — D-01
