@@ -45,7 +45,7 @@ A row that becomes a Linear issue moves here; the issue holds the work and its a
 | VD-6924 | Umesh | planning, executing-the-plan, verifying, shipping | `plan.md` and `verify.md` written once per phase; base commands on the base commit; the Tier-1 dev dataset; verify figures from the landed table; the contract skip on duckdb_local; follow-up scope stays out of the PR; resume after a teardown autosave. | Todo |
 | VD-6929 | Jason | install-ci | Deploy tracked paths only and install hooks safely in worktrees; run as a step of onboarding; ask for `VD_DOMAIN_SLUG`; `design_drift` accepts a `## Semantic Model` section. | Todo |
 | VD-6934 | Umesh | Build persona; capturing-requirements, designing, planning, shipping | Each stage stop prints its summary as a message, which stays in the transcript, then asks a short question naming the artifact and the decision. Today the whole approval content goes into the question and the card renders it as one paragraph. | Todo |
-| VD-6923 | hemanta | platform (Studio cost meter) | Run cost charges cache reads at the full input price. | Todo |
+| VD-6923 | hemanta | platform (Studio cost meter) | Run cost charges cache reads at the full input price. | Done |
 
 ## Order
 
