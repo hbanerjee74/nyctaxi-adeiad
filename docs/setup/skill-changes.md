@@ -31,7 +31,7 @@ A row that becomes a Linear issue moves here; the issue holds the work and its a
 
 | Issue | Owner | Skill or area | What it covers | Status |
 | --- | --- | --- | --- | --- |
-| VD-6902 | hemanta | init | Retire the `init` skill; onboarding replaces it. A plugin PR, then Studio's skill snapshot, `workflow.ts` maps and compatibility contract; `artifact-kinds.md` points at onboarding, not `/init`. | Todo |
+| VD-6902 | hemanta | init | Retire the `init` skill and its `_shared/templates/agents-md-template.md`; onboarding replaces them. Studio's skill snapshot, `workflow.ts` maps and compatibility contract drop `init` with the plugin pointer bump; `artifact-kinds.md` points at onboarding. | Done (local implementation; publication pending). Nothing dropped. |
 | VD-6904 | hemanta | platform (data tools) | `summarize_data`, `profile_data`, `compare_data_profiles`, `load_tabular_to_ephemeral` and `visualize_data` read Parquet within their size bounds. | Done |
 | VD-6905 | hemanta | platform (Studio runtime) | The first call after a condensation is rejected on DeepSeek thinking mode because `reasoning_content` is not passed back. | Todo |
 | VD-6901 | Jason | install-ci | The shipped CI bundle carries `FAKE_WORLD` hooks, internal ticket IDs and a wrong intent-branch message into customer repos; a check keeps them out. Follow-ups: the plugin's `managed-constraints.txt` ticket IDs (VD-6939) and the Fabric live-E2E test step (VD-6940). | Done |
