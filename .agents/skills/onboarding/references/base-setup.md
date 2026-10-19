@@ -2,9 +2,20 @@
 
 What every onboarded repo has, so the first build intent does not spend its calls discovering the environment. It comes from how agents, the sandbox and the CI bundle work, not from the repo's code.
 
+## Inherited DuckDB views
+
+For DuckDB-local, check the untouched sandbox copy before any ingestion, `dbt build`, or other database write. This is an onboarding assessment, not an upload gate or a repair of the uploaded Domain database. A build can replace broken inherited views and hide the evidence.
+
+1. Through the supported sandbox SQL tools (`lakehouse_query` with `target=ephemeral`), enumerate all non-internal views in the sandbox's own catalog: `SELECT schema_name, view_name FROM duckdb_views() WHERE database_name = current_database() AND NOT internal`. Include views outside the dbt project and views without tests. Record the sandbox catalog and that it is a renamed copy of the Domain database.
+2. Attempt `SELECT * FROM "schema"."view" LIMIT 0` for each view, quoting identifiers correctly. This checks binding without fetching rows; it does not prove data correctness. Keep the check read-only: do not rewrite views, attach the old catalog to make them pass, or access the protected Domain file directly. Existing dbt data tests are not a substitute for checking every view.
+3. Record totals checked, failed and unchecked, plus each failing `schema.view` and its missing catalog or other dependency, in this intent's verification record. Use bounded tool calls; external-file views may require metadata access. A timeout, unavailable tool, truncated inventory or previously modified sandbox makes the assessment incomplete, never a pass. Do not infer an untouched baseline from rebuilt views.
+4. File failures as onboarding review findings, distinguishing missing catalogs from missing files/extensions or access failures. Report names and safe reasons, not raw SQL, credentials or filesystem paths. Continue the remaining onboarding work with the findings visible. Explain that sandbox changes do not repair the uploaded Domain database, so later Intents may inherit the same failures; recommend rebuilding a portable file outside this onboarding and creating a new Domain.
+
+No user-defined views means the view check is not applicable; record that explicitly. It does not establish that tables or the rest of onboarding are valid.
+
 ## Empty Domain database
 
-Check the Domain database first. When it has no tables, every Intent's sandbox (a copy of it) starts empty, and the base commands, data tests and dry run have nothing to read. Load it in this sandbox before the base commands: a sample load of every source (`DLT_INGEST_LIMIT`), then `dbt build`.
+After the inherited-view check, inspect the sandbox for tables. When the Domain database has no tables, every Intent's sandbox (a copy of it) starts empty, and the base commands, data tests and dry run have nothing to read. Load it in this sandbox before the base commands: a sample load of every source (`DLT_INGEST_LIMIT`), then `dbt build`.
 
 When that cannot be done, or is a lot of work (missing source credentials, very large sources, run scripts that fail), do not attempt it: write a proposal under `docs/proposal/` for seeding the Domain database (the sources, their size, the steps, what blocks it) and continue without data.
 
@@ -14,7 +25,7 @@ Either way the data stays in this sandbox: the Domain database is still empty fo
 
 Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them, and one entry per CI check script an agent should run rather than read (for example `adr_lint` for `.github/scripts/adr_lint.py`).
 
-In the design phase, before the inventory, run each once in the sandbox: dbt through the runtime wrapper with `--target dev`, after `dbt deps` when `packages.yml` exists. Record every result. A failure you cannot fix with a change from the two lists below is a review finding, `platform` or `bug`.
+In the design phase, after the inherited-view check and before the inventory, run each once in the sandbox: dbt through the runtime wrapper with `--target dev`, after `dbt deps` when `packages.yml` exists. Record every result. A failure you cannot fix with a change from the two lists below is a review finding, `platform` or `bug`.
 
 ## Changes the build needs
 
@@ -101,4 +112,4 @@ File each as a finding when it fails; change nothing.
 
 ## Verify
 
-The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox. A renamed copy of the built database (what the sandbox is) passes the data tests without a rebuild, so every stored view resolves.
+The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox. For DuckDB-local, check every user-defined view and run the data tests on a renamed copy of the built database, without rebuilding it. Keep this post-build portability result separate from the inherited-view assessment: neither a successful rebuild nor a passing renamed-copy check clears a finding about the uploaded Domain database.
