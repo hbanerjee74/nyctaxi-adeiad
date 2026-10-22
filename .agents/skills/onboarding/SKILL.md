@@ -27,7 +27,9 @@ Decide at the requirement step, from the repo and the Domain database:
 
 So during onboarding you change no model, pipeline or human document. A problem you find goes in the review, even when the fix is one line.
 
-The general rule behind that list: **any change that needs code, configuration, a file edit or a data fix is a review finding, never an onboarding edit** — one line or many, in any file. Onboarding's deliverable is context (the maps, the skills, the documents) plus the review; a fix is a later intent with its own requirement, design and verification. If you catch yourself reaching for the editor to correct something you found, write `R-n` instead. The only other changes are the base setup in [base-setup.md](references/base-setup.md): two `dbt_project.yml` lines the sandbox build needs, and files added where the repo has none.
+The general rule behind that list: **any change that needs code, configuration, a file edit or a data fix is a review finding, never an onboarding edit** — one line or many, in any file. Onboarding's deliverable is context (the maps, the skills, the documents) plus the review; a fix is a later intent with its own requirement, design and verification. If you catch yourself reaching for the editor to correct something you found, write `R-n` instead.
+
+Two things are not edits under this rule: the base-setup changes `references/base-setup.md` lists (onboarding owns those, and applies only what is on that list), and build output under gitignored paths such as `transformation/target/` or `dbt_packages/`. Anything outside both is a finding. The only other changes are the base setup in [base-setup.md](references/base-setup.md): two `dbt_project.yml` lines the sandbox build needs, and files added where the repo has none.
 
 ## Loop phases
 
