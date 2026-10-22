@@ -377,37 +377,3 @@ def test_crossdoc_diverged_scd_fails(tmp_path):
     code, diags = _run("validate", str(tmp_path))
     assert code == 1
     assert ("crossdoc/diverged", "error") in _codes(diags)
-
-
-def test_columns_catches_phantom_column(tmp_path):
-    model = tmp_path / "model"
-    marts = tmp_path / "marts"
-    model.mkdir()
-    marts.mkdir()
-    doc = _doc()
-    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
-    payload["logical_sources"][0]["column_map"]["shift_id"] = "no_such_column"
-    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
-    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
-    (marts / "fct_trip.sql").write_text("select shift_id, trip_key from x")
-    result = RUNNER.invoke(app, ["columns", str(model), str(marts)])
-    assert result.exit_code == 1
-    assert "columns/missing" in result.stdout
-
-
-def test_columns_accepts_real_column(tmp_path):
-    model = tmp_path / "model"
-    marts = tmp_path / "marts"
-    model.mkdir()
-    marts.mkdir()
-    doc = _doc()
-    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
-    payload["logical_sources"] = [payload["logical_sources"][0]]
-    payload["logical_sources"][0]["column_map"] = {"shift_id": "shift_id"}
-    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
-    for dataset in doc["datasets"][1:]:
-        dataset["custom_extensions"] = []
-    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
-    (marts / "fct_trip.sql").write_text("select shift_id from x")
-    result = RUNNER.invoke(app, ["columns", str(model), str(marts)])
-    assert result.exit_code == 0, result.stdout

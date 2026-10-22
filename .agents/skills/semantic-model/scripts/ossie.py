@@ -13,7 +13,6 @@ Exit 0 when no errors (warnings allowed), 1 otherwise.
 
 import importlib.util
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -199,68 +198,6 @@ def coverage(model: str, marts: str):
     errors = [d for d in diags if d["severity"] == "error"]
     typer.echo(f"{len(on_disk)} model(s) on disk, {len(named)} named, "
                f"{len(errors)} coverage error(s).", err=True)
-    raise typer.Exit(1 if errors else 0)
-
-
-IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-
-
-def identifiers_in(sql_text):
-    """Every identifier a model's SQL mentions, Jinja removed.
-
-    Deliberately a token scan, not a parse: dbt SQL carries `{{ ref(...) }}`,
-    `{% if %}` and package macros that no SQL parser accepts. A column that is
-    projected by a macro without an alias will not appear and is reported — the
-    message says so, and a human confirms.
-    """
-    text = re.sub(r"\{#.*?#\}", " ", sql_text, flags=re.S)
-    text = re.sub(r"\{%.*?%\}", " ", text, flags=re.S)
-    text = re.sub(r"\{\{.*?\}\}", " ", text, flags=re.S)
-    return set(IDENTIFIER.findall(text))
-
-
-@app.command()
-def columns(model: str, marts: str):
-    """Every column_map right side must be a name its dbt model's SQL mentions."""
-    files = {}
-    for path in Path(marts).rglob("*.sql"):
-        files.setdefault(path.stem, []).append(path)
-    diags = []
-    for target in _resolve_targets(model):
-        text, read_diag = _read_text(target)
-        if read_diag:
-            diags.append(read_diag)
-            continue
-        doc = _vendor.load_yaml_named(text, str(target))
-        named = {name: table.get("dbt_model")
-                 for name, table in physical_table_index(doc).items()}
-        for dataset in doc.get("datasets") or []:
-            payload = {}
-            for ext in dataset.get("custom_extensions") or []:
-                if ext.get("vendor_name") == "VIBEDATA":
-                    try:
-                        payload.update(json.loads(ext.get("data") or "{}"))
-                    except json.JSONDecodeError:
-                        pass
-            for source in payload.get("logical_sources") or []:
-                dbt_model = named.get(source.get("physical_table"))
-                if not dbt_model or dbt_model not in files:
-                    continue
-                known = set()
-                for path in files[dbt_model]:
-                    known |= identifiers_in(path.read_text(encoding="utf-8"))
-                for logical, physical in (source.get("column_map") or {}).items():
-                    if physical not in known:
-                        diags.append({
-                            "severity": "error", "code": "columns/missing",
-                            "message": f"{target}: {dataset.get('name')}."
-                                       f"{source.get('name')} maps '{logical}' to "
-                                       f"'{physical}', which {dbt_model}.sql never names "
-                                       f"(macro-generated columns need a human check)",
-                            "file": str(target)})
-    print(json.dumps(diags, indent=2))
-    errors = [d for d in diags if d["severity"] == "error"]
-    typer.echo(f"{len(errors)} column-mapping error(s).", err=True)
     raise typer.Exit(1 if errors else 0)
 
 
