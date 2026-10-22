@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://accelerate-data/sample-nyctaxi-comp/logical-model/vibedata-schema.json",
+  "title": "VIBEDATA extensions for Apache Ossie (frozen key set)",
+  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these three shapes, chosen by the level it sits at. Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
+  "type": "object",
+  "$defs": {
+    "modelPayload": {
+      "type": "object",
+      "properties": {
+        "vibedata_version": {
+          "type": "string"
+        },
+        "physical_tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/physicalTable"
+          }
+        },
+        "physical_joins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/physicalJoin"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "physicalTable": {
+      "type": "object",
+      "required": [
+        "name",
+        "source"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dbt_model": {
+          "type": "string",
+          "description": "dbt ref() name that builds this table; aliases name their base model"
+        },
+        "table_type": {
+          "enum": [
+            "TABLE",
+            "VIEW",
+            "ALIAS",
+            "OPAQUE_VIEW",
+            "STORED_PROC",
+            "SYNONYM"
+          ]
+        },
+        "alias_of": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string",
+          "description": "Why-not or partial-mapping rationale, recorded where it cannot drift from the entry"
+        }
+      },
+      "additionalProperties": false
+    },
+    "physicalJoin": {
+      "type": "object",
+      "required": [
+        "name",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "datasetPayload": {
+      "type": "object",
+      "properties": {
+        "vibedata_version": {
+          "type": "string"
+        },
+        "alias_of": {
+          "type": "string"
+        },
+        "physical": {
+          "type": "object"
+        },
+        "partitioned_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scd": {
+          "$ref": "#/$defs/scd"
+        },
+        "logical_sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/logicalSource"
+          }
+        },
+        "hierarchies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hierarchy"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "scd": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "natural_key": {
+          "type": "string"
+        },
+        "valid_from": {
+          "type": "string"
+        },
+        "valid_to": {
+          "type": "string"
+        },
+        "is_current": {
+          "type": "string"
+        },
+        "open_ended_value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "logicalSource": {
+      "type": "object",
+      "required": [
+        "name",
+        "physical_table"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "physical_table": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority_group": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "content_grain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "where": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string",
+          "description": "Partial-mapping rationale: which columns were refused and why"
+        },
+        "column_map": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "join_cost": {
+          "type": "number",
+          "description": "Relative cost for aggregate ordering, lower wins"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hierarchy": {
+      "type": "object",
+      "required": [
+        "name",
+        "levels"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "relationshipPayload": {
+      "type": "object",
+      "properties": {
+        "vibedata_version": {
+          "type": "string"
+        },
+        "physical_join": {
+          "type": "string"
+        },
+        "cardinality": {
+          "enum": [
+            "many-to-one",
+            "one-to-one",
+            "many-to-many"
+          ]
+        },
+        "join_type": {
+          "type": "string"
+        },
+        "join_cost": {
+          "type": "number"
+        },
+        "join_expression": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string",
+          "description": "Why this relationship lacks key-covering to_columns, or why a reachable path has none"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

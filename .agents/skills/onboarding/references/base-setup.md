@@ -66,6 +66,8 @@ The map tests and the ADR link test are the Domain's own checks; the CI bundle d
 
 ## Convention skills
 
+Two more convention skills belong to a repo with gold marts, and they are not templates because their content is the modelling language itself: `semantic-model` (canonical Ossie shape and VIBEDATA rules) and `validating-semantic-model` (the structural gate plus the content review). Seed both from the plugin delivery (VD-7139) or copy them from a reference Domain, and register `logical-model/` in `repo-map.json` and `test-map.json`. A repo with no gold mart yet gets neither: there is nothing to model, and a declared path that does not exist fails the map tests.
+
 Copy these from [templates/skills/](../templates/skills/) as they are, each `<name>.md` becoming `.agents/skills/<name>/SKILL.md` (the templates are not named `SKILL.md`, so the agent does not load them as skills); only examples may change to the repo's own. When the repo's confirmed inventory says otherwise (its own commit format, for example), the inventory wins for that line.
 
 | Skill | What it holds |

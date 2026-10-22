@@ -48,6 +48,7 @@ Fill the placeholders:
 | `<domain slug>`, `<one line>` | `repo-map.json` `applications`: the slug and the domain paragraph's first sentence |
 | `<raw schema>`, `<source system>` | `repo-map.json` `layers`: one entry per confirmed raw schema, keyed by its name, `path` `ingestion/` |
 | mart areas | One `layers` entry and one `dbt_project.yml` block under `marts` per confirmed area, path `transformation/models/marts/<area>/` |
+| canonical model | Not created at greenfield: there is no fact to model yet. The first intent that lands a fact-bearing mart creates `logical-model/` with the `semantic-model` skill, registers it in `repo-map.json` and `test-map.json`, and validates it before shipping |
 | `<UTC timestamp>` | The time of writing, in both maps |
 
 Write no source, pipeline, model or design record: the first intent adds them. Write no review file: there is nothing to review.
