@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://accelerate-data/sample-nyctaxi-comp/logical-model/vibedata-schema.json",
   "title": "VIBEDATA extensions for Apache Ossie (frozen key set)",
-  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these three shapes, chosen by the level it sits at. Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
+  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these four shapes, chosen by the level it sits at. Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
   "type": "object",
   "$defs": {
     "modelPayload": {
@@ -21,6 +21,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/physicalJoin"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variable"
           }
         }
       },
@@ -196,6 +202,22 @@
         "join_cost": {
           "type": "number",
           "description": "Relative cost for aggregate ordering, lower wins"
+        },
+        "content_levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/levelRef"
+          },
+          "description": "Per dimension role, the level this source holds; a role not listed is aggregated away"
+        },
+        "content_filter": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Row predicate over the dataset's fields and :variables that every row of this source satisfies; held by a test named in note"
+        },
+        "navigable": {
+          "type": "boolean",
+          "description": "false: an engine must not choose this source unless asked by name (population the content_filter cannot state)"
         }
       },
       "additionalProperties": false
@@ -211,10 +233,14 @@
           "type": "string",
           "minLength": 1
         },
+        "is_time": {
+          "type": "boolean",
+          "description": "Levels order chronologically, so time-series metrics may shift along them"
+        },
         "levels": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/level"
           },
           "minItems": 1
         }
@@ -249,6 +275,146 @@
         "note": {
           "type": "string",
           "description": "Why this relationship lacks key-covering to_columns, or why a reachable path has none"
+        }
+      },
+      "additionalProperties": false
+    },
+    "variable": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "A named value predicates reference as :name, bound to where the repo defines it (OBIEE repository variable)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "datatype": {
+          "type": "string",
+          "description": "Ossie DataType of the value"
+        },
+        "dbt_var": {
+          "type": "string",
+          "description": "dbt project var that supplies the value"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "level": {
+      "type": "object",
+      "required": [
+        "name",
+        "key"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Fields that identify one member of the level"
+        },
+        "label": {
+          "type": "string",
+          "description": "Field shown for a member when the key is not readable"
+        }
+      },
+      "additionalProperties": false
+    },
+    "levelRef": {
+      "type": "object",
+      "required": [
+        "via"
+      ],
+      "properties": {
+        "via": {
+          "type": "string",
+          "description": "Relationship that reaches the dimension (names the role)"
+        },
+        "hierarchy": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "description": "Omitted with hierarchy: the target's own key level"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metricPayload": {
+      "type": "object",
+      "properties": {
+        "vibedata_version": {
+          "type": "string"
+        },
+        "aggregation": {
+          "enum": [
+            "SUM",
+            "MIN",
+            "MAX",
+            "NON_ADDITIVE"
+          ],
+          "description": "Rule for rolling a pre-aggregated column up to a coarser grain; NON_ADDITIVE never rolls up"
+        },
+        "derived_expression": {
+          "type": "string",
+          "description": "Post-aggregation formula over other metrics; the metric binds to no column"
+        },
+        "at_levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/levelRef"
+          },
+          "description": "Level-based metric: evaluated at these levels whatever the query groups by"
+        },
+        "time_series": {
+          "$ref": "#/$defs/timeSeries"
+        }
+      },
+      "additionalProperties": false
+    },
+    "timeSeries": {
+      "type": "object",
+      "required": [
+        "function",
+        "of",
+        "via",
+        "hierarchy",
+        "level"
+      ],
+      "properties": {
+        "function": {
+          "enum": [
+            "AGO",
+            "TODATE"
+          ]
+        },
+        "of": {
+          "type": "string",
+          "description": "Metric whose value is shifted or accumulated"
+        },
+        "via": {
+          "type": "string"
+        },
+        "hierarchy": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "AGO only: periods back"
         }
       },
       "additionalProperties": false

@@ -25,7 +25,7 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ossie_vibedata import physical_table_index, validate_vibedata  # noqa: E402
+from ossie_vibedata import _names_in, physical_table_index, validate_vibedata  # noqa: E402
 
 TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
@@ -136,7 +136,9 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
             continue
         sources[source.get("name")] = json.dumps(
             [source.get("physical_table"), source.get("priority_group"),
-             source.get("content_grain"), source.get("column_map")],
+             source.get("content_grain"), source.get("column_map"),
+             source.get("content_levels"), source.get("content_filter"),
+             source.get("navigable")],
             sort_keys=True)
     return {"source": dataset.get("source"),
             "primary_key": dataset.get("primary_key"),
@@ -145,6 +147,33 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
             "scd": payload.get("scd"),
             "hierarchies": payload.get("hierarchies"),
             "logical_sources": sources}
+
+
+def _vibedata_of(node):
+    """The decoded VIBEDATA payload on a node, version stripped; {} when absent or bad."""
+    payload = {}
+    for ext in node.get("custom_extensions") or []:
+        if isinstance(ext, dict) and ext.get("vendor_name") == "VIBEDATA":
+            try:
+                decoded = json.loads(ext.get("data") or "{}")
+            except json.JSONDecodeError:
+                continue
+            if isinstance(decoded, dict):
+                payload.update(decoded)
+    payload.pop("vibedata_version", None)
+    return payload
+
+
+def _supplied_through_inputs(metric, supplied):
+    """A post-aggregation or time-series metric is supplied when every input it reads is."""
+    payload = _vibedata_of(metric)
+    if "time_series" in payload and isinstance(payload["time_series"], dict):
+        return payload["time_series"].get("of") in supplied
+    formula = payload.get("derived_expression")
+    if isinstance(formula, str):
+        names, _ = _names_in(formula)
+        return bool(names) and names <= supplied
+    return False
 
 
 def cross_document_drift(docs):
@@ -168,7 +197,8 @@ def cross_document_drift(docs):
         for metric in doc.get("metrics") or []:
             if isinstance(metric, dict) and metric.get("name"):
                 seen.setdefault(("metric", metric["name"]), []).append(
-                    (target, json.dumps(metric.get("expression"), sort_keys=True)))
+                    (target, json.dumps([metric.get("expression"), _vibedata_of(metric)],
+                                        sort_keys=True)))
         for name, table in physical_table_index(doc).items():
             seen.setdefault(("physical_table", name), []).append((target, table))
     for (kind, name), entries in seen.items():
@@ -242,8 +272,17 @@ def suppliers(model: str):
                                   "file": str(target),
                                   "message": f"{dataset.get('name')}.{field['name']} is "
                                              "supplied by no logical source"})
-        for metric in doc.get("metrics") or []:
-            if isinstance(metric, dict) and metric.get("name") not in supplied:
+        metrics = [m for m in doc.get("metrics") or [] if isinstance(m, dict)]
+        grew = True
+        while grew:  # inputs may themselves be derived
+            grew = False
+            for metric in metrics:
+                if (metric.get("name") not in supplied
+                        and _supplied_through_inputs(metric, supplied)):
+                    supplied.add(metric["name"])
+                    grew = True
+        for metric in metrics:
+            if metric.get("name") not in supplied:
                 diags.append({"severity": "finding", "code": "suppliers/metric",
                               "file": str(target),
                               "message": f"metric '{metric['name']}' is supplied by no "
