@@ -153,6 +153,18 @@
       "design_record": "docs/design/pipelines/mdm.md"
     }
   },
+  "orchestrators": {
+    "run_ingest": {
+      "kind": "python",
+      "path": "orchestration/run_ingest.py",
+      "runs": [
+        "tlc",
+        "ops",
+        "mdm"
+      ],
+      "notes": "Starts the three pipelines serially, in the order its own PIPELINES list gives, and stops at the first failure."
+    }
+  },
   "artifact_paths": {
     "design_record_model": "docs/design/models/{layer}/{model}.md",
     "design_record_pipeline": "docs/design/pipelines/{pipeline}.md",
@@ -302,7 +314,7 @@
     "trip_key": "Produced only by the trip_natural_key macro. The operator source carries natural columns, not the key.",
     "warehouse": "domain.duckdb at the repo root is ignored by git and rebuilt by orchestration/run_all.py.",
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
-    "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Then register it in orchestration/run_ingest.py and test-map.json.",
+    "new_source": "A new source mirrors an existing entry in `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source. Add it to its runner's `orchestrators.<name>.runs`, and register the pipeline in that runner's own code and in test-map.json. When two sources share a `dataset`, each also declares `produces` (the tables it lands).",
     "setup_docs": "docs/setup/ is repo maintenance. Do not read or maintain it for ingestion or transformation work.",
     "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it.",
     "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file, so a catalog name never resolves there. dbt runs use the dev target.",

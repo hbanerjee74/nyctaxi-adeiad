@@ -9,7 +9,7 @@ Operator conventions for the pipelines in `ingestion/`. Where files live is decl
 
 ## Datasets (D5)
 
-A pipeline's dataset is the schema it feeds: `bronze` (TLC), `ops_raw`, `mdm_raw`. Not `src_<connection>`.
+A pipeline's dataset is the schema it feeds: `bronze` (TLC), `ops_raw`, `mdm_raw`. Not `src_<connection>`. A dataset may have more than one producing pipeline; see Adding a source for the `produces` rule that then applies. A layer nothing here builds is `built_by: custom` in `repo-map.json` and says in `notes` what builds it.
 
 ## Write disposition (D6)
 
@@ -45,11 +45,15 @@ Profile a remote source file once per intent: row count, columns and types, null
 
 ## Adding a source
 
+A source is registered in two things an agent cannot derive from the code: its artifacts in `repo-map.json` `sources`, and the runner declared in `repo-map.json` `orchestrators`.
+
 - A new source mirrors an existing entry in `repo-map.json` `sources`: create every artifact it lists (module, config section, pipeline, resource docs, tests, design record). Mirror `tlc` for a downloaded file source.
 - Mirror `tlc.py` for a large file: it yields pyarrow tables per parquet row group, which is proven on three months of TLC data.
 - Sources are custom modules under `ingestion/sources/`, registered as `[sources.<name>]` with `connector = "custom"` and `connector_source = "local"`. The connector catalog is not used.
-- Then register the pipeline in `orchestration/run_ingest.py`, and add the source to `repo-map.json` and `test-map.json`.
-- `tests/test_maps.py` fails when a source's listed paths or its config section are missing.
+- Add the source name to its runner's `orchestrators.<name>.runs`, and to that runner's own code (`orchestration/run_ingest.py`). `runs` is the set, never the order: the runner's `PIPELINES` list holds the order, and its test asserts that list.
+- `produces` names the tables a source lands, and is needed only once a second source shares its `dataset`. While one source owns the dataset, its module's resources are the list; declare `produces` on both as soon as the dataset is shared, because a table's producer is otherwise ambiguous.
+- Add the source to `test-map.json` only when it needs its own test module; the `ingestion` module already covers the directory.
+- `tests/test_maps.py` fails when a source's listed paths or config section are missing, when no orchestrator runs it, and when sources share a dataset without `produces`.
 - To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions.
 
 ## Adding a resource to an existing source

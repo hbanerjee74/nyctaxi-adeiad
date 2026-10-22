@@ -70,7 +70,7 @@ Keep these current in the same change that makes them stale.
 
 | Artifact | Update when | Guard |
 | --- | --- | --- |
-| `repo-map.json` | A layer, source, pipeline, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file |
+| `repo-map.json` | A layer, source, pipeline, orchestrator, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file, a source no orchestrator runs, or a shared dataset without `produces` |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
 | `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
 | `.agents/skills/` | A convention changes | none |

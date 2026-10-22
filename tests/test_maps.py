@@ -30,11 +30,11 @@ def test_repo_map_names_every_layer_with_one_builder():
     assert set(REPO_MAP["layers"]) == {
         "bronze", "staging", "intermediate", "core", "agg", "finance", "ops", "ops_raw", "mdm_raw",
     }
-    assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} == {"dlt", "dbt"}
+    assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} <= {"dlt", "dbt", "custom"}
 
 
 def test_repo_map_paths_exist():
-    paths = [layer["path"] for layer in REPO_MAP["layers"].values()]
+    paths = [layer["path"] for layer in REPO_MAP["layers"].values() if layer["path"]]
     paths += REPO_MAP["artifact_paths"].values()
     paths += REPO_MAP["entrypoints"].values()
     paths += REPO_MAP["key_directories"].keys()
@@ -55,6 +55,8 @@ def test_every_source_is_registered_in_the_dlt_config():
 def test_every_layer_has_a_test_map_module():
     modules = set(TEST_MAP["modules"])
     for name, layer in REPO_MAP["layers"].items():
+        if layer["built_by"] == "custom":
+            continue  # no skill has a procedure for it, so no test module is expected
         expected = "ingestion" if layer["built_by"] == "dlt" else name
         assert expected in modules, f"layer {name} has no test-map module {expected}"
 
@@ -71,6 +73,27 @@ def test_every_dlt_layer_has_a_source():
     datasets = {s["dataset"] for s in REPO_MAP["sources"].values()}
     dlt_schemas = {layer["schema"] for layer in REPO_MAP["layers"].values() if layer["built_by"] == "dlt"}
     assert datasets == dlt_schemas
+
+
+def test_orchestrators_and_sources_agree():
+    declared = set(REPO_MAP["sources"])
+    runs = {name for runner in REPO_MAP.get("orchestrators", {}).values() for name in runner["runs"]}
+    assert declared - runs == set(), f"sources no orchestrator runs: {sorted(declared - runs)}"
+    assert runs - declared == set(), f"orchestrators run unknown sources: {sorted(runs - declared)}"
+
+
+def test_a_shared_dataset_declares_what_each_pipeline_lands():
+    by_dataset = {}
+    for name, source in REPO_MAP["sources"].items():
+        by_dataset.setdefault(source["dataset"], []).append(name)
+    missing = [
+        name
+        for names in by_dataset.values()
+        if len(names) > 1
+        for name in names
+        if not REPO_MAP["sources"][name].get("produces")
+    ]
+    assert missing == [], f"sources sharing a dataset declare produces: {missing}"
 
 
 def test_test_map_paths_exist():
