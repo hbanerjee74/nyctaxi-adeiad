@@ -1,0 +1,97 @@
+version: "0.2.0.dev0"
+name: example_star
+description: "Skeleton of one fact star — copy this shape. Shows a fact, a role-playing dimension with two roles, an aggregate source, and the two-level VIBEDATA payloads."
+datasets:
+  - name: orders
+    source: core.fct_order
+    primary_key: [order_key]
+    description: One row per order.
+    fields:
+      - name: order_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: order_key
+        datatype: String
+      - name: order_date
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: order_date
+        datatype: Date
+        dimension:
+          is_time: true
+      - name: customer_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: customer_key
+        datatype: String
+      - name: ship_to_customer_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: ship_to_customer_key
+        datatype: String
+      - name: amount
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: amount
+        datatype: Decimal
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "fct_order", "priority_group": 1, "content_grain": ["order"], "column_map": {"order_key": "order_key", "order_date": "order_date", "customer_key": "customer_key", "ship_to_customer_key": "ship_to_customer_key", "amount": "amount"}}, {"name": "LTS2_daily", "physical_table": "agg_order_daily", "priority_group": 0, "content_grain": ["order_date"], "where": "reporting window only", "column_map": {"order_date": "order_date", "order_count": "order_count"}}]}'
+  - name: customer
+    source: core.dim_customer
+    primary_key: [customer_key]
+    description: "One row per customer. Role-playing: reached as buyer and as ship-to."
+    fields:
+      - name: customer_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: customer_key
+        datatype: String
+      - name: customer_name
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: customer_name
+        datatype: String
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_base", "physical_table": "dim_customer", "priority_group": 1, "content_grain": ["customer"], "column_map": {"customer_key": "customer_key", "customer_name": "customer_name"}}]}'
+relationships:
+  - name: orders_to_customer
+    from: orders
+    to: customer
+    from_columns: [customer_key]
+    to_columns: [customer_key]
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "physical_join": "fct_order_to_dim_customer", "cardinality": "many-to-one", "join_type": "LEFT OUTER"}'
+  - name: orders_to_ship_to_customer
+    from: orders
+    to: customer
+    from_columns: [ship_to_customer_key]
+    to_columns: [customer_key]
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "physical_join": "fct_order_to_ShipTo_Customer", "cardinality": "many-to-one", "join_type": "LEFT OUTER"}'
+metrics:
+  - name: order_count
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(CASE WHEN orders.order_key IS NOT NULL THEN 1 ELSE 0 END)
+    datatype: Integer
+  - name: order_revenue
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(orders.amount)
+    datatype: Decimal
+custom_extensions:
+  - vendor_name: VIBEDATA
+    data: '{"vibedata_version": "1.0", "physical_tables": [{"name": "fct_order", "source": "core.fct_order", "dbt_model": "fct_order", "table_type": "TABLE"}, {"name": "dim_customer", "source": "core.dim_customer", "dbt_model": "dim_customer", "table_type": "TABLE"}, {"name": "ShipTo_Customer", "source": "core.dim_customer", "dbt_model": "dim_customer", "table_type": "ALIAS", "alias_of": "dim_customer", "role": "ship-to customer"}, {"name": "agg_order_daily", "source": "agg.agg_order_daily", "dbt_model": "agg_order_daily", "table_type": "TABLE"}], "physical_joins": [{"name": "fct_order_to_dim_customer", "from": "fct_order", "to": "dim_customer"}, {"name": "fct_order_to_ShipTo_Customer", "from": "fct_order", "to": "ShipTo_Customer"}, {"name": "agg_order_daily_to_dim_customer", "from": "agg_order_daily", "to": "dim_customer"}]}'

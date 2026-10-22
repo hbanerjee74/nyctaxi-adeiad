@@ -29,8 +29,8 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `logical_sources[]` | LTS list: every physical path that can supply this logical table (S3) | — |
 | `logical_sources[].name` | LTS handle (`LTS1_detail`, `LTS2_zone_day_agg`) | — |
 | `logical_sources[].physical_table` | Handle into model `physical_tables` | `"fct_trip"` |
-| `logical_sources[].priority_group` | Integer ≥ 0; `0` is the preferred aggregate, higher numbers fall back to detail | `0` |
-| `logical_sources[].content_grain` | Grain in the LTS table's own columns where they exist, else the logical grain name (`trip`) | `["pickup_date", "pickup_location_id"]` |
+| `logical_sources[].priority_group` | `1` on the single detail source, `0` on every aggregate source. Preference among aggregates is not expressible here — the validator reads any non-zero as a detail supplier | `0` |
+| `logical_sources[].content_grain` | Grain in the LTS table's own columns where they exist — they may be columns the dataset does not declare — else the logical grain name (`trip`). Human-readable, not validated | `["pickup_date", "pickup_location_id"]` |
 | `logical_sources[].where` | Fragment/content filter in words (e.g. report-window bound) | — |
 | `logical_sources[].note` | Partial-mapping rationale: which columns were refused and why | `"billable_revenue refused: agg sums unfiltered totals"` |
 | `logical_sources[].column_map` | Logical field-or-metric → physical column, per LTS. Aggregates map only what their grain supports; every field needs ≥1 non-`0` supplier | `{"pickup_date": "pickup_date"}` |
@@ -43,5 +43,5 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `physical_join` | Handle into model `physical_joins` — the execution join for this logical relationship | `"fct_trip_to_Pickup_Zone"` |
 | `cardinality` | `many-to-one`, `one-to-one`, or `many-to-many` (warns: no core FK equivalent, resolve through a bridge) | `"many-to-one"` |
 | `join_type` | SQL join type (`LEFT OUTER`, …) | `"LEFT OUTER"` |
-| `join_cost` | Relative cost for LTS selection, lower wins | — |
+| `join_cost` | Relative cost for LTS selection, lower wins. Comparable only within one model; use it to order aggregates, which priority cannot | — |
 | `join_expression` | Full predicate including SCD as-of clauses; the core `from/to` columns keep the equi fallback | `"pickup_date >= valid_from_date AND ..."` |

@@ -94,18 +94,43 @@ def _load_schema():
     return schema, None
 
 
-def _dataset_fingerprint(dataset):
-    """Identity of a dataset that must match wherever the same name appears."""
+def _dataset_fingerprint(dataset, alias_names=frozenset()):
+    """Identity of a dataset that must match wherever the same name appears.
+
+    Role logical sources point at ALIAS handles and are local to a document whose
+    facts play that role, so they are excluded; everything else about a shared
+    dimension must match, including its SCD shape and hierarchies.
+    """
     fields = {}
     for field in dataset.get("fields") or []:
         if isinstance(field, dict) and field.get("name"):
             fields[field["name"]] = json.dumps(
                 [field.get("expression"), field.get("datatype"), field.get("dimension")],
                 sort_keys=True)
+    payload = {}
+    for data in (dataset.get("custom_extensions") or []):
+        if isinstance(data, dict) and data.get("vendor_name") == "VIBEDATA":
+            try:
+                payload.update(json.loads(data.get("data") or "{}"))
+            except json.JSONDecodeError:
+                pass
+    sources = {}
+    for source in payload.get("logical_sources") or []:
+        if not isinstance(source, dict):
+            continue
+        if source.get("physical_table") in alias_names:
+            continue
+        sources[source.get("name")] = json.dumps(
+            [source.get("physical_table"), source.get("priority_group"),
+             source.get("content_grain"), source.get("column_map")],
+            sort_keys=True)
     return {"source": dataset.get("source"),
             "primary_key": dataset.get("primary_key"),
             "unique_keys": dataset.get("unique_keys"),
-            "fields": fields}
+            "fields": fields,
+            "scd": payload.get("scd"),
+            "hierarchies": payload.get("hierarchies"),
+            "logical_sources": sources}
 
 
 def cross_document_drift(docs):
@@ -119,10 +144,13 @@ def cross_document_drift(docs):
     for target, doc in docs:
         if not isinstance(doc, dict):
             continue
+        aliases = frozenset(
+            name for name, table in physical_table_index(doc).items()
+            if table.get("table_type") == "ALIAS")
         for dataset in doc.get("datasets") or []:
             if isinstance(dataset, dict) and dataset.get("name"):
                 seen.setdefault(("dataset", dataset["name"]), []).append(
-                    (target, _dataset_fingerprint(dataset)))
+                    (target, _dataset_fingerprint(dataset, aliases)))
         for metric in doc.get("metrics") or []:
             if isinstance(metric, dict) and metric.get("name"):
                 seen.setdefault(("metric", metric["name"]), []).append(
@@ -141,6 +169,36 @@ def cross_document_drift(docs):
                                f"and '{target}'; copies of a shared {kind} must match",
                     "file": target})
     return diags
+
+
+@app.command()
+def coverage(model: str, marts: str):
+    """Every dbt model under MARTS must be named by a dbt_model; report both gaps."""
+    docs = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            print(json.dumps([read_diag]))
+            raise typer.Exit(1)
+        docs.append((target, _vendor.load_yaml_named(text, str(target))))
+    named = set()
+    for _, doc in docs:
+        for name, table in physical_table_index(doc).items():
+            if table.get("dbt_model"):
+                named.add(table["dbt_model"])
+    on_disk = {path.stem for path in Path(marts).rglob("*.sql")}
+    diags = [{"severity": "error", "code": "coverage/unmapped",
+              "message": f"dbt model '{name}' is in the lakehouse but no dbt_model "
+                         f"names it; register it or record why in a note"}
+             for name in sorted(on_disk - named)]
+    diags += [{"severity": "error", "code": "coverage/phantom",
+               "message": f"dbt_model '{name}' names no file under {marts}"}
+              for name in sorted(named - on_disk)]
+    print(json.dumps(diags, indent=2))
+    errors = [d for d in diags if d["severity"] == "error"]
+    typer.echo(f"{len(on_disk)} model(s) on disk, {len(named)} named, "
+               f"{len(errors)} coverage error(s).", err=True)
+    raise typer.Exit(1 if errors else 0)
 
 
 @app.command()

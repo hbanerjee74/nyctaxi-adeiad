@@ -344,3 +344,36 @@ def test_crossdoc_identical_identity_with_local_roles_passes(tmp_path):
     (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
     code, diags = _run("validate", str(tmp_path))
     assert code == 0, [d for d in diags if d["severity"] == "error"]
+
+
+def test_example_star_validates():
+    example = SKILL_SCRIPTS.parent / "examples" / "star.ossie.yaml"
+    code, diags = _run("validate", str(example))
+    assert code == 0, [d for d in diags if d["severity"] == "error"]
+
+
+def test_coverage_reports_unmapped(tmp_path):
+    model = tmp_path / "model"
+    marts = tmp_path / "marts"
+    model.mkdir()
+    marts.mkdir()
+    _write(model, _doc())
+    (marts / "fct_trip.sql").write_text("select 1")
+    result = RUNNER.invoke(app, ["coverage", str(model), str(marts)])
+    assert result.exit_code == 1
+    codes = {d.get("code") for d in json.loads(result.stdout)}
+    assert "coverage/phantom" in codes  # the sample doc names models absent from marts
+
+
+def test_crossdoc_diverged_scd_fails(tmp_path):
+    doc = _doc()
+    twin = _doc()
+    twin["name"] = "twin_model"
+    zone = json.loads(twin["datasets"][2]["custom_extensions"][0]["data"])
+    zone["scd"]["open_ended_value"] = "9999-12-31"
+    twin["datasets"][2]["custom_extensions"][0]["data"] = json.dumps(zone)
+    _write(tmp_path, doc)
+    (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(tmp_path))
+    assert code == 1
+    assert ("crossdoc/diverged", "error") in _codes(diags)
