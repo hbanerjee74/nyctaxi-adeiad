@@ -20,7 +20,7 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ossie_vibedata import validate_vibedata  # noqa: E402
+from ossie_vibedata import physical_table_index, validate_vibedata  # noqa: E402
 
 TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
@@ -94,6 +94,55 @@ def _load_schema():
     return schema, None
 
 
+def _dataset_fingerprint(dataset):
+    """Identity of a dataset that must match wherever the same name appears."""
+    fields = {}
+    for field in dataset.get("fields") or []:
+        if isinstance(field, dict) and field.get("name"):
+            fields[field["name"]] = json.dumps(
+                [field.get("expression"), field.get("datatype"), field.get("dimension")],
+                sort_keys=True)
+    return {"source": dataset.get("source"),
+            "primary_key": dataset.get("primary_key"),
+            "unique_keys": dataset.get("unique_keys"),
+            "fields": fields}
+
+
+def cross_document_drift(docs):
+    """Same name, different definition across documents: duplication that drifted.
+
+    Shared dimensions are copied per star (relationships cannot cross documents),
+    so a copy that disagrees with its twin is a silent second definition.
+    """
+    diags = []
+    seen = {}
+    for target, doc in docs:
+        if not isinstance(doc, dict):
+            continue
+        for dataset in doc.get("datasets") or []:
+            if isinstance(dataset, dict) and dataset.get("name"):
+                seen.setdefault(("dataset", dataset["name"]), []).append(
+                    (target, _dataset_fingerprint(dataset)))
+        for metric in doc.get("metrics") or []:
+            if isinstance(metric, dict) and metric.get("name"):
+                seen.setdefault(("metric", metric["name"]), []).append(
+                    (target, json.dumps(metric.get("expression"), sort_keys=True)))
+        for name, table in physical_table_index(doc).items():
+            seen.setdefault(("physical_table", name), []).append((target, table))
+    for (kind, name), entries in seen.items():
+        if len(entries) < 2:
+            continue
+        first_target, first = entries[0]
+        for target, value in entries[1:]:
+            if value != first:
+                diags.append({
+                    "severity": "error", "code": "crossdoc/diverged",
+                    "message": f"{kind} '{name}' is defined differently in '{first_target}' "
+                               f"and '{target}'; copies of a shared {kind} must match",
+                    "file": target})
+    return diags
+
+
 @app.command()
 def validate(model: str):
     """Validate canonical file(s): upstream core checks + VIBEDATA pass."""
@@ -107,6 +156,7 @@ def validate(model: str):
         print(json.dumps([schema_diag]))
         raise typer.Exit(2)
     diags = []
+    parsed = []
     for target in targets:
         text, read_diag = _read_text(target)
         if read_diag:
@@ -129,6 +179,9 @@ def validate(model: str):
         for d in file_diags:
             d.setdefault("file", str(target))
         diags.extend(file_diags)
+        parsed.append((str(target), data))
+    if len(parsed) > 1:
+        diags.extend(cross_document_drift(parsed))
     print(json.dumps(diags, indent=2))
     errors = [d for d in diags if d["severity"] == "error"]
     typer.echo(f"{len(targets)} file(s), {len(errors)} error(s).", err=True)

@@ -265,3 +265,45 @@ def test_note_keys_accepted(tmp_path):
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 0
     assert not [d for d in diags if d["severity"] == "error"]
+
+
+def test_from_column_unknown_fails(tmp_path):
+    doc = _doc()
+    doc["relationships"][0]["from_columns"] = ["no_such_field"]
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("relationship/from-column-unknown", "error") in _codes(diags)
+
+
+def test_crossdoc_diverged_dataset_fails(tmp_path):
+    doc = _doc()
+    twin = _doc()
+    twin["name"] = "twin_model"
+    twin["datasets"][1]["source"] = "core.dim_date_other"
+    _write(tmp_path, doc)
+    (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(tmp_path))
+    assert code == 1
+    assert ("crossdoc/diverged", "error") in _codes(diags)
+
+
+def test_crossdoc_identical_copy_passes(tmp_path):
+    doc = _doc()
+    twin = _doc()
+    twin["name"] = "twin_model"
+    _write(tmp_path, doc)
+    (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(tmp_path))
+    assert code == 0, [d for d in diags if d["severity"] == "error"]
+
+
+def test_crossdoc_diverged_metric_fails(tmp_path):
+    doc = _doc()
+    twin = _doc()
+    twin["name"] = "twin_model"
+    twin["metrics"][0]["expression"]["dialects"][0]["expression"] = "COUNT(*)"
+    _write(tmp_path, doc)
+    (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(tmp_path))
+    assert code == 1
+    assert ("crossdoc/diverged", "error") in _codes(diags)

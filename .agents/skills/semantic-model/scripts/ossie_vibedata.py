@@ -98,6 +98,16 @@ def _model_payload(model):
     return merged, diags
 
 
+def physical_table_index(doc):
+    """Model-level physical tables by name: identity fields used for drift checks."""
+    payload, _ = _model_payload(doc)
+    out = {}
+    for t in payload.get("physical_tables", []):
+        if isinstance(t, dict) and t.get("name"):
+            out[t["name"]] = {k: t.get(k) for k in ("source", "dbt_model", "table_type", "alias_of")}
+    return out
+
+
 def validate_vibedata(doc):
     """Second-pass VIBEDATA checks. Returns diagnostics (errors and warnings)."""
     diags = []
@@ -164,6 +174,26 @@ def validate_vibedata(doc):
         diags.extend(_validate_dataset(dataset, model_name, physical_tables, metric_names))
     for rel in doc.get("relationships", []):
         diags.extend(_validate_relationship(rel, model_name, dataset_names, physical_join_names))
+        diags.extend(_validate_from_columns(rel, model_name, doc))
+    return diags
+
+
+def _validate_from_columns(rel, model_name, doc):
+    """A relationship's from_columns must name fields the from dataset declares."""
+    diags = []
+    rel_name = rel.get("name", "<unnamed>")
+    datasets = {d.get("name"): d for d in doc.get("datasets", []) if isinstance(d, dict)}
+    source = datasets.get(rel.get("from"))
+    columns = rel.get("from_columns")
+    if not source or not isinstance(columns, list):
+        return diags
+    fields = {f.get("name") for f in source.get("fields", []) if isinstance(f, dict)}
+    for column in columns:
+        if column not in fields:
+            diags.append({"severity": "error", "code": "relationship/from-column-unknown",
+                          "message": f"relationship '{rel_name}' in model '{model_name}': "
+                                     f"from_column '{column}' is not a declared field of "
+                                     f"dataset '{rel.get('from')}'"})
     return diags
 
 

@@ -7,6 +7,12 @@ description: "Use when creating or editing the canonical semantic model, its VIB
 
 The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (exact links and pinned commit live beside the vendored machine schema, which is never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
 
+## Stars are atomic; documents partition stars (S1)
+
+A fact star — its fact, the dims it reaches, its relationships, its metrics, its aggregate sources — lives wholly inside one document. It is never split across documents, and there is no shared-dimension document: Ossie resolves relationships within a document only, and the schema is closed, so a cross-document reference is unexpressible and a "shared dims" file would leave every star broken.
+
+Two stars in one document share one copy of a common dimension. Two stars in separate documents each carry their own copy, and the copies must stay identical — the validator compares same-named datasets, metrics, and physical tables across a directory and fails any that diverge. A metric spanning two stars forces both into one document.
+
 ## Curated fields, not a mirror (S2)
 
 `fields` are semantic attributes (keys, grouping/filtering dims, inputs to metric expressions) — a curated subset of the mart, never a column dump. Degenerate non-semantic columns stay out. A field the model drops is a scope decision, recorded in the change, not an oversight.
@@ -43,7 +49,7 @@ The model is not append-only. These moves are normal work, each validated across
 
 - **New standalone model.** An object that serves no star (bridge, rate table, direct-consumption mart) gets its own document named after what it models, one dataset, its own `physical_tables` entry, and a `note` saying why it stands alone. Never park it in a star it cannot join.
 - **Fold a standalone model into a star.** When a join key lands, move the dataset into the consuming document, add the relationship and its `physical_joins` entry there, delete the standalone document, and correct every stale statement about the object wherever it lives — its `note`, description, `ai_context`, and any rule the new path invalidates. Relationships cannot cross documents, so leaving both is a second source of truth, not caution.
-- **Split a star across documents.** Split by star; re-declare the shared dims each document needs.
+- **Split the model across documents.** Partition by whole stars (S1); each document keeps every dataset its own facts need, and shared dims are copied identically.
 - **Move or rename a dataset.** Update every relationship, `physical_join`, and `logical_sources[].physical_table` that names it in the same change; leave no dangling reference for validation to find.
 
 Name new relationships and joins after the existing pattern in the target document rather than inventing one.
