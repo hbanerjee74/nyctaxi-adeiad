@@ -34,7 +34,7 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 
 You fix what the model can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
 
-You escalate, with the finding written out as location → evidence → options → recommendation, when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
+You escalate as a grilling session — one finding at a time, location → evidence → options → recommendation, waiting for the ruling before raising the next — when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
 
 Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wrong, it is a finding about the mart, reported — the model records what the lakehouse actually does.
 
