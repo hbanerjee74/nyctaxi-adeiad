@@ -27,7 +27,7 @@ Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed and machine-readable in `tools/vibedata-schema.json` (model, dataset, and relationship payload shapes; base Ossie stays the upstream `tools/ossie_vendor/ossie-schema.json`). An unknown key fails `validate` (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in `tools/vibedata-schema.json`, with field-by-field meanings in `vibedata-fields.md` beside this file. An unknown key fails `validate` (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 
