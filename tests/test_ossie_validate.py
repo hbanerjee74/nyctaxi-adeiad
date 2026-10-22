@@ -41,7 +41,8 @@ def test_canonical_validates():
     """Structural gate only: the canonical model parses and resolves."""
     code, diags = _run("validate", str(CANONICAL))
     assert code == 0, diags
-    assert diags == []
+    assert not [d for d in diags if d["severity"] == "error"]
+    assert ("vibedata/table-unjoined", "warning") in _codes(diags)
 
 
 def test_missing_file_stdout_stays_json():
@@ -352,3 +353,42 @@ def test_unmatched_file_in_model_dir_fails(tmp_path):
     code, diags = _run("validate", str(tmp_path))
     assert code == 1
     assert ("cli/unmatched-file", "error") in _codes(diags)
+
+
+def test_to_column_unknown_fails(tmp_path):
+    doc = _doc()
+    doc["relationships"][0]["to_columns"] = ["not_a_field"]
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("relationship/to-column-unknown", "error") in _codes(diags)
+
+
+def test_primary_key_unknown_field_fails(tmp_path):
+    doc = _doc()
+    doc["datasets"][0]["primary_key"] = ["no_such_key"]
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-key-column", "error") in _codes(diags)
+
+
+def test_dataset_without_logical_source_fails(tmp_path):
+    doc = _doc()
+    payload = json.loads(doc["datasets"][1]["custom_extensions"][0]["data"])
+    payload["logical_sources"] = []
+    doc["datasets"][1]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/lts-empty", "error") in _codes(diags)
+
+
+def test_suppliers_reports_unsupplied_metric(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][0]["column_map"].pop("fare_residual_total", None)
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    result = RUNNER.invoke(app, ["suppliers", str(model)])
+    assert result.exit_code == 1
+    assert "suppliers/metric" in result.stdout

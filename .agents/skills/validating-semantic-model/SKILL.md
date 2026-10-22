@@ -11,7 +11,7 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 ## Step 1 — structure
 
-From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`. Record each command with its exit code.
+From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, and `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1. Record each command with its exit code.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 
@@ -26,11 +26,13 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 5. **Semi-additive measures are not plain sums.** Down-days, balances, snapshots, stock levels: no `SUM` metric, and no aggregate whose grain crosses the forbidden dimension.
 6. **Refusals are recorded.** Every declared field or metric an aggregate declines to supply, and every table that cannot be mapped, carries a `note` naming why. Refusing an undeclared physical column needs no note.
 7. **Coverage is complete.** `coverage` proves the model set; the notes prove the gaps. A gold table with neither a handle nor a note is a finding.
-8. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
+8. **Datatypes and SCD are honest.** Each field's `datatype` matches the column the staging or ingestion SQL produces, and each `scd` claim matches the ADR that rules it — a Type 2 claim on a Type 1 source is a finding.
+9. **Documents hold whole stars.** A dataset that exists only to bridge two documents is a partition error, not a table.
+10. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
 
 ## Step 3 — report
 
-Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim.
+Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim, and every content fix is followed by re-running `validate` and `suppliers` — a content edit is an edit.
 
 ## Red flags — stop and re-check
 

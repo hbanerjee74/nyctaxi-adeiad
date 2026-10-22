@@ -167,6 +167,16 @@ def validate_vibedata(doc):
                                     f"'{j.get('name', '<unnamed>')}' references unknown "
                                     f"physical table '{j.get(end)}'"))
 
+    reached = {j.get("from") for j in model_payload.get("physical_joins", [])
+               if isinstance(j, dict)}
+    reached |= {j.get("to") for j in model_payload.get("physical_joins", [])
+                if isinstance(j, dict)}
+    for name in sorted(physical_tables):
+        if name not in reached:
+            diags.append({"severity": "warning", "code": "vibedata/table-unjoined",
+                          "message": f"model '{model_name}': physical table '{name}' appears "
+                                     "in no physical join"})
+
     dataset_names = {d.get("name") for d in doc.get("datasets", []) if d.get("name")}
     metric_names = {m.get("name") for m in doc.get("metrics", [])
                     if isinstance(m, dict) and m.get("name")}
@@ -175,6 +185,7 @@ def validate_vibedata(doc):
     for rel in doc.get("relationships", []):
         diags.extend(_validate_relationship(rel, dataset_names, physical_join_names))
         diags.extend(_validate_from_columns(rel, doc))
+        diags.extend(_validate_to_columns(rel, doc))
     return diags
 
 
@@ -183,6 +194,15 @@ def _validate_dataset(dataset, physical_tables, metric_names):
     ds_name = dataset.get("name", "<unnamed>")
     where = f"dataset '{ds_name}'"
     fields = {f.get("name") for f in dataset.get("fields", []) if isinstance(f, dict)}
+    for key_name, key_cols in (("primary_key", dataset.get("primary_key")),
+                               ("unique_keys", dataset.get("unique_keys"))):
+        groups = key_cols if key_name == "unique_keys" else [key_cols] if key_cols else []
+        for group in groups or []:
+            for col in group if isinstance(group, list) else []:
+                if col not in fields:
+                    diags.append(_error("vibedata/bad-key-column",
+                                        f"{where}: {key_name} names '{col}', which is not a "
+                                        "declared field"))
     payloads = []
     for data in _extensions(dataset):
         payload, errs = _decode(data, where)
@@ -194,6 +214,9 @@ def _validate_dataset(dataset, physical_tables, metric_names):
                             f"{where}: multiple VIBEDATA entries; keep exactly one"))
     if not payloads:
         return diags
+    if not (payload.get("logical_sources") or []):
+        diags.append(_error("vibedata/lts-empty",
+                            f"{where}: declares no logical source, so nothing supplies it"))
     payload = {}
     for p in payloads:
         payload.update(p)
@@ -309,6 +332,24 @@ def _validate_relationship(rel, dataset_names, physical_join_names):
             diags.append(_error("vibedata/bad-cardinality",
                                 f"{where}: cardinality '{cardinality}' must be one of "
                                 f"{sorted(CARDINALITIES)}"))
+    return diags
+
+
+def _validate_to_columns(rel, doc):
+    """A relationship's to_columns must name fields the to dataset declares."""
+    diags = []
+    rel_name = rel.get("name", "<unnamed>")
+    datasets = {d.get("name"): d for d in doc.get("datasets", []) if isinstance(d, dict)}
+    target = datasets.get(rel.get("to"))
+    columns = rel.get("to_columns")
+    if not target or not isinstance(columns, list):
+        return diags
+    fields = {f.get("name") for f in target.get("fields", []) if isinstance(f, dict)}
+    for column in columns:
+        if column not in fields:
+            diags.append(_error("relationship/to-column-unknown",
+                                f"relationship '{rel_name}': to_column '{column}' is not a "
+                                f"declared field of dataset '{rel.get('to')}'"))
     return diags
 
 

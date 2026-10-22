@@ -158,7 +158,7 @@
       ],
       "commands": {
         "unit": "python3 -m pytest tests/test_ossie_validate.py -q",
-        "structural": "python3 .agents/skills/semantic-model/scripts/ossie.py validate logical-model/ && python3 .agents/skills/semantic-model/scripts/ossie.py coverage logical-model/ transformation/models/marts"
+        "structural": "python3 .agents/skills/semantic-model/scripts/ossie.py validate logical-model/ && python3 .agents/skills/semantic-model/scripts/ossie.py coverage logical-model/ transformation/models/marts && python3 .agents/skills/semantic-model/scripts/ossie.py suppliers logical-model/"
       }
     }
   }

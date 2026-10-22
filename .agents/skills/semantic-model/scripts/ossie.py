@@ -7,6 +7,7 @@ follow-up (VD-7126); nothing here writes consumer files.
 Usage:
   python3 scripts/ossie.py validate <model-file-or-dir>
   python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
+  python3 scripts/ossie.py suppliers <model-file-or-dir>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -210,6 +211,44 @@ def coverage(model: str, marts: str):
     typer.echo(f"{len(on_disk)} model(s) on disk, {len(named)} named, "
                f"{len(errors)} coverage error(s).", err=True)
     raise typer.Exit(1 if errors else 0)
+
+
+@app.command()
+def suppliers(model: str):
+    """Declared fields and metrics that no logical source supplies (content instrument)."""
+    diags = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            diags.append(read_diag)
+            continue
+        doc = _vendor.load_yaml_named(text, str(target))
+        supplied = set()
+        for dataset in doc.get("datasets") or []:
+            for ext in dataset.get("custom_extensions") or []:
+                if ext.get("vendor_name") != "VIBEDATA":
+                    continue
+                try:
+                    payload = json.loads(ext.get("data") or "{}")
+                except json.JSONDecodeError:
+                    continue
+                for source in payload.get("logical_sources") or []:
+                    supplied.update((source.get("column_map") or {}).keys())
+            for field in dataset.get("fields") or []:
+                if isinstance(field, dict) and field.get("name") not in supplied:
+                    diags.append({"severity": "finding", "code": "suppliers/field",
+                                  "file": str(target),
+                                  "message": f"{dataset.get('name')}.{field['name']} is "
+                                             "supplied by no logical source"})
+        for metric in doc.get("metrics") or []:
+            if isinstance(metric, dict) and metric.get("name") not in supplied:
+                diags.append({"severity": "finding", "code": "suppliers/metric",
+                              "file": str(target),
+                              "message": f"metric '{metric['name']}' is supplied by no "
+                                         "logical source"})
+    print(json.dumps(diags, indent=2))
+    typer.echo(f"{len(diags)} unsupplied item(s).", err=True)
+    raise typer.Exit(1 if diags else 0)
 
 
 @app.command()
