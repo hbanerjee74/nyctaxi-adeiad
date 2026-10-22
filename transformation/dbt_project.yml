@@ -5,10 +5,8 @@ profile: "{{ env_var('DBT_PROFILE_NAME', 'nyc_taxi_analytics') }}"
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
-snapshot-paths: ["snapshots"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
-analysis-paths: ["analyses"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
