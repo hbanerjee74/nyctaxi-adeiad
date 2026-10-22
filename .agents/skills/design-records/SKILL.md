@@ -22,6 +22,10 @@ description: "Use when writing or amending a design record under docs/design/ fo
 - No teams, reports, packs or audiences.
 - When nothing in the repo depends on it, write "None in this repo".
 
+## No population statements
+
+A design record states the grain and the decisions. What population a measure covers — which rows are in, which are excluded, how the counts reconcile to the fact — is not recorded here: it belongs on the artifact's logical source in the semantic model (`where` and `note`), and in an ADR when the bound is a business rule. A record that restates it is a second copy that drifts the first time the SQL changes. Cite the ADR or the source; do not repeat the population.
+
 ## No evidence
 
 A design record holds decisions, not measurements. Counts, profiling results, reconciliation figures and check outcomes go in the intent's verification file: they change with every load, and a copy in the design record drifts from the data. A decision whose reason is a measurement says so in words and names that verification file.
