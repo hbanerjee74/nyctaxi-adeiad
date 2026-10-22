@@ -24,7 +24,9 @@ One file per run at `artifact_paths.review` in `repo-map.json` (`docs/review/{da
 | Finding | One sentence |
 | Evidence | Path and line, or a query and its result. Never a guess. |
 | Suggested action | One sentence |
-| Status | `open` when written |
+| Status | `open` when written; `intent` when the suggested action needs its own intent; `proposal`, `deferred` or `declined` after triage |
+
+A finding whose suggested action changes code, configuration or data is still only a finding: the review records it and applies nothing. Onboarding in particular never fixes what it finds, however small.
 
 ## Triage
 

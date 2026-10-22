@@ -25,7 +25,9 @@ Decide at the requirement step, from the repo and the Domain database:
 1. **This intent**: capture conventions, write the context, file the onboarding review, ship one PR.
 2. **Later intents**: each review finding an engineer picks up is a normal intent (requirement, design, build, verify, ship). An intent that changes code compares output before and after in its own session.
 
-So during onboarding you change no model, pipeline or human document. A problem you find goes in the review, even when the fix is one line. The only other changes are the base setup in [base-setup.md](references/base-setup.md): two `dbt_project.yml` lines the sandbox build needs, and files added where the repo has none.
+So during onboarding you change no model, pipeline or human document. A problem you find goes in the review, even when the fix is one line.
+
+The general rule behind that list: **any change that needs code, configuration, a file edit or a data fix is a review finding, never an onboarding edit** — one line or many, in any file. Onboarding's deliverable is context (the maps, the skills, the documents) plus the review; a fix is a later intent with its own requirement, design and verification. If you catch yourself reaching for the editor to correct something you found, write `R-n` instead. The only other changes are the base setup in [base-setup.md](references/base-setup.md): two `dbt_project.yml` lines the sandbox build needs, and files added where the repo has none.
 
 ## Loop phases
 
