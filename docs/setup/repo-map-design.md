@@ -87,5 +87,9 @@ Added for data engineering: `layers` (one entry per schema), `sources`, `artifac
 - `ops_raw` and `mdm_raw` are loaded by dlt like TLC bronze (`built_by: dlt`); the generators become source simulators that write landing files. User answer.
 - Each schema has its own `layers` entry (`core`, `agg`, `finance`, `ops` are separate), not one combined gold entry. User answer.
 
+## Change (VD-7137, 2026-10-22)
+
+`built_by` gained `custom` in place of the unused `script`, and requires `notes` for it. The map gained `orchestrators` (what starts the pipelines) and `sources.<name>.produces` (the tables a source lands, declared only when a dataset has more than one producer). The runner is separate from the layer it feeds: a Fabric pipeline or Airflow job that starts dlt pipelines declares itself in `orchestrators`, never as a layer builder. The schedule is still not in the map: it belongs to the runner's own deployment, so the map says what to run and who starts it, not when.
+
 ## Open
 

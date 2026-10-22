@@ -83,6 +83,6 @@ reason: Follows from the repo-map and the map tests.
 -->
 
 - The first source sets the pattern; every later source mirrors an existing entry in `repo-map.json` `sources` and creates every artifact it lists (module, config section, pipeline, resource docs, tests, design record).
-- Register the pipeline in `orchestration/run_ingest.py`, and add the source to `repo-map.json` and `test-map.json`. `tests/test_maps.py` fails when a source's listed paths or its config section are missing.
+- Register the pipeline in its runner's `orchestrators.<name>.runs` and in `orchestration/run_ingest.py`. `runs` is the set, never the order: the runner's `PIPELINES` list holds the order. Declare `produces` once a second source shares the `dataset`, because a table's producer is otherwise ambiguous. `tests/test_maps.py` fails when a source's listed paths or config section are missing, when no orchestrator runs it, and when a shared dataset leaves its tables unclaimed. Add it to `test-map.json` only when it needs its own test module.
 - To see whether a source exists, read `repo-map.json` `sources`; query the lakehouse only for data questions.
 - Mirror the existing source of the same kind for batching and file handling.

@@ -28,7 +28,8 @@ def _is_pattern(path: str) -> bool:
 
 
 def _literal_paths() -> list[str]:
-    paths = [layer["path"] for layer in REPO_MAP["layers"].values()]
+    paths = [layer["path"] for layer in REPO_MAP["layers"].values() if layer["path"]]
+    paths += [runner["path"] for runner in REPO_MAP["orchestrators"].values() if runner.get("path")]
     paths += REPO_MAP["artifact_paths"].values()
     paths += REPO_MAP["entrypoints"].values()
     paths += REPO_MAP["key_directories"].keys()
@@ -44,7 +45,66 @@ def test_repo_map_validates_against_its_schema():
 
 
 def test_every_layer_has_one_builder():
-    assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} <= {"dlt", "dbt"}
+    assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} <= {"dlt", "dbt", "custom"}
+
+
+def test_orchestrators_and_sources_agree():
+    declared = set(REPO_MAP["sources"])
+    runs = {name for runner in REPO_MAP["orchestrators"].values() for name in runner["runs"]}
+    assert declared - runs == set(), f"sources no orchestrator runs: {sorted(declared - runs)}"
+    assert runs - declared == set(), f"orchestrators run unknown sources: {sorted(runs - declared)}"
+
+
+def test_a_shared_dataset_declares_what_each_pipeline_lands():
+    by_dataset = {}
+    for name, source in REPO_MAP["sources"].items():
+        by_dataset.setdefault(source["dataset"], []).append(name)
+    for dataset, names in by_dataset.items():
+        if len(names) < 2:
+            continue
+        claimed = []
+        for name in names:
+            tables = REPO_MAP["sources"][name].get("produces")
+            assert tables, f"{name} shares dataset {dataset} but declares no produces"
+            assert all(t.strip() for t in tables), f"{name} declares a blank table name"
+            claimed += tables
+        assert len(claimed) == len(set(claimed)), (
+            f"sources on {dataset} claim the same table: {sorted(claimed)}"
+        )
+
+
+RESOURCE_IN_MODULE = re.compile(r"dlt\.resource\(", re.M)
+PIPELINES_IN_CODE = re.compile(r"^PIPELINES\s*(?::[^=\n]*)?=\s*\[(.*?)\]", re.S | re.M)
+
+
+def test_every_source_declares_or_exposes_its_tables():
+    """A source with no `produces` must still land something: its module has to declare a resource."""
+    for name, source in REPO_MAP["sources"].items():
+        if source.get("produces"):
+            continue
+        module = (ROOT / source["module"]).read_text()
+        assert RESOURCE_IN_MODULE.search(module), (
+            f"{name} declares no produces and its module declares no dlt resource"
+        )
+
+
+def test_an_orchestrator_runs_what_its_code_runs():
+    """A source added to `runs` but not to the runner's list never runs, and no other test sees it."""
+    for name, runner in REPO_MAP["orchestrators"].items():
+        if "path" not in runner:
+            continue  # a runner outside the repo only declares what it starts
+        runner_path = ROOT / runner["path"]
+        assert runner_path.exists(), f"{name}: runner path does not exist: {runner['path']}"
+        match = PIPELINES_IN_CODE.search(runner_path.read_text())
+        assert match, f"{name}: no literal PIPELINES list to compare against"
+        in_code = {
+            item.strip().strip("\"'").removesuffix("_pipeline.py")
+            for item in match.group(1).split(",")
+            if item.strip()
+        }
+        assert in_code == set(runner["runs"]), (
+            f"{name}: code runs {sorted(in_code)}, map says {sorted(runner['runs'])}"
+        )
 
 
 def test_repo_map_paths_exist():

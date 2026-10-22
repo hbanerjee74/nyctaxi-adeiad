@@ -24,6 +24,10 @@ The onboarding skill (`.agents/skills/onboarding/`) replaces `init` for both an 
 | Skill | Reference | Suggested change |
 | --- | --- | --- |
 | platform (Studio runtime) | conversation condensation | Once VD-6910 has shipped, check in the next long run that the agent still follows the repo's rules after a condensation. In run b2f37191 and the seventh HVFHV run it stopped following `workarounds` after condensing (repeated `verify.md` edits, a missed contract-check workaround). If it still drifts, the fix is to keep `AGENTS.md` and the skills it names in context through a condensation. |
+| `generating-dlt-pipeline` | repo-map registration; the new-source footprint | A new source joins its runner's `repo-map.json` `orchestrators.<name>.runs`, in addition to its `sources` entry. `runs` is the set; the runner's own code holds the order. The skill's footprint list must name `orchestrators`, or every repo it builds leaves a raw table with no declared producer. |
+| `add-or-update-source` | adding a table to an existing source | When the new table makes a `dataset` shared by two sources, both sources declare `produces` (their table names). With a single owner, the module's resources are the list and a copy would drift. |
+| `generating-dbt-model` | `layers.<x>.built_by` routing | `built_by` is now `dlt`, `dbt` or `custom`. A `custom` layer has no skill procedure, so the skill must not fall through to the dbt procedure for it; it should read the layer's `notes` and stop. |
+| `onboarding` (plugin copy) | repo-map schema, template, its map tests, `templates/skills/dlt.md` and `templates/dbt/dbt_project.yml` | The schema and template carried in the plugin gain `orchestrators`, `sources.<name>.produces`, `built_by: custom` (with `notes` required for it and for a null `path`) and the `sqlfluff_lint` command; its `tests/test_maps.py` template gains the orchestrator↔source, shared-dataset `produces`, source↔resource and `runs`↔`PIPELINES` guards; `templates/skills/dlt.md` carries the same registration rule; the template `dbt_project.yml` drops the unused `analysis-paths`. A repo onboarded by the plugin copy must produce the same map shape and the same guards as this repo's `.agents/skills/onboarding/` templates. |
 
 ## Tracked in Linear
 
@@ -31,6 +35,7 @@ A row that becomes a Linear issue moves here; the issue holds the work and its a
 
 | Issue | Owner | Skill or area | What it covers | Status |
 | --- | --- | --- | --- | --- |
+| VD-7137 | hemanta | repo-map schema; `dlt`, `onboarding` convention skills; the four plugin skills above | The map can record which pipeline lands each raw table (derived from the module, declared in `produces` once a dataset is shared) and what invokes each pipeline; `built_by` becomes `dlt`/`dbt`/`custom`. Implemented in this repo; the plugin rows are recorded above for triage. | Done in this repo |
 | VD-6902 | hemanta | init | Retire the `init` skill and its `_shared/templates/agents-md-template.md`; onboarding replaces them. Studio's skill snapshot, `workflow.ts` maps and compatibility contract drop `init` with the plugin pointer bump; `artifact-kinds.md` points at onboarding. | Done |
 | VD-6904 | hemanta | platform (data tools) | `summarize_data`, `profile_data`, `compare_data_profiles`, `load_tabular_to_ephemeral` and `visualize_data` read Parquet within their size bounds. | Done |
 | VD-6905 | hemanta | platform (Studio runtime) | The first call after a condensation is rejected on DeepSeek thinking mode because `reasoning_content` is not passed back. | Todo |

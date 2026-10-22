@@ -19,7 +19,8 @@
     "key_directories",
     "commands",
     "key_references",
-    "notes_for_agents"
+    "notes_for_agents",
+    "orchestrators"
   ],
   "properties": {
     "generated_at": {
@@ -132,7 +133,7 @@
     },
     "layers": {
       "type": "object",
-      "description": "One entry per schema: what builds it and where its code lives. Skills read built_by to choose a procedure.",
+      "description": "One entry per schema: what builds it and where its code lives. Skills read built_by to choose a procedure; custom names a stack no skill has a procedure for, so it must say what builds it.",
       "additionalProperties": {
         "type": "object",
         "required": [
@@ -148,15 +149,49 @@
             "enum": [
               "dlt",
               "dbt",
-              "script"
+              "custom"
             ]
           },
           "path": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the builder's code lives in this repo; null when it lives outside."
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
+        },
+        "if": {
+          "anyOf": [
+            {
+              "properties": {
+                "built_by": {
+                  "const": "custom"
+                }
+              },
+              "required": [
+                "built_by"
+              ]
+            },
+            {
+              "properties": {
+                "path": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          ]
+        },
+        "then": {
+          "required": [
+            "notes"
+          ]
         }
       }
     },
@@ -204,7 +239,80 @@
           },
           "design_record": {
             "type": "string"
+          },
+          "produces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The tables this pipeline lands. Required when another source shares its dataset; otherwise the source module's resources are the list."
           }
+        }
+      }
+    },
+    "orchestrators": {
+      "type": "object",
+      "description": "What invokes the pipelines. A runner that starts the dlt pipelines is declared here, never as a layer builder; one that also builds dbt lists only the sources it starts.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "kind",
+          "runs"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "path"
+            ]
+          },
+          {
+            "required": [
+              "location"
+            ]
+          }
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "python",
+              "airflow",
+              "fabric",
+              "custom"
+            ]
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Source names this runner starts. A set, not an order: the runner's own code holds the order. A runner that also builds dbt lists only the sources it starts."
+          },
+          "path": {
+            "type": "string",
+            "description": "A runner in this repo, as an entrypoint path."
+          },
+          "location": {
+            "type": "string",
+            "description": "A runner outside this repo: workspace, pipeline or job identifier."
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "python"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "then": {
+          "required": [
+            "path"
+          ]
         }
       }
     },

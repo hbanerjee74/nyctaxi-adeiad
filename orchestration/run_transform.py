@@ -25,7 +25,7 @@ def run_transform(runner: Callable = _run, target: str = "dev", db_path: Path = 
     # The profile reads the database path from the same variable the Studio sandbox sets.
     env["VD_EPHM_DUCKDB_LOCAL_PATH"] = str(db_path)
     dbt = [sys.executable, "-m", "dbt.cli.main"]
-    # packages.yml lists dbt_utils and dbt_project_evaluator; a fresh checkout has neither installed.
+    # packages.yml installs dbt_project_evaluator; a fresh checkout has no dbt_packages/ until deps runs.
     deps = runner([*dbt, "deps"], cwd=ROOT / "transformation", env=env).returncode
     if deps != 0:
         return deps
