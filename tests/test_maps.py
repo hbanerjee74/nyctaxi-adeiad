@@ -28,7 +28,7 @@ def test_repo_map_validates_against_its_schema():
 
 def test_repo_map_names_every_layer_with_one_builder():
     assert set(REPO_MAP["layers"]) == {
-        "bronze", "staging", "intermediate", "core", "agg", "finance", "ops", "ops_raw", "mdm_raw",
+        "bronze", "staging", "intermediate", "core", "agg", "finance", "ops", "ops_raw", "mdm_raw", "seeds", "main",
     }
     assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} <= {"dlt", "dbt", "custom"}
 
@@ -94,6 +94,27 @@ def test_a_shared_dataset_declares_what_each_pipeline_lands():
         if not REPO_MAP["sources"][name].get("produces")
     ]
     assert missing == [], f"sources sharing a dataset declare produces: {missing}"
+
+
+PIPELINES_IN_CODE = re.compile(r"^PIPELINES\s*=\s*\[(.*?)\]", re.S | re.M)
+
+
+def test_an_orchestrator_runs_what_its_code_runs():
+    """A source added to `runs` but not to the runner's list never runs, and no other test sees it."""
+    for name, runner in REPO_MAP.get("orchestrators", {}).items():
+        if "path" not in runner:
+            continue  # a runner outside the repo only declares what it starts
+        match = PIPELINES_IN_CODE.search((ROOT / runner["path"]).read_text())
+        if not match:
+            continue  # this runner names its pipelines some other way
+        in_code = {
+            item.strip().strip("\"'").removesuffix("_pipeline.py")
+            for item in match.group(1).split(",")
+            if item.strip()
+        }
+        assert in_code == set(runner["runs"]), (
+            f"{name}: code runs {sorted(in_code)}, map says {sorted(runner['runs'])}"
+        )
 
 
 def test_test_map_paths_exist():

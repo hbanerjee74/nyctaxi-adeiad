@@ -63,6 +63,7 @@
     "run_ingest": "orchestration/run_ingest.py",
     "run_transform": "orchestration/run_transform.py",
     "dbt_project": "transformation/dbt_project.yml",
+    "dq": "tools/dq.py",
     "tlc_pipeline": "ingestion/tlc_pipeline.py",
     "ops_pipeline": "ingestion/ops_pipeline.py",
     "mdm_pipeline": "ingestion/mdm_pipeline.py"
@@ -116,6 +117,18 @@
       "schema": "ops",
       "built_by": "dbt",
       "path": "transformation/models/marts/ops/"
+    },
+    "seeds": {
+      "schema": "seeds",
+      "built_by": "dbt",
+      "path": "transformation/seeds/",
+      "notes": "Analyst-owned banding tables, loaded by dbt seed into their own schema. Not a medallion layer."
+    },
+    "main": {
+      "schema": "main",
+      "built_by": "dbt",
+      "path": "transformation/models/",
+      "notes": "The dbt target's default schema. Only metricflow_time_spine lands here, because it sets no +schema. Not a business layer."
     }
   },
   "sources": {
@@ -298,6 +311,7 @@
     "dbt_docs": "cd transformation && dbt docs generate",
     "python_tests": "python3 -m pytest tests -q",
     "python_lint": "ruff check .",
+    "sqlfluff_lint": "sqlfluff lint transformation/models",
     "adr_lint": "python3 .github/scripts/adr_lint.py"
   },
   "key_references": {
