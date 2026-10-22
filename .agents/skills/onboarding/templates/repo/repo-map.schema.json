@@ -19,7 +19,8 @@
     "key_directories",
     "commands",
     "key_references",
-    "notes_for_agents"
+    "notes_for_agents",
+    "orchestrators"
   ],
   "properties": {
     "generated_at": {
@@ -159,17 +160,32 @@
             "description": "Where the builder's code lives in this repo; null when it lives outside."
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "if": {
-          "properties": {
-            "built_by": {
-              "const": "custom"
+          "anyOf": [
+            {
+              "properties": {
+                "built_by": {
+                  "const": "custom"
+                }
+              },
+              "required": [
+                "built_by"
+              ]
+            },
+            {
+              "properties": {
+                "path": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "path"
+              ]
             }
-          },
-          "required": [
-            "built_by"
           ]
         },
         "then": {
@@ -236,7 +252,7 @@
     },
     "orchestrators": {
       "type": "object",
-      "description": "What invokes the pipelines. A runner that only starts dlt pipelines or dbt is declared here, never as a layer builder.",
+      "description": "What invokes the pipelines. A runner that starts the dlt pipelines is declared here, never as a layer builder; one that also builds dbt lists only the sources it starts.",
       "additionalProperties": {
         "type": "object",
         "required": [
@@ -269,7 +285,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Source names this runner starts. A set, not an order: the runner's own code holds the order."
+            "description": "Source names this runner starts. A set, not an order: the runner's own code holds the order. A runner that also builds dbt lists only the sources it starts."
           },
           "path": {
             "type": "string",
@@ -282,6 +298,21 @@
           "notes": {
             "type": "string"
           }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "python"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "then": {
+          "required": [
+            "path"
+          ]
         }
       }
     },

@@ -50,6 +50,7 @@ Fill the placeholders:
 | mart areas | One `layers` entry and one `dbt_project.yml` block under `marts` per confirmed area, path `transformation/models/marts/<area>/` |
 | canonical model | Not created at greenfield: there is no fact to model yet. The first intent that lands a fact-bearing mart creates `logical-model/` with the `semantic-model` skill, registers it in `repo-map.json` and `test-map.json`, and validates it before shipping |
 | `<UTC timestamp>` | The time of writing, in both maps |
+| `orchestrators` | Keep the `run_ingest` entry the template ships (`kind: python`, `path: orchestration/run_ingest.py`, `runs: []`). The first source adds itself to `runs` and to `PIPELINES`; a runner outside the repo is a separate entry with `location` |
 
 Write no source, pipeline, model or design record: the first intent adds them. Write no review file: there is nothing to review.
 

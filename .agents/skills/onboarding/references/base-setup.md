@@ -33,8 +33,9 @@ In the design phase, after the inherited-view check and before the inventory, ru
 
 - One entry per runner: `kind` (`python`, `airflow`, `fabric`, `custom`), `runs` (the source names it starts), and either `path` for a runner in the repo or `location` for one outside it. `runs` is a set; the runner's own code holds the order.
 - A source declares `produces` (its table names) only once a second source shares its `dataset`. A single owner's module already holds the list, and a copy would drift.
-- `built_by` is `dlt`, `dbt` or `custom`. `custom` covers a stack no skill has a procedure for, and must say what builds it in `notes`. A runner that only starts dlt pipelines or dbt is an orchestrator, never a layer builder.
+- `built_by` is `dlt`, `dbt` or `custom`. `custom` covers a stack no skill has a procedure for, and must say what builds it in `notes`. A runner that starts the dlt pipelines is an orchestrator, never a layer builder; one that also builds dbt still lists only the sources it starts.
 - When a brownfield repo has pipelines and no `orchestrators`, ask one grilling question: is anything outside the repo starting them? Record the answer as a `location` entry, or as a `python` entry whose `path` is the repo's own script.
+- When a source's tables cannot be read off its module — a producer outside the repo — ask which tables it lands and record them in `produces`. Without that, a table has no pipeline to trace back to.
 
 ## Changes the build needs
 

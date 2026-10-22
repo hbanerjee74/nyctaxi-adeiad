@@ -118,21 +118,17 @@
       "sources": [
         "transformation/seeds/"
       ],
+      "selectors": {
+        "data": "path:seeds"
+      },
       "commands": {
-        "build": "cd transformation && dbt build --select path:seeds"
-      }
-    },
-    "main": {
-      "sources": [
-        "transformation/models/metricflow_time_spine.sql"
-      ],
-      "commands": {
-        "structural": "cd transformation && dbt parse"
+        "data": "cd transformation && dbt test --select path:seeds --exclude test_type:unit"
       }
     },
     "semantic": {
       "sources": [
-        "transformation/models/marts/core/_semantic.yml"
+        "transformation/models/marts/core/_semantic.yml",
+        "transformation/models/metricflow_time_spine.sql"
       ],
       "commands": {
         "structural": "cd transformation && dbt parse && dbt ls --resource-type metric"
