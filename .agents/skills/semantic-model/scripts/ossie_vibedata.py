@@ -21,10 +21,10 @@ DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
                 "scd", "logical_sources", "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
                      "join_type", "join_cost", "join_expression"}
-PHYSICAL_TABLE_KEYS = {"name", "source", "table_type", "alias_of", "role"}
+PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
-            "where", "column_map"}
+            "where", "note", "column_map"}
 HIERARCHY_KEYS = {"name", "levels"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}

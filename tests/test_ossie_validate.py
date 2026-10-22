@@ -252,3 +252,16 @@ def test_version_consistent_and_present(tmp_path):
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/version-missing", "error") in _codes(diags)
+
+
+def test_note_keys_accepted(tmp_path):
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][1]["note"] = "billable_revenue refused: agg sums unfiltered totals"
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    model_payload = json.loads(doc["custom_extensions"][0]["data"])
+    model_payload["physical_tables"][0]["note"] = "detail grain base table"
+    doc["custom_extensions"][0]["data"] = json.dumps(model_payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0
+    assert not [d for d in diags if d["severity"] == "error"]

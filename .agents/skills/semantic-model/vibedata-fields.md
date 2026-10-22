@@ -10,9 +10,11 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `physical_tables[]` | Full physical inventory: originals plus aliases. One entry per physical table or role | — |
 | `physical_tables[].name` | Repo-local handle other blocks reference | `"Pickup_Zone"` |
 | `physical_tables[].source` | `schema.table` (dbt mart) the handle points at | `"core.dim_zone"` |
+| `physical_tables[].dbt_model` | dbt `ref()` name that builds this table; aliases name their base model. Links mart changes to the canonical entries they touch | `"dim_zone"` |
 | `physical_tables[].table_type` | `TABLE`, `VIEW`, `ALIAS`, `OPAQUE_VIEW`, `STORED_PROC`, or `SYNONYM` | `"ALIAS"` |
 | `physical_tables[].alias_of` | Base table handle, ALIAS only | `"dim_zone"` |
 | `physical_tables[].role` | Business role of the alias, ALIAS only | `"origin zone for trips"` |
+| `physical_tables[].note` | Why-not or partial-mapping rationale, recorded where it cannot drift | `"truncated at HAVING count>=25; no honest mapping"` |
 | `physical_joins[]` | Physical execution joins between handles (one logical join maps to N of these, one per LTS combination) | — |
 | `physical_joins[].{name,from,to}` | Join handle and its two physical-table endpoints | — |
 
@@ -30,6 +32,7 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `logical_sources[].priority_group` | Integer ≥ 0; `0` is the preferred aggregate, higher numbers fall back to detail | `0` |
 | `logical_sources[].content_grain` | Grain in the LTS table's own columns where they exist, else the logical grain name (`trip`) | `["pickup_date", "pickup_location_id"]` |
 | `logical_sources[].where` | Fragment/content filter in words (e.g. report-window bound) | — |
+| `logical_sources[].note` | Partial-mapping rationale: which columns were refused and why | `"billable_revenue refused: agg sums unfiltered totals"` |
 | `logical_sources[].column_map` | Logical field-or-metric → physical column, per LTS. Aggregates map only what their grain supports; every field needs ≥1 non-`0` supplier | `{"pickup_date": "pickup_date"}` |
 | `hierarchies[]` | Drill paths: `name` plus ordered `levels[]` naming real fields | `{"name": "Time", "levels": [...]}` |
 

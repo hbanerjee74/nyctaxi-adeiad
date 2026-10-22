@@ -20,9 +20,11 @@
       "properties": {
         "name": {"type": "string", "minLength": 1},
         "source": {"type": "string", "minLength": 1},
+        "dbt_model": {"type": "string", "description": "dbt ref() name that builds this table; aliases name their base model"},
         "table_type": {"enum": ["TABLE", "VIEW", "ALIAS", "OPAQUE_VIEW", "STORED_PROC", "SYNONYM"]},
         "alias_of": {"type": "string"},
-        "role": {"type": "string"}
+        "role": {"type": "string"},
+        "note": {"type": "string", "description": "Why-not or partial-mapping rationale, recorded where it cannot drift from the entry"}
       },
       "additionalProperties": false
     },
@@ -71,6 +73,7 @@
         "priority_group": {"type": "integer", "minimum": 0},
         "content_grain": {"type": "array", "items": {"type": "string"}},
         "where": {"type": "string"},
+        "note": {"type": "string", "description": "Partial-mapping rationale: which columns were refused and why"},
         "column_map": {"type": "object", "additionalProperties": {"type": "string"}}
       },
       "additionalProperties": false

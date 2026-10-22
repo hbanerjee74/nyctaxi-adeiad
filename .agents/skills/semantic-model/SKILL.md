@@ -19,7 +19,7 @@ Red-flag trap (seen in testing): mapping a filtered measure onto an unfiltered a
 
 ## Aliases are physical rows, not flags (S4)
 
-Role-playing (pickup vs dropoff zone) and fan-traps are separate `physical_tables` entries with `table_type: ALIAS` and `alias_of` naming the base table, each with its own physical join. The core `relationships[]` keep the equi fallback; the real predicate (including SCD as-of clauses) lives in the relationship's `join_expression`. A `physical_join` naming no model-level join fails `validate`.
+Role-playing (pickup vs dropoff zone) and fan-traps are separate `physical_tables` entries with `table_type: ALIAS` and `alias_of` naming the base table, each with its own physical join. Aggregate LTS tables point their joins at a dimension for reachability; no logical relationship backs them (aggs aren't datasets), and that dangle is structural, not a smell. The core `relationships[]` keep the equi fallback; the real predicate (including SCD as-of clauses) lives in the relationship's `join_expression`. A `physical_join` naming no model-level join fails `validate`.
 
 ## SCD and hierarchies ride the dataset (S5)
 
@@ -33,8 +33,11 @@ The `VIBEDATA` key set per level is closed and machine-readable in the vibedata 
 
 The canonical file(s) touched by the change must validate green before commit. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. The validate command emits JSON diagnostics on stdout and a human summary on stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart change, update the canonical in the same change.
 
-## Common mistakes
+## Every lakehouse object is mapped or justified (S8)
 
+Every dbt-built table in the star's lineage (fact, dims, aggs, consumption marts) either has a handle in `physical_tables` (with its `dbt_model`) or carries its reason on itself: unmappable tables get a `note` on the physical-table entry (truncated, wrong star, bridge treatment); partially mapped sources get a `note` on the logical source naming each refused column and why. Reasons ride the entries so they cannot drift from them; the design record keeps the narrative. The rule binds both directions: reverse-engineering during onboarding enumerates and justifies gaps; forward-engineering a new mart registers it or justifies its absence in the same change.
+
+## Common mistakes
 - Identity column maps assumed from siblings. Verify every right-side column against the mart definitions.
 - New physical table without its `physical_joins` entries. The table exists but no query can reach it; `table-unjoined` warns.
 - New key invented inline instead of arriving with its schema, validator, and test change. `unknown-key` fails it.
@@ -43,4 +46,5 @@ The canonical file(s) touched by the change must validate green before commit. E
 
 - "Validate is green, so the mapping is semantically right." Green proves shape and references, never business correctness.
 - "The agg table must carry this column." Check the agg SQL; grain decides, not hope.
+- "I haven't read the mart SQL, but the column name is obvious." Block: no mapping without reading the mart definitions. Unreadable mart means unmapped source with a `note`, never an assumed map.
 - "One more key won't hurt." It fails. Use the schema file.
