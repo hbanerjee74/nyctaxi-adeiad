@@ -7,3 +7,5 @@ pyyaml
 ruff
 sqlfluff
 sqlfluff-templater-dbt
+typer==0.24.1
+click>=8.1
