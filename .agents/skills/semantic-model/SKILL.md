@@ -49,11 +49,11 @@ A role-playing dimension is one dataset and N relationships: `zone` stays a sing
 
 ## SCD and hierarchies ride the dataset (S5)
 
-Versioned dimensions declare `scd`, level lists ride `hierarchies[]`, and truly partitioned storage declares `partitioned_by` — all naming real fields, all shaped per `vibedata-fields.md`.
+Versioned dimensions declare `scd`, level lists ride `hierarchies[]`, and truly partitioned storage declares `partitioned_by` — all naming real fields, all shaped per `references/vibedata-fields.md`.
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed and machine-readable in the vibedata schema beside this file, with field-by-field meanings in `vibedata-fields.md` beside it. An unknown key fails validation (`unknown-key`). New keys arrive with their schema change, validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in the vibedata schema beside this file, with field-by-field meanings in `references/vibedata-fields.md`. An unknown key fails validation (`unknown-key`). New keys arrive with their schema change, validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 
