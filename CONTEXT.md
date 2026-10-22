@@ -76,6 +76,9 @@ A range of distance, duration or fare used to profile trips.
 **Origin-destination flow**:
 The trips between one pickup zone and one dropoff zone.
 
+**Published flow**:
+An origin-destination pair with at least 25 billable trips in the reporting window, the population the origin-destination matrix reports (ADR 0017). Narrower than a flow: a pair below the floor exists in the trips but is not published.
+
 **Medallion**:
 The licence to operate a taxi, and by extension the vehicle it covers.
 _Not_: the bronze, silver and gold layering, which is a platform term defined elsewhere.

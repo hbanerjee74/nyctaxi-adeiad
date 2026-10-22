@@ -25,17 +25,25 @@ models:
   - name: agg_od_flow_matrix
     description: >
       Origin-to-destination flow -- the same zone dimension joined twice, in both
-      roles. Bounded to pairs with at least 25 trips; the full 265x265 product is
-      mostly ones and twos, and publishing it invites reading noise as a route.
+      roles. Published only for pairs with at least 25 billable trips (ADR 0017).
 
   - name: agg_trip_band_profile
     description: >
       Distance, duration and fare banding in one profile. Three independent range
       joins with half-open bands, so a trip of exactly three miles lands in
-      "3 - 6" once rather than in two bands or none.
+      "3 - 6" once rather than in two bands or none. The joins are LEFT joins:
+      a refund or a negative duration falls outside every band and appears once
+      as 'unbanded' (order 0), so the profile covers every in-window trip and
+      sum(trip_count) equals fct_trip's count.
 
   - name: agg_weather_demand_daily
-    description: Demand against weather, by borough and day.
+    description: >
+      Demand against weather, by borough and day. The spine is every borough
+      crossed with every day in the window, so a borough-day with weather and no
+      trips keeps a zero row, and a trip in an unresolved or non-weather borough
+      keeps its row with null weather (ADR 0012) instead of disappearing. Trips
+      are attributed through their own zone surrogate, the version resolved as of
+      the trip's date (ADR 0009), not the borough's current version.
 
   - name: agg_driver_daily
     description: >

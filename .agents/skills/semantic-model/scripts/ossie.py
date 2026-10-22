@@ -8,6 +8,7 @@ Usage:
   python3 scripts/ossie.py validate <model-file-or-dir>
   python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
   python3 scripts/ossie.py suppliers <model-file-or-dir>
+  python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -16,6 +17,7 @@ Exit 0 when no errors (warnings allowed), 1 otherwise.
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -249,6 +251,68 @@ def suppliers(model: str):
     print(json.dumps(diags, indent=2))
     typer.echo(f"{len(diags)} unsupplied item(s).", err=True)
     raise typer.Exit(1 if diags else 0)
+
+
+POINTER = re.compile(r"held by\s+([A-Za-z_][A-Za-z0-9_]*)")
+ADR_REF = re.compile(r"ADR (\d{4})")
+
+
+@app.command()
+def notes(model: str, tests: str, adr: str):
+    """Every pointer a note carries must resolve: `held by <test>` and `ADR NNNN`."""
+    diags = []
+    tests_dir = Path(tests)
+    adr_dir = Path(adr)
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            diags.append(read_diag)
+            continue
+        try:
+            doc = _vendor.load_yaml_named(text, str(target))
+        except Exception as e:  # noqa: BLE001 - report, never traceback
+            diags.append({"severity": "error", "code": "cli/bad-yaml", "file": str(target),
+                          "message": f"'{target}': invalid YAML: {e}"})
+            continue
+        for dataset in doc.get("datasets") or []:
+            for source in _sources_of(dataset):
+                note = source.get("note")
+                if not note:
+                    continue
+                for name in POINTER.findall(note):
+                    if not (tests_dir / f"{name}.sql").exists():
+                        diags.append({"severity": "error", "code": "notes/dangling-test",
+                                      "file": str(target),
+                                      "message": f"{dataset.get('name')}.{source.get('name')} "
+                                                 f"points at test '{name}', which is not "
+                                                 f"{tests_dir}/{name}.sql"})
+                for number in ADR_REF.findall(note):
+                    if not list(adr_dir.glob(f"{number}-*.md")):
+                        diags.append({"severity": "error", "code": "notes/dangling-adr",
+                                      "file": str(target),
+                                      "message": f"{dataset.get('name')}.{source.get('name')} "
+                                                 f"cites ADR {number}, which has no file in "
+                                                 f"{adr_dir}"})
+    print(json.dumps(diags, indent=2))
+    typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
+    raise typer.Exit(1 if diags else 0)
+
+
+def _sources_of(dataset):
+    if not isinstance(dataset, dict):
+        return
+    for ext in dataset.get("custom_extensions") or []:
+        if not isinstance(ext, dict) or ext.get("vendor_name") != "VIBEDATA":
+            continue
+        try:
+            payload = json.loads(ext.get("data") or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for source in payload.get("logical_sources") or []:
+            if isinstance(source, dict):
+                yield source
 
 
 @app.command()

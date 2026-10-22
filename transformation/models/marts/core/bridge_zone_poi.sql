@@ -1,4 +1,5 @@
--- Bridge for the many-to-many between zones and points of interest.
+-- Points of interest by zone and category: one row per (zone, category), so
+-- zone to POI is one-to-many.
 --
 -- A weighting factor is carried so that an allocated measure can be split
 -- across a zone's categories without double counting. Any join through this

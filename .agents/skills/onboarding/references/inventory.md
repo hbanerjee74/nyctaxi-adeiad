@@ -21,6 +21,18 @@ Record whether `logical-model/` exists. A repo with gold marts and no canonical 
 - Orchestration and CI: run scripts, Makefile, CI jobs.
 - Documents: README, CONTRIBUTING, runbooks, agent instruction files, existing ADRs or design notes, model YAML descriptions.
 
+## Rules hiding in code
+
+Read the models, macros, seeds and pipeline config for **numbers and predicates that change what a result means**, not only for naming and structure:
+
+- numeric thresholds and caps: `having count(*) >= 25`, `max_plausible_mph`, a row limit, a fee percentage, a band boundary;
+- predicates that change a population: `where is_billable`, a report window, `is_current_version`, an inner join that drops unmatched rows;
+- a `--` comment that explains **why** a rule exists rather than what the code does. That comment is often the only surviving record of a decision that was made in a conversation.
+
+Inventory each one, then apply the destination test: a standing business answer — a threshold, a population definition, a measure definition, a grain — is an `ADR`, which the [`adr`](../../adr/SKILL.md) skill already says qualifies. A rule still undecided, or one whose only rationale is the code itself, is a `review` finding.
+
+A hard-coded number whose reason lives only in a comment is the classic miss. It governs what every consumer sees, no document states it, and the next model binds to it as though it were a law of nature. The origin-destination matrix's 25-trip floor sat that way: `having count(*) >= 25` with a two-line comment, no ADR, until an intent had to write one.
+
 ## Destination test
 
 Ask in this order and stop at the first yes:

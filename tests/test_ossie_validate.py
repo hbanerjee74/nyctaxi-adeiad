@@ -392,3 +392,89 @@ def test_suppliers_reports_unsupplied_metric(tmp_path):
     result = RUNNER.invoke(app, ["suppliers", str(model)])
     assert result.exit_code == 1
     assert "suppliers/metric" in result.stdout
+
+
+def _notes_doc(tmp_path, note):
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = _doc()
+    for dataset in doc["datasets"]:
+        payload = json.loads(dataset["custom_extensions"][0]["data"])
+        for source in payload["logical_sources"]:
+            source.pop("note", None)
+        dataset["custom_extensions"][0]["data"] = json.dumps(payload)
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][0]["note"] = note
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    return model
+
+
+def test_notes_resolves_test_and_adr(tmp_path):
+    model = _notes_doc(tmp_path, "reconciliation held by assert_ok, rule ADR 0003")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "assert_ok.sql").write_text("select 1")
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    (adrs / "0003-a.md").write_text("x")
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_notes_flags_dangling_test(tmp_path):
+    model = _notes_doc(tmp_path, "reconciliation held by assert_missing")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code == 1
+    assert "notes/dangling-test" in result.stdout
+
+
+def test_notes_flags_dangling_adr(tmp_path):
+    model = _notes_doc(tmp_path, "floored per ADR 9999")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code == 1
+    assert "notes/dangling-adr" in result.stdout
+
+
+def test_notes_ignores_plain_prose(tmp_path):
+    model = _notes_doc(tmp_path, "checked against the mart SQL and the seed ranges")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_where_key_is_now_unknown(tmp_path):
+    """`where` was removed from the key set: a stale document fails loudly."""
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][0]["where"] = "old style population prose"
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/unknown-key", "error") in _codes(diags)
+
+
+def test_notes_survives_malformed_payload(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = _doc()
+    doc["datasets"][0]["custom_extensions"][0]["data"] = '["not", "an", "object"]'
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code in (0, 1)
+    json.loads(result.stdout)  # stdout stays pure JSON

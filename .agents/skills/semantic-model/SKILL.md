@@ -11,11 +11,11 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 
 | Question | Answer |
 | --- | --- |
-| Which commands gate a change? | `validate <dir>` (structure, references, VIBEDATA) and `coverage <dir> <marts>` (gold tables vs `dbt_model`); both must exit 0 |
+| Which commands gate a change? | `validate <dir>`, `coverage <dir> <marts>`, `suppliers <dir>`, `notes <dir> <tests-dir> <adr-dir>`; all four must exit 0 |
 | Where does a refused column go? | The detail source's `note`, naming each column and why |
 | Where does an unmappable table's reason go? | A `note` on its `physical_tables` entry |
 | Where does a blocked decision go? | Ask first (`references/reverse-engineering.md`); write the entry plus its `note` only once ruled |
-| Where does a business rule go? | The source's `where`, plus the repo's decision record when it is standing |
+| Where does a business rule go? | The repo's decision record (ADR). The model cites the rule; it never restates it |
 | Aggregate source or standalone document? | Population decides (`references/refactoring.md`): star population rolled up → aggregate; narrower or different population → standalone |
 | Detail or aggregate priority? | Detail-class `1` (one per role), aggregate `0` |
 
@@ -37,6 +37,8 @@ A join narrows the population just as effectively as a filter — an inner join 
 
 Metric names are compared across documents, so a name may not mean two populations: a metric answering a narrower population than the star's takes a scope-prefixed name (`billable_zone_day_trip_count`); a measure that also exists on another fact is named `<fact>_<measure>` (`shift_trip_count`); and a star metric name is never reused on a filtered table. A ratio is one metric whose expression divides two `SUM`s (`SUM(a) * 1.0 / NULLIF(SUM(b), 0)`), datatype `Decimal` — never two helper metrics a consumer might add. A ratio has no single backing column: in `column_map` it names its **numerator** column, and its `note` names the denominator column and the measure it comes from.
 
+**Prove the population before binding a metric.** Read the aggregate's `FROM`/`JOIN` clauses, its `WHERE` and its `HAVING` — not only its aggregate columns — and reconcile the result against the ADRs that rule that population (billable, verdicts, unresolved zones). An inner join to a banding seed whose ranges exclude negatives, a spine that covers only some boroughs, a `HAVING` that drops thin groups: each makes the table's rows a subset of the star's, and the binding is wrong however exact the aggregation. A table that quietly contradicts an ADR is an S9 question, not a mapping to note. Do not write the population into the document. A rule goes to an ADR, the mechanics stay in the mart SQL, and the reconciliation lives in a singular test — the source `note` points at that test. A prose population is a copy that goes stale the first time a filter moves.
+
 Red-flag trap (seen in testing): mapping a filtered measure onto an unfiltered agg column, e.g. `billable_revenue` onto a monthly `total_revenue` — a monthly total is not billable-filtered revenue. No automated check can see this: treat every aggregate metric binding as guilty until the agg SQL proves it innocent, and record that proof in the source's `note` (the `validating-semantic-model` skill reviews it).
 
 ## Additivity decides which measure becomes a metric (S3a)
@@ -50,6 +52,17 @@ A role-playing dimension is one dataset and N relationships: `zone` stays a sing
 ## SCD and hierarchies ride the dataset (S5)
 
 Versioned dimensions declare `scd`, their business key in `unique_keys` (`[[natural_key, valid_from]]`), level lists in `hierarchies[]`, and truly partitioned storage in `partitioned_by` — all naming real fields, all shaped per `references/vibedata-fields.md`.
+
+## The model upgrades itself (S6a)
+
+The key set and the spec version move together, and the tool is the authority. When either changes, upgrade every document in the same change rather than leaving old ones behind:
+
+1. Change the schema and the checker together; the parity test that compares the checker's key sets with `scripts/vibedata-schema.json` is what stops the two drifting.
+2. Rewrite every document mechanically — a script, never hand edits on payload lines — dropping or adding the affected key and stamping the new `vibedata_version` in every payload, so a document cannot carry two generations.
+3. Run `validate`, `suppliers`, `notes` and `coverage`; a document left at the old shape fails `unknown-key` or the version check, which is the point.
+4. Record the change in `references/vibedata-fields.md` with what moved and why, so the next upgrade has a precedent.
+
+A `note` cites what backs it and nothing else: `held by <test-name>` for a reconciliation and `ADR NNNN` for a rule. `notes` (run by the validating skill) resolves both against `transformation/tests/` and `docs/adr/`, so a renamed test or a superseded ADR leaves a dangling pointer that fails rather than a sentence nobody dares touch.
 
 ## Frozen keys (S6)
 

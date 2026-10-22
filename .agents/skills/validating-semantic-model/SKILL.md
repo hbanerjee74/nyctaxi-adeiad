@@ -11,7 +11,7 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 ## Step 1 — structure
 
-From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, and `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1. Record each command with its exit code.
+From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 
@@ -34,7 +34,7 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 
 You fix what the model can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
 
-You escalate, with the finding written out as location → evidence → options → recommendation, when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
+You escalate as a grilling session — one finding at a time, location → evidence → options → recommendation, waiting for the ruling before raising the next — when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
 
 Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wrong, it is a finding about the mart, reported — the model records what the lakehouse actually does.
 

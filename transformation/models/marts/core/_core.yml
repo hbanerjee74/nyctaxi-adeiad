@@ -107,9 +107,9 @@ models:
 
   - name: bridge_zone_poi
     description: >
-      Bridge for the zone-to-POI many-to-many. Any join through it multiplies
-      rows by design, which is why it is a separate object and carries an
-      allocation factor.
+      One row per zone and POI category, so zone to POI is one-to-many. A
+      zone-level measure joined through it fans out across categories by design,
+      which is why it carries an allocation factor.
     columns:
       - name: poi_id
         tests: [unique, not_null]
