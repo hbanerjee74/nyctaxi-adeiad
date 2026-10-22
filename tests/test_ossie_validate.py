@@ -377,3 +377,9 @@ def test_crossdoc_diverged_scd_fails(tmp_path):
     code, diags = _run("validate", str(tmp_path))
     assert code == 1
     assert ("crossdoc/diverged", "error") in _codes(diags)
+
+
+def test_standalone_example_validates():
+    example = SKILL_SCRIPTS.parent / "examples" / "standalone.ossie.yaml"
+    code, diags = _run("validate", str(example))
+    assert code == 0, [d for d in diags if d["severity"] == "error"]

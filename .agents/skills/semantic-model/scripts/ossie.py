@@ -1,6 +1,7 @@
 """Ossie canonical-model tooling for this repo.
 
-Today: `validate` only. `export` (dbt/Tableau/PowerBI) is an explicit
+Commands: `validate` (core + VIBEDATA), `coverage` (marts on disk vs
+`dbt_model` names), `version`. `export` (dbt/Tableau/PowerBI) is an explicit
 follow-up (VD-7126); nothing here writes consumer files.
 
 Usage:

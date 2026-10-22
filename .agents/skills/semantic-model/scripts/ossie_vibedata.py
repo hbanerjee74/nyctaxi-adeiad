@@ -104,7 +104,7 @@ def physical_table_index(doc):
     out = {}
     for t in payload.get("physical_tables", []):
         if isinstance(t, dict) and t.get("name"):
-            out[t["name"]] = {k: t.get(k) for k in ("source", "dbt_model", "table_type", "alias_of")}
+            out[t["name"]] = {k: t.get(k) for k in ("source", "dbt_model", "table_type", "alias_of", "role")}
     return out
 
 
