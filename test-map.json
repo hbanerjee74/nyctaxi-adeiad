@@ -150,7 +150,8 @@
     "logical-model": {
       "sources": [
         "logical-model/",
-        ".agents/skills/semantic-model/"
+        ".agents/skills/semantic-model/",
+        ".agents/skills/validating-semantic-model/"
       ],
       "unit": [
         "tests/test_ossie_validate.py"

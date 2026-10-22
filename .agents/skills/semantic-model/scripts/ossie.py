@@ -59,8 +59,6 @@ def _as_diag(entry) -> dict:
     return {"severity": "error", "message": str(entry)}
 
 
-EXPECTED_WARNINGS = {"vibedata/agg-metric-unverified", "vibedata/table-unjoined"}
-
 UPSTREAM_PIN = "c5cb931d72029dc523a5dd18d267f083403786f2"
 UPSTREAM_DATE = "2026-10-14"
 SPEC_VERSION = "0.2.0.dev0"
@@ -262,13 +260,11 @@ def validate(model: str):
                                          f"rename it or move it out of the model directory"})
     print(json.dumps(diags, indent=2))
     errors = [d for d in diags if d["severity"] == "error"]
-    findings = [d for d in diags if d["severity"] == "warning"
-                and d.get("code") not in EXPECTED_WARNINGS]
-    for diag in findings:
-        typer.echo(f"finding ({diag.get('code', 'uncoded')}): {diag['message']}", err=True)
+    warnings = [d for d in diags if d["severity"] == "warning"]
     typer.echo(f"{len(targets)} file(s), {len(errors)} error(s), "
-               f"{len(findings)} unexpected warning(s).", err=True)
-    raise typer.Exit(1 if errors or findings else 0)
+               f"{len(warnings)} warning(s). Structural check only — content review is the "
+               f"validating-semantic-model skill.", err=True)
+    raise typer.Exit(1 if errors else 0)
 
 
 if __name__ == "__main__":

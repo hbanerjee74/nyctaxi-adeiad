@@ -257,7 +257,7 @@
     },
     "logical_model": {
       "path": "logical-model/",
-      "description": "Canonical semantic model, Apache Ossie 0.2.0.dev0: documents partition the model by whole fact stars (a star never straddles documents; a document may hold several), with shared dimensions copied per document and drift-checked. Validated by the semantic-model skill scripts; consumer formats export on the fly and are never committed."
+      "description": "Canonical semantic model, Apache Ossie 0.2.0.dev0: documents partition the model by whole fact stars (a star never straddles documents; a document may hold several), with shared dimensions copied per document and drift-checked. Authored under the semantic-model skill and reviewed under the validating-semantic-model skill; consumer formats export on the fly and are never committed."
     }
   },
   "key_directories": {
