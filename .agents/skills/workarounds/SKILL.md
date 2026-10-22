@@ -31,7 +31,7 @@ The file editor echoes the file back after every edit; for `repo-map.json`, YAML
 
 - `repo-map.json`, `test-map.json`: load with Python `json`, change, dump with `indent=2`, then validate (`python3 -m pytest tests/test_maps.py -q`).
 - `plan.md`, `verify.md`: append with a heredoc, or replace one block with a short Python `str.replace`.
-- YAML properties files (`_sources.yml`, `_staging.yml`): a short Python `str.replace` on a unique anchor.
+- YAML properties files (`_sources.yml`, `_staging.yml`) and the canonical model (`logical-model/*.ossie.yaml`): a short Python `str.replace` on a unique anchor. The canonical file is one large single-model document by convention (VD-7126); a targeted editor edit re-emits the whole file.
 
 Never make two edits to the same file in parallel.
 
@@ -54,3 +54,9 @@ Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`)
 `DLT_INGEST_LIMIT` bounds pages, not rows, and dlt does not trim the last page. A file source with row groups lands a whole row group: a Parquet sample load can land about a million rows for a limit of 1,000. Do not write "N rows" for a sample load into a Requirement or Plan, and do not read a larger count as a failed limit. Check the landed count against the source's row-group size instead.
 
 Remove when: `duckdb_local/dlt.md` and `generating-dlt-pipeline` state that the limit bounds pages (`skill-changes.md`).
+
+## Regenerate the canonical semantic model by hand after mart changes
+
+`logical-model/*.ossie.yaml` is the hand-authored source of truth (VD-7126); no generator owns it yet. After any mart SQL, `_core.yml`, or `_semantic.yml` change in the same intent, update the canonical in the same intent: physical tables and aliases, added/renamed fields, each LTS `column_map` (an LTS that loses a mapping is disqualified for queries needing it — leave no field supplied by no LTS), hierarchies, and SCD validity columns. Then run `python3 tools/ossie.py validate logical-model/` and record the command and exit code. Never commit a mart change with a red validate.
+
+Remove when: the plugin `generating-ossie-model` skill generates and merges the canonical (VD-7126 follow-up).

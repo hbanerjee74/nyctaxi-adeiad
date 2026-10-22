@@ -146,6 +146,21 @@
       "commands": {
         "structural": "python3 -m pytest tests/test_adr_links.py -q"
       }
+    },
+    "logical-model": {
+      "sources": [
+        "logical-model/",
+        "tools/ossie.py",
+        "tools/ossie_vibedata.py",
+        "tools/ossie_vendor/"
+      ],
+      "unit": [
+        "tests/test_ossie_validate.py"
+      ],
+      "commands": {
+        "unit": "python3 -m pytest tests/test_ossie_validate.py -q",
+        "structural": "python3 tools/ossie.py validate logical-model/"
+      }
     }
   }
 }

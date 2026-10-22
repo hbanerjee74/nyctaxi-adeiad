@@ -175,7 +175,8 @@
     "requirement": "docs/requirement/{intent}.md",
     "plan": "docs/plans/{intent}.md",
     "verification": "docs/verify/{intent}.md",
-    "case_record": "docs/cases/{intent}.md"
+    "case_record": "docs/cases/{intent}.md",
+    "logical_model": "logical-model/*.ossie.yaml"
   },
   "modules": {
     "ingestion": {
@@ -253,6 +254,10 @@
     "proposals": {
       "path": "docs/proposal/",
       "description": "Optional proposals for major functional or design items that need discussion before they become intents."
+    },
+    "logical_model": {
+      "path": "logical-model/",
+      "description": "Canonical semantic model: one Ossie 0.2.0.dev0 document per star plus shared dims (trips first), with VIBEDATA physical/logical extensions. Validated by tools/ossie.py; consumer formats export on the fly and are never committed."
     }
   },
   "key_directories": {
