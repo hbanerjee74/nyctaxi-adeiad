@@ -7,9 +7,9 @@ description: "Use when creating or editing the canonical semantic model in logic
 
 Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
 
-## One or many stars per file — owner's call (S1)
+## Splitting across files (S1)
 
-A model document holds whatever stars the repo owner wants: one file per star, one file for the whole warehouse, or anything between (today: the trips star). Dimensions repeat across files; each file re-declares only the slice its stars use. The tooling takes a file or a directory glob from `repo-map.json` either way — layout is resolved there, never assumed by the tool.
+Layout is the repo owner's call via the `repo-map.json` glob: one file per star, one file for the whole warehouse, or anything between. When split, split by star — one file per fact star, named after it — and re-declare the shared dimensions each file's star needs. Every file must validate standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell.
 
 ## Curated fields, not a mirror (S2)
 
