@@ -5,7 +5,7 @@ description: "Use when creating or editing the canonical semantic model in logic
 
 # Semantic model
 
-Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` — canonical definition at `core-spec/spec.md` upstream (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
+Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
 
 ## One or many stars per file — owner's call (S1)
 
