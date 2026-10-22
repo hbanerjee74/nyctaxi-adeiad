@@ -19,4 +19,5 @@ misread.
 - The VIBEDATA pass is skipped for a document that already fails the core checks, so fix core errors first.
 - A missing `priority_group` defaults to `1`; the validator warns (`no-detail-source`) only when no source is detail-class, so two detail sources pass.
 - An empty `column_map` is accepted only with a `note` (a tombstone).
-- Warnings carry no exit-code effect; only errors do.
+- Warnings outside the two expected classes fail the gate: `validate` exits 1 on any error **or** any unexpected warning, and prints each finding with its code.
+- Unmatched files: a `*.y*ml` file in the model directory that is not `*.ossie.yaml` is an error, so a mis-named model cannot be silently skipped.

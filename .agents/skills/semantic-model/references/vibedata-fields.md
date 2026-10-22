@@ -43,5 +43,6 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `physical_join` | Handle into model `physical_joins` — the execution join for this logical relationship | `"fct_trip_to_Pickup_Zone"` |
 | `cardinality` | `many-to-one`, `one-to-one`, or `many-to-many` (warns: no core FK equivalent, resolve through a bridge) | `"many-to-one"` |
 | `join_type` | SQL join type (`LEFT OUTER`, …) | `"LEFT OUTER"` |
-| `join_cost` | Relative cost for LTS selection, lower wins. Comparable only within one model; use it to order aggregates, which priority cannot | — |
+| `join_cost` | Relative cost for LTS selection, lower wins. Comparable only within one model; the only way to order aggregates, which `priority_group` cannot express | — |
+| `note` | Why this relationship is declared without key-covering `to_columns`, or why a reachable path has no relationship | — |
 | `join_expression` | Full predicate including SCD as-of clauses; the core `from/to` columns keep the equi fallback | `"pickup_date >= valid_from_date AND ..."` |

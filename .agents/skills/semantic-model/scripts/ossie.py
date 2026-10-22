@@ -6,6 +6,7 @@ follow-up (VD-7126); nothing here writes consumer files.
 
 Usage:
   python3 scripts/ossie.py validate <model-file-or-dir>
+  python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -41,13 +42,24 @@ def _resolve_targets(model: str) -> list[Path]:
     return [p]
 
 
+UNCODED_CODES = (("does not cover the primary key or a unique key",
+                  "relationship/to-column-not-a-key"),)
+
+
 def _as_diag(entry) -> dict:
     if isinstance(entry, _vendor.ValidationWarning):
-        return {"severity": "warning", "message": str(entry)}
+        message = str(entry)
+        code = next((c for needle, c in UNCODED_CODES if needle in message), None)
+        diag = {"severity": "warning", "message": message}
+        if code:
+            diag["code"] = code
+        return diag
     if isinstance(entry, dict):
         return entry
     return {"severity": "error", "message": str(entry)}
 
+
+EXPECTED_WARNINGS = {"vibedata/agg-metric-unverified", "vibedata/table-unjoined"}
 
 UPSTREAM_PIN = "c5cb931d72029dc523a5dd18d267f083403786f2"
 UPSTREAM_DATE = "2026-10-14"
@@ -241,10 +253,22 @@ def validate(model: str):
         parsed.append((str(target), data))
     if len(parsed) > 1:
         diags.extend(cross_document_drift(parsed))
+    if Path(model).is_dir():
+        for path in sorted(Path(model).glob("*.y*ml")):
+            if not path.name.endswith(".ossie.yaml"):
+                diags.append({"severity": "error", "code": "cli/unmatched-file",
+                              "file": str(path),
+                              "message": f"'{path}' is not a *.ossie.yaml model file; "
+                                         f"rename it or move it out of the model directory"})
     print(json.dumps(diags, indent=2))
     errors = [d for d in diags if d["severity"] == "error"]
-    typer.echo(f"{len(targets)} file(s), {len(errors)} error(s).", err=True)
-    raise typer.Exit(1 if errors else 0)
+    findings = [d for d in diags if d["severity"] == "warning"
+                and d.get("code") not in EXPECTED_WARNINGS]
+    for diag in findings:
+        typer.echo(f"finding ({diag.get('code', 'uncoded')}): {diag['message']}", err=True)
+    typer.echo(f"{len(targets)} file(s), {len(errors)} error(s), "
+               f"{len(findings)} unexpected warning(s).", err=True)
+    raise typer.Exit(1 if errors or findings else 0)
 
 
 if __name__ == "__main__":

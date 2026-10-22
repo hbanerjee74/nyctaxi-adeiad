@@ -20,11 +20,11 @@ MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins"}
 DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
                 "scd", "logical_sources", "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
-                     "join_type", "join_cost", "join_expression"}
+                     "join_type", "join_cost", "join_expression", "note"}
 PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
-            "where", "note", "column_map"}
+            "where", "join_cost", "note", "column_map"}
 HIERARCHY_KEYS = {"name", "levels"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
@@ -172,6 +172,15 @@ def validate_vibedata(doc):
     metric_names = {m.get("name") for m in doc.get("metrics", []) if isinstance(m, dict) and m.get("name")}
     for dataset in doc.get("datasets", []):
         diags.extend(_validate_dataset(dataset, model_name, physical_tables, metric_names))
+    reached = set()
+    for rel in doc.get("relationships", []):
+        reached.update({rel.get("from"), rel.get("to")})
+    if len(dataset_names) > 1:
+        for name in sorted(dataset_names - reached):
+            diags.append({"severity": "warning", "code": "vibedata/dataset-unreached",
+                          "message": f"model '{model_name}': dataset '{name}' takes part in no "
+                                     "relationship; a multi-dataset document must connect it, or "
+                                     "it belongs in its own document"})
     for rel in doc.get("relationships", []):
         diags.extend(_validate_relationship(rel, model_name, dataset_names, physical_join_names))
         diags.extend(_validate_from_columns(rel, model_name, doc))
@@ -309,6 +318,12 @@ def _validate_dataset(dataset, model_name, physical_tables, metric_names):
                 mapped_fields.add(logical_col)
                 field_suppliers.setdefault(logical_col, []).append(priority)
             elif logical_col in metric_names and priority == 0:
+                if not (src.get("note") or "").strip():
+                    diags.append({"severity": "error",
+                                  "code": "vibedata/agg-metric-unanswered",
+                                  "message": f"{where}: logical source '{src_name}' maps "
+                                             f"metric '{logical_col}' with no note answering "
+                                             f"agg-metric-unverified"})
                 diags.append({"severity": "warning", "code": "vibedata/agg-metric-unverified",
                               "message": f"{where}: aggregate source '{src_name}' maps metric "
                                          f"'{logical_col}'; confirm the agg column computes the "

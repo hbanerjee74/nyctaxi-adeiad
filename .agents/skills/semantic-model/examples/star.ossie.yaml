@@ -41,7 +41,7 @@ datasets:
         datatype: Decimal
     custom_extensions:
       - vendor_name: VIBEDATA
-        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "fct_order", "priority_group": 1, "content_grain": ["order"], "column_map": {"order_key": "order_key", "order_date": "order_date", "customer_key": "customer_key", "ship_to_customer_key": "ship_to_customer_key", "amount": "amount"}}, {"name": "LTS2_daily", "physical_table": "agg_order_daily", "priority_group": 0, "content_grain": ["order_date"], "where": "reporting window only", "column_map": {"order_date": "order_date", "order_count": "order_count"}}]}'
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "fct_order", "priority_group": 1, "content_grain": ["order"], "column_map": {"order_key": "order_key", "order_date": "order_date", "customer_key": "customer_key", "ship_to_customer_key": "ship_to_customer_key", "amount": "amount"}}, {"name": "LTS2_daily", "physical_table": "agg_order_daily", "priority_group": 0, "content_grain": ["order_date"], "where": "reporting window only", "note": "order_count checked against agg_order_daily.sql: count(*) over the window", "column_map": {"order_date": "order_date", "order_count": "order_count"}}]}'
   - name: customer
     source: core.dim_customer
     primary_key: [customer_key]
