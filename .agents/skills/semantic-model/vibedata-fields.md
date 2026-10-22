@@ -6,7 +6,7 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 
 | Field | Meaning | Example |
 | --- | --- | --- |
-| `vibedata_version` | Payload generation. Currently `"1.0"`: the frozen key set in this file. Every payload in a document carries the same version; bump to `"1.1"` etc. only by intent when the key set changes, and migrate all payloads in the same intent — mixed versions fail validation | `"1.0"` |
+| `vibedata_version` | Payload generation. Currently `"1.0"`: the frozen key set in this file. Every payload in a document carries the same version; bump to `"1.1"` etc. only when the key set changes, and migrate all payloads together — mixed versions fail validation | `"1.0"` |
 | `physical_tables[]` | Full physical inventory: originals plus aliases. One entry per physical table or role | — |
 | `physical_tables[].name` | Repo-local handle other blocks reference | `"Pickup_Zone"` |
 | `physical_tables[].source` | `schema.table` (dbt mart) the handle points at | `"core.dim_zone"` |

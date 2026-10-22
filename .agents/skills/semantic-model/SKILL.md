@@ -9,7 +9,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 
 ## Curated fields, not a mirror (S2)
 
-`fields` are semantic attributes (keys, grouping/filtering dims, inputs to metric expressions) — a curated subset of the mart, never a column dump. Degenerate non-semantic columns stay out. A field the model drops is a scope decision, recorded in the intent, not an oversight.
+`fields` are semantic attributes (keys, grouping/filtering dims, inputs to metric expressions) — a curated subset of the mart, never a column dump. Degenerate non-semantic columns stay out. A field the model drops is a scope decision, recorded in the change, not an oversight.
 
 ## Every field needs a supplying LTS (S3)
 
@@ -27,8 +27,8 @@ Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed and machine-readable in the vibedata schema beside this file, with field-by-field meanings in `vibedata-fields.md` beside it. An unknown key fails validation (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in the vibedata schema beside this file, with field-by-field meanings in `vibedata-fields.md` beside it. An unknown key fails validation (`unknown-key`). New keys arrive with their schema change, validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 
-The canonical file(s) touched by the intent must validate green before commit. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. The validate command emits JSON diagnostics on stdout and a human summary on stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart change, update the canonical in the same intent.
+The canonical file(s) touched by the change must validate green before commit. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. The validate command emits JSON diagnostics on stdout and a human summary on stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart change, update the canonical in the same change.
