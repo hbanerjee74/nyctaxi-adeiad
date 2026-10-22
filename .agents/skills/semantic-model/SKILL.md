@@ -7,10 +7,6 @@ description: "Use when creating or editing the canonical semantic model in logic
 
 Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
 
-## Splitting across files (S1)
-
-Every file must validate standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell.
-
 ## Curated fields, not a mirror (S2)
 
 `fields` are semantic attributes (keys, grouping/filtering dims, inputs to metric expressions) — a curated subset of the mart, never a column dump. Degenerate non-semantic columns stay out. A field the model drops is a scope decision, recorded in the intent, not an oversight.
@@ -35,4 +31,4 @@ The `VIBEDATA` key set per level is closed and machine-readable in `tools/vibeda
 
 ## Validate (S7)
 
-`python3 tools/ossie.py validate logical-model/` is green before any commit touching marts or the canonical file. JSON diagnostics go to stdout; the human summary to stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart SQL, `_core.yml`, or `_semantic.yml` change, update the canonical in the same intent (see `workarounds`).
+`python3 tools/ossie.py validate logical-model/` is green before any commit touching marts or the canonical file. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. JSON diagnostics go to stdout; the human summary to stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart SQL, `_core.yml`, or `_semantic.yml` change, update the canonical in the same intent (see `workarounds`).
