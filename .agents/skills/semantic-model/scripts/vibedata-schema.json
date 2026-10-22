@@ -183,9 +183,6 @@
             "type": "string"
           }
         },
-        "where": {
-          "type": "string"
-        },
         "note": {
           "type": "string",
           "description": "Partial-mapping rationale: which columns were refused and why"

@@ -15,7 +15,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 | Where does a refused column go? | The detail source's `note`, naming each column and why |
 | Where does an unmappable table's reason go? | A `note` on its `physical_tables` entry |
 | Where does a blocked decision go? | Ask first (`references/reverse-engineering.md`); write the entry plus its `note` only once ruled |
-| Where does a business rule go? | The source's `where`, plus the repo's decision record when it is standing |
+| Where does a business rule go? | The repo's decision record (ADR). The model cites the rule; it never restates it |
 | Aggregate source or standalone document? | Population decides (`references/refactoring.md`): star population rolled up → aggregate; narrower or different population → standalone |
 | Detail or aggregate priority? | Detail-class `1` (one per role), aggregate `0` |
 

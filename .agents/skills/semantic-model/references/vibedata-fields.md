@@ -6,7 +6,7 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 
 | Field | Meaning | Example |
 | --- | --- | --- |
-| `vibedata_version` | Payload generation. Currently `"1.0"`: the frozen key set in this file. Every payload in a document carries the same version; bump to `"1.1"` etc. only when the key set changes, and migrate all payloads together — mixed versions fail validation | `"1.0"` |
+| `vibedata_version` | Payload generation. Currently `"1.1"`: the frozen key set in this file (`"1.0"` carried a `where` field, removed because a population is a decision, not a document). Every payload in a document carries the same version; bump to `"1.1"` etc. only when the key set changes, and migrate all payloads together — mixed versions fail validation | `"1.0"` |
 | `physical_tables[]` | Full physical inventory: originals plus aliases. One entry per physical table or role | — |
 | `physical_tables[].name` | Repo-local handle other blocks reference | `"Pickup_Zone"` |
 | `physical_tables[].source` | `schema.table` (dbt mart) the handle points at | `"core.dim_zone"` |
@@ -31,7 +31,6 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `logical_sources[].physical_table` | Handle into model `physical_tables` | `"fct_trip"` |
 | `logical_sources[].priority_group` | `1` on the single detail source, `0` on every aggregate source. Preference among aggregates is not expressible here — the validator reads any non-zero as a detail supplier | `0` |
 | `logical_sources[].content_grain` | Grain in the LTS table's own columns where they exist — they may be columns the dataset does not declare — else the logical grain name (`trip`). Human-readable, not validated | `["pickup_date", "pickup_location_id"]` |
-| `logical_sources[].where` | Fragment/content filter in words (e.g. report-window bound) | — |
 | `logical_sources[].note` | Partial-mapping rationale: which columns were refused and why | `"billable_revenue refused: agg sums unfiltered totals"` |
 | `logical_sources[].column_map` | Logical field-or-metric → physical column, per LTS. Aggregates map only what their grain supports; every field needs ≥1 non-`0` supplier | `{"pickup_date": "pickup_date"}` |
 | `hierarchies[]` | Drill paths: `name` plus ordered `levels[]` naming real fields | `{"name": "Time", "levels": [...]}` |

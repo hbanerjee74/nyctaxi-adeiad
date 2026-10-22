@@ -27,7 +27,7 @@ RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
 PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
-            "where", "join_cost", "note", "column_map"}
+            "join_cost", "note", "column_map"}
 HIERARCHY_KEYS = {"name", "levels"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
