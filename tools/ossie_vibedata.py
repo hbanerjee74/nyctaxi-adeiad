@@ -47,6 +47,29 @@ def _extensions(node):
     return out
 
 
+def _collect_versions(doc):
+    """Every vibedata_version in the document, with where it sits."""
+    found = []
+
+    def grab(node, where):
+        if not isinstance(node, dict):
+            return
+        for data in _extensions(node):
+            try:
+                payload = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                found.append((payload.get("vibedata_version"), where))
+
+    grab(doc, "model")
+    for dataset in doc.get("datasets", []):
+        grab(dataset, f"dataset '{dataset.get('name', '<unnamed>')}'")
+    for rel in doc.get("relationships", []):
+        grab(rel, f"relationship '{rel.get('name', '<unnamed>')}'")
+    return found
+
+
 def _decode(data, where):
     try:
         payload = json.loads(data)
@@ -81,6 +104,16 @@ def validate_vibedata(doc):
     if not isinstance(doc, dict) or "datasets" not in doc:
         return diags
     model_name = doc.get("name", "<unnamed>")
+
+    versions = _collect_versions(doc)
+    if any(v is None for v, _ in versions):
+        diags.append({"severity": "error", "code": "vibedata/version-missing",
+                      "message": f"model '{model_name}': every VIBEDATA payload carries "
+                                 "vibedata_version"})
+    elif len({v for v, _ in versions}) > 1:
+        detail = ", ".join(f"{w}={v!r}" for v, w in versions)
+        diags.append({"severity": "error", "code": "vibedata/version-mismatch",
+                      "message": f"model '{model_name}': mixed vibedata_version: {detail}"})
 
     model_payload, errs = _model_payload(doc)
     diags.extend(errs)

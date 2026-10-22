@@ -234,3 +234,20 @@ def test_checker_keys_match_schema():
              (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd")]
     for keys, ref in pairs:
         assert keys == set(defs[ref]["properties"]), ref
+
+
+def test_version_consistent_and_present(tmp_path):
+    doc = _doc()
+    code, _ = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["vibedata_version"] = "9.9"
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/version-mismatch", "error") in _codes(diags)
+    del payload["vibedata_version"]
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/version-missing", "error") in _codes(diags)
