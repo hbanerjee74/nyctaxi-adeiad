@@ -30,7 +30,15 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 9. **Documents hold whole stars.** A dataset that exists only to bridge two documents is a partition error, not a table.
 10. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
 
-## Step 3 — report
+## Step 3 — fix, or escalate
+
+You fix what the model can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
+
+You escalate, with the finding written out as location → evidence → options → recommendation, when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
+
+Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wrong, it is a finding about the mart, reported — the model records what the lakehouse actually does.
+
+## Step 4 — report
 
 Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim, and every content fix is followed by re-running `validate` and `suppliers` — a content edit is an edit.
 
@@ -41,3 +49,4 @@ Give the verdict, then each finding as location → evidence → fix, then the c
 - "No warehouse, so I'll assume the keys are unique." Report the unknown as unknown; never convert it into a pass.
 - "One mapping looked odd but validate passed." That is a finding.
 - "The model documents its own intent, so it is consistent." Read the mart and the ADR; a model can be green and wrong.
+- "I fixed it while reviewing, so the review is done." Re-run both gates after any fix, or the verdict describes a file that no longer exists.
