@@ -307,3 +307,25 @@ def test_crossdoc_diverged_metric_fails(tmp_path):
     code, diags = _run("validate", str(tmp_path))
     assert code == 1
     assert ("crossdoc/diverged", "error") in _codes(diags)
+
+
+def test_empty_column_map_without_note_fails(tmp_path):
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][1]["column_map"] = {}
+    payload["logical_sources"][1].pop("note", None)
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/empty-column-map", "error") in _codes(diags)
+
+
+def test_empty_column_map_tombstone_with_note_passes(tmp_path):
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][1]["column_map"] = {}
+    payload["logical_sources"][1]["note"] = (
+        "withdrawn: agg built on the old billable rule; re-add when rebuilt")
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0, [d for d in diags if d["severity"] == "error"]

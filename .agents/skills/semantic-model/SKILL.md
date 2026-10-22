@@ -54,6 +54,25 @@ The model is not append-only. These moves are normal work, each validated across
 
 Name new relationships and joins after the existing pattern in the target document rather than inventing one.
 
+### Fact-grain change
+
+When a fact's grain changes, the primary key, the detail `content_grain`, and every count metric change together: a `SUM(CASE ...)`-style count silently becomes a finer-grained count, so count metrics need the distinct rollup key while additive money metrics stay sums. Then establish — by reading each aggregate's SQL, never by assumption — whether that aggregate was rebuilt at the old grain or the new one; if the answer is not available, that is an S9 question, not a default. A metric whose grain disagrees with the aggregate source supplying it is the most expensive silent error in the model.
+
+### Business-rule change
+
+When a definition changes (billable, active, in-window), withdraw — do not merely annotate — every binding whose source computes the old rule; a note alone leaves the stale column bindable, and a priority-0 aggregate outranks the already-correct detail. Withdraw the whole dependency chain: a field whose only supplier is withdrawn cannot stay declared, and a metric whose expression names a withdrawn field is a lie, so the field and metric go with the mapping. One source-level `note` covers a partial withdrawal: name every withdrawn binding and its exact restore condition in it. Correct any `ai_context` that states the old rule, and record the restore as one tracked follow-up per change (decision-record revision or issue), never as memory. An empty `column_map` is a tombstone and must carry that note.
+
+### Aggregate lifecycle
+
+- **Added**: register the table, its join, and its source at honest grain.
+- **Rebuilt at a different grain**: re-derive that source's `content_grain` and `column_map` as a grain change.
+- **Absorbed by detail** (detail now answers everything the aggregate did): drop the mappings and the handle once nothing names it; a dead aggregate is a stale definition waiting to be trusted.
+- **Retired**: delete the handle, its joins, and every source naming it in the same change.
+
+### Star decommission
+
+Deleting a fact star means deleting its document and the handles only it used, after moving the decisions and reasons it carried into the repo's decision record. A document left behind holding half a star is worse than no document: it still validates.
+
 Business rules ride the model, not a footnote to it: a threshold, filter, or bound that changes the answer belongs in the logical source's `where` and (when it is a standing business answer) in the repo's decision record. A rule is not a defect to route around. When a refactor makes a stated rule wrong on one path, that is a business ruling — ask under S9 and record the answer; never quietly rewrite the rule to fit the new shape.
 
 ## When mapping is blocked, ask — never guess, never silently skip (S9)

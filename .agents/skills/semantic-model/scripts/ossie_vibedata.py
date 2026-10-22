@@ -290,6 +290,12 @@ def _validate_dataset(dataset, model_name, physical_tables, metric_names):
                                      "must be a list of grain column names"})
         if priority != 0:
             detail_present = True
+        column_map = src.get("column_map") or {}
+        if not column_map and not src.get("note"):
+            diags.append({"severity": "error", "code": "vibedata/empty-column-map",
+                          "message": f"{where}: logical source '{src_name}' maps nothing and "
+                                     "carries no note; a tombstone must name its restore "
+                                     "condition"})
         if src.get("physical_table") not in physical_tables:
             diags.append({"severity": "error", "code": "vibedata/lts-dangling-table",
                           "message": f"{where}: logical source '{src_name}' references unknown "
