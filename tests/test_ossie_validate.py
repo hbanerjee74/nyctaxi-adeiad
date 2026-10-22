@@ -329,3 +329,18 @@ def test_empty_column_map_tombstone_with_note_passes(tmp_path):
     doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 0, [d for d in diags if d["severity"] == "error"]
+
+
+def test_crossdoc_identical_identity_with_local_roles_passes(tmp_path):
+    """Copies must share identity; role-specific logical sources stay local."""
+    doc = _doc()
+    twin = _doc()
+    twin["name"] = "twin_model"
+    zone = json.loads(twin["datasets"][2]["custom_extensions"][0]["data"])
+    zone["logical_sources"] = [s for s in zone["logical_sources"]
+                               if "role" not in s["name"]]
+    twin["datasets"][2]["custom_extensions"][0]["data"] = json.dumps(zone)
+    _write(tmp_path, doc)
+    (tmp_path / "twin.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(tmp_path))
+    assert code == 0, [d for d in diags if d["severity"] == "error"]

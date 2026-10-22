@@ -146,7 +146,7 @@ datasets:
         description: Attributed fleet shift; null for non-fleet trips.
     custom_extensions:
       - vendor_name: VIBEDATA
-        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "fct_trip", "priority_group": 1, "content_grain": ["trip"], "column_map": {"trip_key": "trip_key", "pickup_date_key": "pickup_date_key", "pickup_date": "pickup_date", "pickup_hour": "pickup_hour", "daypart_code": "daypart_code", "service_type_key": "service_type_key", "pickup_zone_key": "pickup_zone_key", "dropoff_zone_key": "dropoff_zone_key", "vendor_key": "vendor_key", "payment_method_key": "payment_method_key", "rate_plan_key": "rate_plan_key", "trip_quality_key": "trip_quality_key", "is_billable": "is_billable", "is_fleet_attributed": "is_fleet_attributed", "airport_fee_status": "airport_fee_status", "total_amount": "total_amount", "fare_residual": "fare_residual", "shift_id": "shift_id"}}, {"name": "LTS2_zone_day_agg", "physical_table": "agg_trip_zone_daily", "priority_group": 0, "content_grain": ["pickup_date", "pickup_location_id"], "where": "pickup_datetime inside the report window (ADR 0003); precomputed with period-over-period windows", "column_map": {"pickup_date": "pickup_date", "trip_count": "trip_count"}}, {"name": "LTS3_zone_daypart_dow", "physical_table": "agg_trip_zone_daypart_dow", "priority_group": 0, "content_grain": ["pickup_location_id", "day_of_week", "is_non_working_day", "daypart_code", "is_peak", "service_type_key"], "where": "pickup_datetime inside the report window (ADR 0003)", "column_map": {"service_type_key": "service_type_key", "daypart_code": "daypart_code", "trip_count": "trip_count", "billable_trip_count": "billable_trip_count"}}, {"name": "LTS4_band_profile", "physical_table": "agg_trip_band_profile", "priority_group": 0, "content_grain": ["distance_band", "duration_band", "fare_band", "service_type_key", "pickup_borough", "daypart_code"], "where": "pickup_datetime inside the report window (ADR 0003); half-open bands, each trip in exactly one band combo", "column_map": {"service_type_key": "service_type_key", "daypart_code": "daypart_code", "trip_count": "trip_count"}}, {"name": "LTS5_weather_borough_daily", "physical_table": "agg_weather_demand_daily", "priority_group": 0, "content_grain": ["obs_date", "borough_name"], "where": "one row per borough-day from the weather spine left-joined to trips (no report-window filter); trip_count counts matched trips", "column_map": {"pickup_date": "obs_date", "trip_count": "trip_count"}}, {"name": "LTS6_od_flow", "physical_table": "agg_od_flow_matrix", "priority_group": 0, "content_grain": ["origin_location_id", "dest_location_id"], "where": "billable trips inside the report window, and published only for zone pairs with at least 25 billable trips (ADR business rule: the full 265x265 cross product is mostly ones and twos, and publishing it invites reading noise as a route)", "note": "billable-only and thresholded by design; sums across all pairs are therefore the sanctioned OD answer, not an undercount", "column_map": {"billable_trip_count": "trip_count", "billable_revenue": "total_revenue"}}]}'
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "fct_trip", "priority_group": 1, "content_grain": ["trip"], "column_map": {"trip_key": "trip_key", "pickup_date_key": "pickup_date_key", "pickup_date": "pickup_date", "pickup_hour": "pickup_hour", "daypart_code": "daypart_code", "service_type_key": "service_type_key", "pickup_zone_key": "pickup_zone_key", "dropoff_zone_key": "dropoff_zone_key", "vendor_key": "vendor_key", "payment_method_key": "payment_method_key", "rate_plan_key": "rate_plan_key", "trip_quality_key": "trip_quality_key", "is_billable": "is_billable", "is_fleet_attributed": "is_fleet_attributed", "airport_fee_status": "airport_fee_status", "total_amount": "total_amount", "fare_residual": "fare_residual", "shift_id": "shift_id"}}, {"name": "LTS2_zone_day_agg", "physical_table": "agg_trip_zone_daily", "priority_group": 0, "content_grain": ["pickup_date", "pickup_location_id"], "where": "pickup_datetime inside the report window (ADR 0003); precomputed with period-over-period windows", "column_map": {"pickup_date": "pickup_date", "trip_count": "trip_count"}}, {"name": "LTS3_zone_daypart_dow", "physical_table": "agg_trip_zone_daypart_dow", "priority_group": 0, "content_grain": ["pickup_location_id", "day_of_week", "is_non_working_day", "daypart_code", "is_peak", "service_type_key"], "where": "pickup_datetime inside the report window (ADR 0003)", "column_map": {"service_type_key": "service_type_key", "daypart_code": "daypart_code", "trip_count": "trip_count", "billable_trip_count": "billable_trip_count"}}, {"name": "LTS4_band_profile", "physical_table": "agg_trip_band_profile", "priority_group": 0, "content_grain": ["distance_band", "duration_band", "fare_band", "service_type_key", "pickup_borough", "daypart_code"], "where": "pickup_datetime inside the report window (ADR 0003); half-open bands, each trip in exactly one band combo", "column_map": {"service_type_key": "service_type_key", "daypart_code": "daypart_code", "trip_count": "trip_count"}}, {"name": "LTS5_weather_borough_daily", "physical_table": "agg_weather_demand_daily", "priority_group": 0, "content_grain": ["obs_date", "borough_name"], "where": "one row per borough-day from the weather spine left-joined to trips (no report-window filter); trip_count counts matched trips", "column_map": {"pickup_date": "obs_date", "trip_count": "trip_count"}}, {"name": "LTS6_od_flow", "physical_table": "agg_od_flow_matrix", "priority_group": 0, "content_grain": ["origin_location_id", "dest_location_id"], "where": "billable trips inside the report window, and published only for zone pairs with at least 25 billable trips (ADR business rule: the full 265x265 cross product is mostly ones and twos, and publishing it invites reading noise as a route)", "note": "billable-only and thresholded by design; sums across all pairs are therefore the sanctioned OD answer, not an undercount", "column_map": {"billable_trip_count": "trip_count", "billable_revenue": "total_revenue"}}, {"name": "LTS7_daily_zone_revenue", "physical_table": "mart_daily_zone_revenue", "priority_group": 0, "content_grain": ["trip_date", "pickup_location_id"], "where": "billable trips inside the report window (ADR 0003); grouped by pickup date and zone", "note": "Refused: trip_count (the mart applies f.is_billable, so its trip_count is the billable count); pickup_zone_key (the mart carries zone_natural_key as pickup_location_id, not the zone surrogate); fare_residual_total and total_amount (no residual or row-level total column survives the group by); fare, tip, surcharge and toll revenue (no metric declared).", "column_map": {"pickup_date": "trip_date", "billable_trip_count": "trip_count", "billable_revenue": "total_revenue"}}, {"name": "LTS8_monthly_service_summary", "physical_table": "mart_monthly_service_summary", "priority_group": 0, "content_grain": ["trip_month", "service_type", "payment_method_name"], "where": "billable trips inside the report window (ADR 0003); grouped by month, service type and payment method", "note": "Refused: pickup_date (month grain only); trip_count (the mart applies f.is_billable); payment_method_key (the mart carries payment_method_name, not the key); total_miles, avg_fare and est_processor_fees (no metric declared).", "column_map": {"service_type_key": "service_type", "billable_trip_count": "trip_count", "billable_revenue": "total_revenue"}}, {"name": "LTS9_trip_quality_scorecard", "physical_table": "mart_trip_quality_scorecard", "priority_group": 0, "content_grain": ["trip_month", "vendor_id", "service_type_key"], "where": "all trips inside the report window (ADR 0003), no billable filter; grouped by month, vendor and service type", "note": "Refused: billable_trip_count (the mart only carries non_billable_count; billable is the difference, not a column, so the map would be an expression the model does not have); vendor_key (the mart carries vendor_natural_key as vendor_id); pickup_date (month grain only); clean, non-billable, refund, zero-distance, implausible-speed, sparse-feed, unresolved-zone, undocumented-rate, unbalanced-total counts and the two rates (no metric declared).", "column_map": {"service_type_key": "service_type_key", "trip_count": "trip_count"}}]}'
   - name: date
     source: core.dim_date
     primary_key: [date_key]
@@ -385,6 +385,142 @@ datasets:
     custom_extensions:
       - vendor_name: VIBEDATA
         data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_base", "physical_table": "dim_trip_quality", "priority_group": 1, "content_grain": ["trip_quality"], "column_map": {"trip_quality_key": "trip_quality_key"}}]}'
+  - name: daypart
+    source: core.dim_daypart
+    primary_key: [hour_of_day]
+    description: One row per hour of the day, with its analyst-owned daypart band and peak flag.
+    fields:
+      - name: hour_of_day
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: hour_of_day
+        datatype: Integer
+        description: Hour of day (0-23); joins trips on pickup_hour.
+      - name: daypart_code
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: daypart_code
+        datatype: String
+        description: "Daypart band code from the daypart seed: LATE, EARLY, MID, AMPEAK, PMPEAK or EVE."
+      - name: daypart_name
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: daypart_name
+        datatype: String
+        description: Daypart label for the band.
+      - name: is_peak
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: is_peak
+        datatype: Boolean
+        description: Whether the hour is a peak hour in the seed's daypart bands.
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_base", "physical_table": "dim_daypart", "priority_group": 1, "content_grain": ["daypart"], "column_map": {"hour_of_day": "hour_of_day", "daypart_code": "daypart_code", "daypart_name": "daypart_name", "is_peak": "is_peak"}}], "hierarchies": [{"name": "Daypart", "levels": ["daypart_code", "hour_of_day"]}]}'
+  - name: rate_plan
+    source: core.dim_rate_plan
+    primary_key: [rate_plan_key]
+    description: One row per rate plan, with its pricing model and flat-fare terms from master data.
+    fields:
+      - name: rate_plan_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: rate_plan_key
+        datatype: Integer
+        description: Source rate code (rate_code_id).
+      - name: rate_plan_name
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: rate_plan_name
+        datatype: String
+        description: Rate plan display name.
+      - name: pricing_model
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: pricing_model
+        datatype: String
+        description: Pricing basis the plan charges on.
+      - name: is_flat_fare
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: is_flat_fare
+        datatype: Boolean
+        description: True when the plan charges a flat amount rather than the meter.
+      - name: flat_fare_amount
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: flat_fare_amount
+        datatype: Decimal
+        description: Flat amount charged under the plan; null for metered plans.
+      - name: is_airport_plan
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: is_airport_plan
+        datatype: Boolean
+        description: True for the airport flat-fare plans.
+      - name: is_metered_baseline
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: is_metered_baseline
+        datatype: Boolean
+        description: True for the standard metered plan every other plan is compared against.
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_base", "physical_table": "dim_rate_plan", "priority_group": 1, "content_grain": ["rate_plan"], "column_map": {"rate_plan_key": "rate_plan_key", "rate_plan_name": "rate_plan_name", "pricing_model": "pricing_model", "is_flat_fare": "is_flat_fare", "flat_fare_amount": "flat_fare_amount", "is_airport_plan": "is_airport_plan", "is_metered_baseline": "is_metered_baseline"}}]}'
+  - name: service_type
+    source: core.dim_service_type
+    primary_key: [service_type_key]
+    description: One row per fleet service type, with its hail and airport rules.
+    fields:
+      - name: service_type_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: service_type_key
+        datatype: String
+        description: yellow or green; the fact carries the same value.
+      - name: service_type_name
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: service_type_name
+        datatype: String
+        description: Service type display name.
+      - name: may_serve_airports
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: may_serve_airports
+        datatype: Boolean
+        description: True when the fleet may pick up at the airports.
+      - name: may_serve_manhattan_core
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: may_serve_manhattan_core
+        datatype: Boolean
+        description: True when the fleet may street-hail inside the Manhattan core.
+      - name: hail_rule
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: hail_rule
+        datatype: String
+        description: Where the fleet may street-hail, in words.
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_base", "physical_table": "dim_service_type", "priority_group": 1, "content_grain": ["service_type"], "column_map": {"service_type_key": "service_type_key", "service_type_name": "service_type_name", "may_serve_airports": "may_serve_airports", "may_serve_manhattan_core": "may_serve_manhattan_core", "hail_rule": "hail_rule"}}]}'
 relationships:
   - name: trips_to_pickup_zone
     from: trips
@@ -442,6 +578,42 @@ relationships:
     custom_extensions:
       - vendor_name: VIBEDATA
         data: '{"vibedata_version": "1.0", "physical_join": "fct_trip_to_dim_trip_quality", "cardinality": "many-to-one", "join_type": "LEFT OUTER", "join_expression": "trip_quality_key = trip_quality_key"}'
+  - name: trips_to_daypart
+    from: trips
+    to: daypart
+    from_columns: [pickup_hour]
+    to_columns: [hour_of_day]
+    ai_context:
+      synonyms:
+        - time of day
+        - daypart of the pickup
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "physical_join": "fct_trip_to_dim_daypart", "cardinality": "many-to-one", "join_type": "LEFT OUTER", "join_expression": "pickup_hour = hour_of_day"}'
+  - name: trips_to_rate_plan
+    from: trips
+    to: rate_plan
+    from_columns: [rate_plan_key]
+    to_columns: [rate_plan_key]
+    ai_context:
+      synonyms:
+        - rate code
+        - fare plan
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "physical_join": "fct_trip_to_dim_rate_plan", "cardinality": "many-to-one", "join_type": "LEFT OUTER", "join_expression": "rate_plan_key = rate_plan_key"}'
+  - name: trips_to_service_type
+    from: trips
+    to: service_type
+    from_columns: [service_type_key]
+    to_columns: [service_type_key]
+    ai_context:
+      synonyms:
+        - fleet
+        - yellow or green
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "physical_join": "fct_trip_to_dim_service_type", "cardinality": "many-to-one", "join_type": "LEFT OUTER", "join_expression": "service_type_key = service_type_key"}'
 metrics:
   - name: trip_count
     expression:
@@ -485,4 +657,4 @@ metrics:
         - Fare residual
 custom_extensions:
   - vendor_name: VIBEDATA
-    data: '{"vibedata_version": "1.0", "physical_tables": [{"name": "fct_trip", "source": "core.fct_trip", "dbt_model": "fct_trip", "table_type": "TABLE"}, {"name": "dim_date", "source": "core.dim_date", "dbt_model": "dim_date", "table_type": "TABLE"}, {"name": "dim_zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "TABLE"}, {"name": "Pickup_Zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "ALIAS", "alias_of": "dim_zone", "role": "origin zone for trips"}, {"name": "Dropoff_Zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "ALIAS", "alias_of": "dim_zone", "role": "destination zone for trips"}, {"name": "dim_vendor", "source": "core.dim_vendor", "dbt_model": "dim_vendor", "table_type": "TABLE"}, {"name": "dim_payment_method", "source": "core.dim_payment_method", "dbt_model": "dim_payment_method", "table_type": "TABLE"}, {"name": "dim_trip_quality", "source": "core.dim_trip_quality", "dbt_model": "dim_trip_quality", "table_type": "TABLE"}, {"name": "agg_trip_zone_daily", "source": "agg.agg_trip_zone_daily", "dbt_model": "agg_trip_zone_daily", "table_type": "TABLE"}, {"name": "agg_trip_zone_daypart_dow", "source": "agg.agg_trip_zone_daypart_dow", "dbt_model": "agg_trip_zone_daypart_dow", "table_type": "TABLE"}, {"name": "agg_trip_band_profile", "source": "agg.agg_trip_band_profile", "dbt_model": "agg_trip_band_profile", "table_type": "TABLE"}, {"name": "agg_weather_demand_daily", "source": "agg.agg_weather_demand_daily", "dbt_model": "agg_weather_demand_daily", "table_type": "TABLE"}, {"name": "agg_od_flow_matrix", "source": "agg.agg_od_flow_matrix", "dbt_model": "agg_od_flow_matrix", "table_type": "TABLE"}], "physical_joins": [{"name": "fct_trip_to_Pickup_Zone", "from": "fct_trip", "to": "Pickup_Zone"}, {"name": "fct_trip_to_Dropoff_Zone", "from": "fct_trip", "to": "Dropoff_Zone"}, {"name": "fct_trip_to_dim_date", "from": "fct_trip", "to": "dim_date"}, {"name": "fct_trip_to_dim_vendor", "from": "fct_trip", "to": "dim_vendor"}, {"name": "fct_trip_to_dim_payment_method", "from": "fct_trip", "to": "dim_payment_method"}, {"name": "fct_trip_to_dim_trip_quality", "from": "fct_trip", "to": "dim_trip_quality"}, {"name": "agg_trip_zone_daily_to_dim_zone", "from": "agg_trip_zone_daily", "to": "dim_zone"}, {"name": "agg_trip_zone_daypart_dow_to_dim_zone", "from": "agg_trip_zone_daypart_dow", "to": "dim_zone"}, {"name": "agg_trip_band_profile_to_dim_zone", "from": "agg_trip_band_profile", "to": "dim_zone"}, {"name": "agg_weather_demand_daily_to_dim_zone", "from": "agg_weather_demand_daily", "to": "dim_zone"}, {"name": "agg_od_flow_matrix_to_dim_zone", "from": "agg_od_flow_matrix", "to": "dim_zone"}]}'
+    data: '{"vibedata_version": "1.0", "physical_tables": [{"name": "fct_trip", "source": "core.fct_trip", "dbt_model": "fct_trip", "table_type": "TABLE"}, {"name": "dim_date", "source": "core.dim_date", "dbt_model": "dim_date", "table_type": "TABLE"}, {"name": "dim_zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "TABLE"}, {"name": "Pickup_Zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "ALIAS", "alias_of": "dim_zone", "role": "origin zone for trips"}, {"name": "Dropoff_Zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "ALIAS", "alias_of": "dim_zone", "role": "destination zone for trips"}, {"name": "dim_vendor", "source": "core.dim_vendor", "dbt_model": "dim_vendor", "table_type": "TABLE"}, {"name": "dim_payment_method", "source": "core.dim_payment_method", "dbt_model": "dim_payment_method", "table_type": "TABLE"}, {"name": "dim_trip_quality", "source": "core.dim_trip_quality", "dbt_model": "dim_trip_quality", "table_type": "TABLE"}, {"name": "agg_trip_zone_daily", "source": "agg.agg_trip_zone_daily", "dbt_model": "agg_trip_zone_daily", "table_type": "TABLE"}, {"name": "agg_trip_zone_daypart_dow", "source": "agg.agg_trip_zone_daypart_dow", "dbt_model": "agg_trip_zone_daypart_dow", "table_type": "TABLE"}, {"name": "agg_trip_band_profile", "source": "agg.agg_trip_band_profile", "dbt_model": "agg_trip_band_profile", "table_type": "TABLE"}, {"name": "agg_weather_demand_daily", "source": "agg.agg_weather_demand_daily", "dbt_model": "agg_weather_demand_daily", "table_type": "TABLE"}, {"name": "agg_od_flow_matrix", "source": "agg.agg_od_flow_matrix", "dbt_model": "agg_od_flow_matrix", "table_type": "TABLE"}, {"name": "dim_daypart", "source": "core.dim_daypart", "dbt_model": "dim_daypart", "table_type": "TABLE"}, {"name": "dim_rate_plan", "source": "core.dim_rate_plan", "dbt_model": "dim_rate_plan", "table_type": "TABLE"}, {"name": "dim_service_type", "source": "core.dim_service_type", "dbt_model": "dim_service_type", "table_type": "TABLE"}, {"name": "mart_daily_zone_revenue", "source": "finance.mart_daily_zone_revenue", "dbt_model": "mart_daily_zone_revenue", "table_type": "TABLE"}, {"name": "mart_monthly_service_summary", "source": "finance.mart_monthly_service_summary", "dbt_model": "mart_monthly_service_summary", "table_type": "TABLE"}, {"name": "mart_revenue_component_bridge", "source": "finance.mart_revenue_component_bridge", "dbt_model": "mart_revenue_component_bridge", "table_type": "TABLE", "note": "Registered, not mapped (S8): unpivoted fare-component bridge, one row per trip_month x service_type_key x borough_name x component_name. Every addable trip or revenue measure is repeated once per component, so any sum fans out x9; component_amount has no metric counterpart. No honest logical source exists."}, {"name": "mart_trip_quality_scorecard", "source": "ops.mart_trip_quality_scorecard", "dbt_model": "mart_trip_quality_scorecard", "table_type": "TABLE"}], "physical_joins": [{"name": "fct_trip_to_Pickup_Zone", "from": "fct_trip", "to": "Pickup_Zone"}, {"name": "fct_trip_to_Dropoff_Zone", "from": "fct_trip", "to": "Dropoff_Zone"}, {"name": "fct_trip_to_dim_date", "from": "fct_trip", "to": "dim_date"}, {"name": "fct_trip_to_dim_vendor", "from": "fct_trip", "to": "dim_vendor"}, {"name": "fct_trip_to_dim_payment_method", "from": "fct_trip", "to": "dim_payment_method"}, {"name": "fct_trip_to_dim_trip_quality", "from": "fct_trip", "to": "dim_trip_quality"}, {"name": "agg_trip_zone_daily_to_dim_zone", "from": "agg_trip_zone_daily", "to": "dim_zone"}, {"name": "agg_trip_zone_daypart_dow_to_dim_zone", "from": "agg_trip_zone_daypart_dow", "to": "dim_zone"}, {"name": "agg_trip_band_profile_to_dim_zone", "from": "agg_trip_band_profile", "to": "dim_zone"}, {"name": "agg_weather_demand_daily_to_dim_zone", "from": "agg_weather_demand_daily", "to": "dim_zone"}, {"name": "agg_od_flow_matrix_to_dim_zone", "from": "agg_od_flow_matrix", "to": "dim_zone"}, {"name": "fct_trip_to_dim_daypart", "from": "fct_trip", "to": "dim_daypart"}, {"name": "fct_trip_to_dim_rate_plan", "from": "fct_trip", "to": "dim_rate_plan"}, {"name": "fct_trip_to_dim_service_type", "from": "fct_trip", "to": "dim_service_type"}, {"name": "mart_daily_zone_revenue_to_dim_zone", "from": "mart_daily_zone_revenue", "to": "dim_zone"}, {"name": "mart_monthly_service_summary_to_dim_service_type", "from": "mart_monthly_service_summary", "to": "dim_service_type"}, {"name": "mart_trip_quality_scorecard_to_dim_service_type", "from": "mart_trip_quality_scorecard", "to": "dim_service_type"}]}'

@@ -11,7 +11,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 
 A fact star — its fact, the dims it reaches, its relationships, its metrics, its aggregate sources — lives wholly inside one document. It is never split across documents, and there is no shared-dimension document: Ossie resolves relationships within a document only, and the schema is closed, so a cross-document reference is unexpressible and a "shared dims" file would leave every star broken.
 
-Two stars in one document share one copy of a common dimension. Two stars in separate documents each carry their own copy, and the copies must stay identical — the validator compares same-named datasets, metrics, and physical tables across a directory and fails any that diverge. A metric spanning two stars forces both into one document.
+Two stars in one document share one copy of a common dimension. Two stars in separate documents each carry their own copy, and the copies must agree on the dimension's identity — `source`, keys, and every field — while the role-specific parts stay local: a role alias (`Pickup_Zone`) and a role logical source exist only in a document whose facts play that role. The validator compares same-named datasets, metrics, and physical tables across a directory and fails any that diverge in identity.
 
 ## Curated fields, not a mirror (S2)
 
