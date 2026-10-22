@@ -37,6 +37,12 @@ The canonical file(s) touched by the change must validate green before commit. E
 
 Every dbt-built table in the star's lineage (fact, dims, aggs, consumption marts) either has a handle in `physical_tables` (with its `dbt_model`) or carries its reason on itself: unmappable tables get a `note` on the physical-table entry (truncated, wrong star, bridge treatment); partially mapped sources get a `note` on the logical source naming each refused column and why. Reasons ride the entries so they cannot drift from them; the design record keeps the narrative. The rule binds both directions: reverse-engineering during onboarding enumerates and justifies gaps; forward-engineering a new mart registers it or justifies its absence in the same change.
 
+## When mapping is blocked, ask — never guess, never silently skip (S9)
+
+When a table cannot be honestly mapped (mart SQL unreadable, grain ambiguous, truncation or filtering defeats every honest mapping, bridge treatment unclear), stop and ask the user. One question per item, each with: what the table is, why it is blocked, the options with a recommendation, and what unblocks each option. Ask first; write the entry plus its `note` only once ruled — never pre-create entries for undecided items. Skipping silently and assuming are both failures — the former hides the gap S8 exists to close, the latter writes a lie the validator cannot catch. Record the user's ruling as a `note` on the entry in the same change.
+
+Ask versus note-only: when the mart SQL leaves exactly one honest disposition (wrong star by its own header, truncation that defeats every mapping), record the `note` directly under S8. When two or more dispositions are plausible, or the analysis itself is uncertain (contradictory grain evidence, undefined treatment), ask under this rule.
+
 ## Common mistakes
 - Identity column maps assumed from siblings. Verify every right-side column against the mart definitions.
 - New physical table without its `physical_joins` entries. The table exists but no query can reach it; `table-unjoined` warns.
