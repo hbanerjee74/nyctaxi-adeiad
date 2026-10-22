@@ -1,0 +1,73 @@
+version: "0.2.0.dev0"
+name: nyc_taxi_fare_regime
+description: "Effective-dated surcharge rates by fare component. Standalone model: it explains a surcharge when joined on component and date, and is not a conformed dimension of the trip star."
+ai_context:
+  instructions: Join on fare component and the effective date interval to explain a surcharge. Rates are effective-dated, so an as-of join uses half-open validity.
+  synonyms:
+    - surcharge rates
+    - fare surcharges
+datasets:
+  - name: fare_regime
+    source: core.dim_fare_regime
+    primary_key: [fare_regime_key]
+    description: One row per surcharge regime version, effective-dated per fare component.
+    fields:
+      - name: fare_regime_key
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: fare_regime_key
+        datatype: String
+        description: Regime code identifying the surcharge regime.
+      - name: fare_component
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: fare_component
+        datatype: String
+        description: The fare component the rate applies to (mta_tax, improvement_surcharge, congestion_surcharge, airport_fee).
+      - name: rate_amount
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: rate_amount
+        datatype: Decimal
+        description: Surcharge amount in effect for the interval.
+      - name: applies_to_fleet
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: applies_to_fleet
+        datatype: Boolean
+        description: Whether the regime applies to the fleet service types.
+      - name: valid_from_date
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: valid_from_date
+        datatype: Date
+        dimension:
+          is_time: false
+        description: Half-open validity start.
+      - name: valid_to_date
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: valid_to_date
+        datatype: Date
+        dimension:
+          is_time: false
+        description: Half-open validity end; 2099-12-31 marks the current version.
+      - name: is_current_regime
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: is_current_regime
+        datatype: Boolean
+        description: True for the current version of each regime.
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.0", "scd": {"type": 2, "valid_from": "valid_from_date", "valid_to": "valid_to_date", "is_current": "is_current_regime", "open_ended_value": "2099-12-31"}, "logical_sources": [{"name": "LTS1_detail", "physical_table": "dim_fare_regime", "priority_group": 1, "content_grain": ["fare_regime_key"], "column_map": {"fare_regime_key": "fare_regime_key", "fare_component": "fare_component", "rate_amount": "rate_amount", "applies_to_fleet": "applies_to_fleet", "valid_from_date": "valid_from_date", "valid_to_date": "valid_to_date", "is_current_regime": "is_current_regime"}}]}'
+custom_extensions:
+  - vendor_name: VIBEDATA
+    data: '{"vibedata_version": "1.0", "physical_tables": [{"name": "dim_fare_regime", "source": "core.dim_fare_regime", "dbt_model": "dim_fare_regime", "table_type": "TABLE", "note": "Standalone by design: not conformed to the trip fact and carries no join key into any star; a consuming mart must add the component+date key before this folds into one. S10"}], "physical_joins": []}'

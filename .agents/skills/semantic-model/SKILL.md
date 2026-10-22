@@ -19,7 +19,7 @@ Red-flag trap (seen in testing): mapping a filtered measure onto an unfiltered a
 
 ## Aliases are physical rows, not flags (S4)
 
-Role-playing (pickup vs dropoff zone) and fan-traps are separate `physical_tables` entries with `table_type: ALIAS` and `alias_of` naming the base table, each with its own physical join. Aggregate LTS tables point their joins at a dimension for reachability; no logical relationship backs them (aggs aren't datasets), and that dangle is structural, not a smell. The core `relationships[]` keep the equi fallback; the real predicate (including SCD as-of clauses) lives in the relationship's `join_expression`. A `physical_join` naming no model-level join fails `validate`.
+Role-playing (pickup vs dropoff zone) and fan-traps are separate `physical_tables` entries with `table_type: ALIAS` and `alias_of` naming the base table, each with its own physical join. A fan-trap is two or more declared paths into the same table, not the mere presence of a bridge; a bridge reached by one path needs no alias. Aggregate LTS tables point their joins at a dimension for reachability; no logical relationship backs them (aggs aren't datasets), and that dangle is structural, not a smell. The core `relationships[]` keep the equi fallback; the real predicate (including SCD as-of clauses) lives in the relationship's `join_expression`. A `physical_join` naming no model-level join fails `validate`.
 
 ## SCD and hierarchies ride the dataset (S5)
 
@@ -36,6 +36,19 @@ The canonical file(s) touched by the change must validate green before commit. E
 ## Every lakehouse object is mapped or justified (S8)
 
 Every dbt-built table in the star's lineage (fact, dims, aggs, consumption marts) either has a handle in `physical_tables` (with its `dbt_model`) or carries its reason on itself: unmappable tables get a `note` on the physical-table entry (truncated, wrong star, bridge treatment); partially mapped sources get a `note` on the logical source naming each refused column and why. Reasons ride the entries so they cannot drift from them; the design record keeps the narrative. The rule binds both directions: reverse-engineering during onboarding enumerates and justifies gaps; forward-engineering a new mart registers it or justifies its absence in the same change.
+
+## Refactoring the model (S10)
+
+The model is not append-only. These moves are normal work, each validated across every file afterwards, with no dual sources of truth left behind:
+
+- **New standalone model.** An object that serves no star (bridge, rate table, direct-consumption mart) gets its own document named after what it models, one dataset, its own `physical_tables` entry, and a `note` saying why it stands alone. Never park it in a star it cannot join.
+- **Fold a standalone model into a star.** When a join key lands, move the dataset into the consuming document, add the relationship and its `physical_joins` entry there, delete the standalone document, and correct every stale statement about the object wherever it lives — its `note`, description, `ai_context`, and any rule the new path invalidates. Relationships cannot cross documents, so leaving both is a second source of truth, not caution.
+- **Split a star across documents.** Split by star; re-declare the shared dims each document needs.
+- **Move or rename a dataset.** Update every relationship, `physical_join`, and `logical_sources[].physical_table` that names it in the same change; leave no dangling reference for validation to find.
+
+Name new relationships and joins after the existing pattern in the target document rather than inventing one.
+
+Business rules ride the model, not a footnote to it: a threshold, filter, or bound that changes the answer belongs in the logical source's `where` and (when it is a standing business answer) in the repo's decision record. A rule is not a defect to route around. When a refactor makes a stated rule wrong on one path, that is a business ruling — ask under S9 and record the answer; never quietly rewrite the rule to fit the new shape.
 
 ## When mapping is blocked, ask — never guess, never silently skip (S9)
 
