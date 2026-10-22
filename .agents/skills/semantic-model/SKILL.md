@@ -9,7 +9,7 @@ Operator conventions for the canonical semantic model in `logical-model/`. Where
 
 ## Splitting across files (S1)
 
-Layout is the repo owner's call via the `repo-map.json` glob: one file per star, one file for the whole warehouse, or anything between. When split, split by star — one file per fact star, named after it — and re-declare the shared dimensions each file's star needs. Every file must validate standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell.
+Every file must validate standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell.
 
 ## Curated fields, not a mirror (S2)
 
