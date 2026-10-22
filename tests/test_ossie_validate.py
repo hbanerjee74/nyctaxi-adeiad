@@ -39,7 +39,8 @@ def _codes(diags):
 def test_canonical_validates():
     code, diags = _run("validate", str(CANONICAL))
     assert code == 0, diags
-    assert diags == []
+    assert not [d for d in diags if d["severity"] == "error"]
+    assert ("vibedata/agg-metric-unverified", "warning") in _codes(diags)
 
 
 def test_missing_file_stdout_stays_json():
@@ -178,6 +179,16 @@ def test_missing_payload_warns_only(tmp_path):
     assert ("vibedata/no-payload", "warning") in _codes(diags)
 
 
+def test_field_agg_only_fails(tmp_path):
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    del payload["logical_sources"][0]["column_map"]["pickup_date"]
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/field-agg-only", "error") in _codes(diags)
+
+
 def test_partitioned_by_shape(tmp_path):
     doc = _doc()
     payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
@@ -209,3 +220,17 @@ def test_hierarchy_unknown_level_fails(tmp_path):
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/hierarchy-unknown-field", "error") in _codes(diags)
+
+
+def test_checker_keys_match_schema():
+    """tools/ossie_vibedata.py allowlists and tools/vibedata-schema.json agree."""
+    import tools.ossie_vibedata as v
+    schema = json.loads(Path("tools/vibedata-schema.json").read_text())
+    defs = schema["$defs"]
+    pairs = [(v.MODEL_KEYS, "modelPayload"), (v.DATASET_KEYS, "datasetPayload"),
+             (v.RELATIONSHIP_KEYS, "relationshipPayload"),
+             (v.PHYSICAL_TABLE_KEYS, "physicalTable"),
+             (v.PHYSICAL_JOIN_KEYS, "physicalJoin"), (v.LTS_KEYS, "logicalSource"),
+             (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd")]
+    for keys, ref in pairs:
+        assert keys == set(defs[ref]["properties"]), ref

@@ -5,11 +5,11 @@ description: "Use when creating or editing the canonical semantic model in logic
 
 # Semantic model
 
-Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` (flat document, one model per file) plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
+Operator conventions for the canonical semantic model in `logical-model/`. Where files live is declared in `repo-map.json` (`artifact_paths.logical_model`); this file covers shape and rules. The model is Apache Ossie `0.2.0.dev0` — canonical definition at `core-spec/spec.md` upstream (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
 
-## One star per file (S1)
+## One or many stars per file — owner's call (S1)
 
-One model document holds one fact star plus the shared dimensions it needs (today: the trips star). Dimensions repeat across files; each file re-declares only the slice its star uses. The tooling supports one-or-many via the `repo-map.json` glob; the layout is the repo owner's call, not the tool's.
+A model document holds whatever stars the repo owner wants: one file per star, one file for the whole warehouse, or anything between (today: the trips star). Dimensions repeat across files; each file re-declares only the slice its stars use. The tooling takes a file or a directory glob from `repo-map.json` either way — layout is resolved there, never assumed by the tool.
 
 ## Curated fields, not a mirror (S2)
 
@@ -17,7 +17,9 @@ One model document holds one fact star plus the shared dimensions it needs (toda
 
 ## Every field needs a supplying LTS (S3)
 
-`logical_sources[].column_map` names the physical column behind each logical field or metric **per LTS**; an aggregate LTS maps only what its `content_grain` supports (it must not map row-identity columns, and it must not map a measure its grain cannot compute — e.g. `billable_revenue` has no home in a day-grain agg). A field no LTS supplies fails `validate` (`field-unmapped`): the mapping is the consumer's path, so there is no guessing.
+`logical_sources[].column_map` names the physical column behind each logical field or metric **per LTS**; an aggregate LTS maps only what its `content_grain` supports. Priority convention: `0` is the preferred aggregate, higher numbers are fallbacks ending at the detail grain — every field must be suppliable by at least one non-`0` source (`field-agg-only` fails otherwise). `content_grain` names the grain in the LTS table's own columns where they exist (`pickup_date`, `pickup_location_id`), falling back to the logical grain name for the detail source (`trip`); it is a human-readable grain declaration (list of strings), not a validated reference. Right-side (physical) columns are verified against the mart SQL and `_core.yml`, never assumed identity.
+
+Red-flag trap (seen in testing): mapping a filtered measure onto an unfiltered agg column, e.g. `billable_revenue` onto a monthly `total_revenue` — a monthly total is not billable-filtered revenue. `validate` warns (`agg-metric-unverified`) on any metric an aggregate source maps; treat the warning as guilty until the agg SQL proves it innocent.
 
 ## Aliases are physical rows, not flags (S4)
 
@@ -29,8 +31,8 @@ Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed; an unknown key fails `validate` (`unknown-key`). New keys arrive by intent with a validator change and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in `tools/vibedata-schema.json` (model, dataset, and relationship payload shapes; base Ossie stays the upstream `tools/ossie_vendor/ossie-schema.json`). An unknown key fails `validate` (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 
-`python3 tools/ossie.py validate logical-model/` is green before any commit touching marts or the canonical file. JSON diagnostics go to stdout; the human summary to stderr; exit 1 on any error, warnings allowed. After any mart SQL, `_core.yml`, or `_semantic.yml` change, update the canonical in the same intent (see `workarounds`).
+`python3 tools/ossie.py validate logical-model/` is green before any commit touching marts or the canonical file. JSON diagnostics go to stdout; the human summary to stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart SQL, `_core.yml`, or `_semantic.yml` change, update the canonical in the same intent (see `workarounds`).

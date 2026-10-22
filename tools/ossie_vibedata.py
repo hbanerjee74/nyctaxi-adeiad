@@ -99,7 +99,17 @@ def validate_vibedata(doc):
             diags.append({"severity": "error", "code": "vibedata/alias-dangling",
                           "message": f"model '{model_name}': physical table '{t['name']}' "
                                      f"is an alias of unknown table '{alias_of}'"})
+    joined = set()
     physical_join_names = set()
+    for j in model_payload.get("physical_joins", []):
+        if isinstance(j, dict):
+            joined.add(j.get("from"))
+            joined.add(j.get("to"))
+    for name in sorted(physical_tables):
+        if name not in joined:
+            diags.append({"severity": "warning", "code": "vibedata/table-unjoined",
+                          "message": f"model '{model_name}': physical table '{name}' appears "
+                                     "in no physical join"})
     for j in model_payload.get("physical_joins", []):
         if not isinstance(j, dict):
             diags.append({"severity": "error", "code": "vibedata/join-not-object",
@@ -196,6 +206,8 @@ def _validate_dataset(dataset, model_name, physical_tables, metric_names):
                       "message": f"{where}: logical_sources must be a list"})
         sources = []
     mapped_fields = set()
+    detail_present = False
+    field_suppliers = {}
     for src in sources:
         src_name = src.get("name", "<unnamed>") if isinstance(src, dict) else "<unnamed>"
         if not isinstance(src, dict):
@@ -203,6 +215,18 @@ def _validate_dataset(dataset, model_name, physical_tables, metric_names):
                           "message": f"{where}: logical source '{src_name}' must be an object"})
             continue
         diags.extend(_unknown_keys(src, LTS_KEYS, f"{where} logical source '{src_name}'"))
+        priority = src.get("priority_group", 1)
+        if not isinstance(priority, int) or isinstance(priority, bool) or priority < 0:
+            diags.append({"severity": "error", "code": "vibedata/bad-priority",
+                          "message": f"{where}: logical source '{src_name}' priority_group "
+                                     "must be an integer >= 0 (0 = preferred aggregate)"})
+        grain = src.get("content_grain", [])
+        if not isinstance(grain, list) or not all(isinstance(g, str) for g in grain):
+            diags.append({"severity": "error", "code": "vibedata/bad-grain",
+                          "message": f"{where}: logical source '{src_name}' content_grain "
+                                     "must be a list of grain column names"})
+        if priority != 0:
+            detail_present = True
         if src.get("physical_table") not in physical_tables:
             diags.append({"severity": "error", "code": "vibedata/lts-dangling-table",
                           "message": f"{where}: logical source '{src_name}' references unknown "
@@ -214,10 +238,27 @@ def _validate_dataset(dataset, model_name, physical_tables, metric_names):
                                          f"undeclared field or metric '{logical_col}'"})
             elif logical_col in fields:
                 mapped_fields.add(logical_col)
+                field_suppliers.setdefault(logical_col, []).append(priority)
+            elif logical_col in metric_names and priority == 0:
+                diags.append({"severity": "warning", "code": "vibedata/agg-metric-unverified",
+                              "message": f"{where}: aggregate source '{src_name}' maps metric "
+                                         f"'{logical_col}'; confirm the agg column computes the "
+                                         "same filtered aggregation (e.g. a monthly total is "
+                                         "not billable-filtered revenue)"})
     if sources:
         for orphan in sorted(fields - mapped_fields):
             diags.append({"severity": "error", "code": "vibedata/field-unmapped",
                           "message": f"{where}: field '{orphan}' is supplied by no logical source"})
+        for field in sorted(mapped_fields):
+            if all(p == 0 for p in field_suppliers.get(field, [])):
+                diags.append({"severity": "error", "code": "vibedata/field-agg-only",
+                              "message": f"{where}: field '{field}' is supplied only by "
+                                         "aggregate (priority 0) sources; every field must be "
+                                         "suppliable at detail grain"})
+        if not detail_present:
+            diags.append({"severity": "warning", "code": "vibedata/no-detail-source",
+                          "message": f"{where}: no logical source with priority_group != 0; "
+                                     "every field should be suppliable at detail grain"})
     return diags
 
 

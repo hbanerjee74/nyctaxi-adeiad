@@ -4,6 +4,12 @@ Pinned to upstream commit `c5cb931d72029dc523a5dd18d267f083403786f2`
 (2026-10-14, `apache/ossie`). Do not edit either file: `tools/ossie.py`
 imports `validate.py` and reads `ossie-schema.json` as-is.
 
+Canonical definitions (upstream source of truth; these files are copies):
+- Spec: https://github.com/apache/ossie/blob/main/core-spec/spec.md
+- Machine schema: https://github.com/apache/ossie/blob/main/core-spec/ossie-schema.json
+- Pinned schema: https://github.com/apache/ossie/blob/c5cb931d72029dc523a5dd18d267f083403786f2/core-spec/ossie-schema.json
+- Pinned validator: https://github.com/apache/ossie/blob/c5cb931d72029dc523a5dd18d267f083403786f2/validation/validate.py
+
 To re-pin: download both files at the new commit, update this note, and
 re-run `python3 -m pytest tests/test_ossie_validate.py -q`. Any upstream
 behavior change must surface as a test failure here, never silently.
