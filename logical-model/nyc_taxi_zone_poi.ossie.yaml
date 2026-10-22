@@ -1,8 +1,8 @@
 version: "0.2.0.dev0"
 name: nyc_taxi_zone_poi
-description: "Zone-to-point-of-interest allocation bridge. Standalone model: every join through it multiplies rows by design and carries an allocation factor for splitting a measure without double counting."
+description: "Point-of-interest allocation table: one row per zone and POI category. Standalone model — joining a zone-level measure through it fans out across the zone's POIs by design, and allocation_factor splits the measure so the parts sum back to the zone total."
 ai_context:
-  instructions: Any measure joined through this bridge must be multiplied by allocation_factor, or it double counts across a zone's POIs.
+  instructions: A zone-level measure joined through this table fans out across the zone's POI categories; multiply by allocation_factor or the parts double count.
   synonyms:
     - points of interest
     - POI allocation
@@ -63,7 +63,7 @@ datasets:
         description: The POI's share of its zone's total demand weight; multiply an allocated measure by it.
     custom_extensions:
       - vendor_name: VIBEDATA
-        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "bridge_zone_poi", "priority_group": 1, "content_grain": ["poi"], "note": "Bridge semantics: fan-out by design; consumers must weight with allocation_factor. _core.yml tests poi_id unique while the model header calls it many-to-many, so cardinality into a star is undecided until a join key lands.", "column_map": {"poi_id": "poi_id", "zone_natural_key": "zone_natural_key", "poi_category": "poi_category", "poi_category_name": "poi_category_name", "poi_name": "poi_name", "demand_weight": "demand_weight", "allocation_factor": "allocation_factor"}}]}'
+        data: '{"vibedata_version": "1.0", "logical_sources": [{"name": "LTS1_detail", "physical_table": "bridge_zone_poi", "priority_group": 1, "content_grain": ["poi"], "note": "One row per (zone, POI category), so zone to POI is one-to-many, not many-to-many; a zone-level measure fans out across categories and must be weighted by allocation_factor. No join key into a star yet; folds in by S10 when one lands.", "column_map": {"poi_id": "poi_id", "zone_natural_key": "zone_natural_key", "poi_category": "poi_category", "poi_category_name": "poi_category_name", "poi_name": "poi_name", "demand_weight": "demand_weight", "allocation_factor": "allocation_factor"}}]}'
 custom_extensions:
   - vendor_name: VIBEDATA
     data: '{"vibedata_version": "1.0", "physical_tables": [{"name": "bridge_zone_poi", "source": "core.bridge_zone_poi", "dbt_model": "bridge_zone_poi", "table_type": "TABLE", "note": "Standalone bridge: no join key into any star yet, and any join through it multiplies rows by design. Folds into the consuming star by S10 when a key lands."}], "physical_joins": []}'
