@@ -1,6 +1,6 @@
 ---
 name: semantic-model
-description: "Use when creating or editing the canonical semantic model, its VIBEDATA extensions, or when validating it."
+description: "Use when creating or editing the canonical semantic model, its VIBEDATA extensions, validating it, or deciding which source supplies a field or measure."
 ---
 
 # Semantic model
@@ -23,7 +23,7 @@ Role-playing (pickup vs dropoff zone) and fan-traps are separate `physical_table
 
 ## SCD and hierarchies ride the dataset (S5)
 
-Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_current, open_ended_value}` naming real fields; level lists in `hierarchies[]` name real fields. `partitioned_by`, when a table is truly partitioned storage, is a column list.
+Versioned dimensions declare `scd`, level lists ride `hierarchies[]`, and truly partitioned storage declares `partitioned_by` — all naming real fields, all shaped per `vibedata-fields.md`.
 
 ## Frozen keys (S6)
 
@@ -32,3 +32,15 @@ The `VIBEDATA` key set per level is closed and machine-readable in the vibedata 
 ## Validate (S7)
 
 The canonical file(s) touched by the change must validate green before commit. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. The validate command emits JSON diagnostics on stdout and a human summary on stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart change, update the canonical in the same change.
+
+## Common mistakes
+
+- Identity column maps assumed from siblings. Verify every right-side column against the mart definitions.
+- New physical table without its `physical_joins` entries. The table exists but no query can reach it; `table-unjoined` warns.
+- New key invented inline instead of arriving with its schema, validator, and test change. `unknown-key` fails it.
+
+## Red flags — stop and re-check
+
+- "Validate is green, so the mapping is semantically right." Green proves shape and references, never business correctness.
+- "The agg table must carry this column." Check the agg SQL; grain decides, not hope.
+- "One more key won't hurt." It fails. Use the schema file.
