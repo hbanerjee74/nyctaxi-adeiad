@@ -258,22 +258,23 @@ ADR_REF = re.compile(r"ADR (\d{4})")
 
 
 @app.command()
-def notes(model: str, tests: str, adr: str = typer.Argument("")):
+def notes(model: str, tests: str, adr: str):
     """Every pointer a note carries must resolve: `held by <test>` and `ADR NNNN`."""
     diags = []
     tests_dir = Path(tests)
-    adr_dir = Path(adr) if adr else None
+    adr_dir = Path(adr)
     for target in _resolve_targets(model):
         text, read_diag = _read_text(target)
         if read_diag:
             diags.append(read_diag)
             continue
-        doc = _vendor.load_yaml_named(text, str(target))
-        blobs = [ext.get("data") for ext in doc.get("custom_extensions") or []
-                 if ext.get("vendor_name") == "VIBEDATA"]
+        try:
+            doc = _vendor.load_yaml_named(text, str(target))
+        except Exception as e:  # noqa: BLE001 - report, never traceback
+            diags.append({"severity": "error", "code": "cli/bad-yaml", "file": str(target),
+                          "message": f"'{target}': invalid YAML: {e}"})
+            continue
         for dataset in doc.get("datasets") or []:
-            blobs += [ext.get("data") for ext in dataset.get("custom_extensions") or []
-                      if ext.get("vendor_name") == "VIBEDATA"]
             for source in _sources_of(dataset):
                 note = source.get("note")
                 if not note:
@@ -285,28 +286,33 @@ def notes(model: str, tests: str, adr: str = typer.Argument("")):
                                       "message": f"{dataset.get('name')}.{source.get('name')} "
                                                  f"points at test '{name}', which is not "
                                                  f"{tests_dir}/{name}.sql"})
-                if adr_dir:
-                    for number in ADR_REF.findall(note):
-                        if not list(adr_dir.glob(f"{number}-*.md")):
-                            diags.append({"severity": "error", "code": "notes/dangling-adr",
-                                          "file": str(target),
-                                          "message": f"{dataset.get('name')}.{source.get('name')} "
-                                                     f"cites ADR {number}, which has no file in "
-                                                     f"{adr_dir}"})
+                for number in ADR_REF.findall(note):
+                    if not list(adr_dir.glob(f"{number}-*.md")):
+                        diags.append({"severity": "error", "code": "notes/dangling-adr",
+                                      "file": str(target),
+                                      "message": f"{dataset.get('name')}.{source.get('name')} "
+                                                 f"cites ADR {number}, which has no file in "
+                                                 f"{adr_dir}"})
     print(json.dumps(diags, indent=2))
     typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
     raise typer.Exit(1 if diags else 0)
 
 
 def _sources_of(dataset):
+    if not isinstance(dataset, dict):
+        return
     for ext in dataset.get("custom_extensions") or []:
-        if ext.get("vendor_name") != "VIBEDATA":
+        if not isinstance(ext, dict) or ext.get("vendor_name") != "VIBEDATA":
             continue
         try:
             payload = json.loads(ext.get("data") or "{}")
         except json.JSONDecodeError:
             continue
-        yield from payload.get("logical_sources") or []
+        if not isinstance(payload, dict):
+            continue
+        for source in payload.get("logical_sources") or []:
+            if isinstance(source, dict):
+                yield source
 
 
 @app.command()

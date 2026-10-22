@@ -426,7 +426,9 @@ def test_notes_flags_dangling_test(tmp_path):
     model = _notes_doc(tmp_path, "reconciliation held by assert_missing")
     tests = tmp_path / "tests"
     tests.mkdir()
-    result = RUNNER.invoke(app, ["notes", str(model), str(tests)])
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
     assert result.exit_code == 1
     assert "notes/dangling-test" in result.stdout
 
@@ -446,5 +448,33 @@ def test_notes_ignores_plain_prose(tmp_path):
     model = _notes_doc(tmp_path, "checked against the mart SQL and the seed ranges")
     tests = tmp_path / "tests"
     tests.mkdir()
-    result = RUNNER.invoke(app, ["notes", str(model), str(tests)])
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
     assert result.exit_code == 0, result.stdout
+
+
+def test_where_key_is_now_unknown(tmp_path):
+    """`where` was removed from the key set: a stale document fails loudly."""
+    doc = _doc()
+    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
+    payload["logical_sources"][0]["where"] = "old style population prose"
+    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/unknown-key", "error") in _codes(diags)
+
+
+def test_notes_survives_malformed_payload(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = _doc()
+    doc["datasets"][0]["custom_extensions"][0]["data"] = '["not", "an", "object"]'
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    adrs = tmp_path / "adr"
+    adrs.mkdir()
+    result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
+    assert result.exit_code in (0, 1)
+    json.loads(result.stdout)  # stdout stays pure JSON

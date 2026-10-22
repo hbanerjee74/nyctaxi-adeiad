@@ -21,7 +21,7 @@ The consequence is deliberate and bounded. `agg_od_flow_matrix` answers "which f
 - Summing `billable_revenue` or `billable_trip_count` through this source undercounts the network; that is the recorded intent, not a defect. A question about the whole network is answered from the detail source.
 - The threshold is one number in one place (`agg_od_flow_matrix.sql`). Changing it changes the published population, so it changes what the OD surface reports, and it is a decision to record rather than a constant to tune quietly.
 - A pair that crosses the floor between two runs appears or disappears from the surface. That is accepted: the surface answers "which flows exist now", not "which trips happened".
-- The model's logical source cites this ADR in its `where` and `note`, so a reviewer can tell the partiality apart from a broken mapping.
+- The model's logical source cites this ADR in its `note`, so a reviewer can tell the partiality apart from a broken mapping.
 
 ## Affected designs
 

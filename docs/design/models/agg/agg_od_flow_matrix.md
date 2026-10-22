@@ -1,3 +1,7 @@
+---
+artifacts: [agg_od_flow_matrix]
+---
+
 # agg_od_flow_matrix
 
 Origin-to-destination flow, one row per zone pair, built from `fct_trip` with `dim_zone` joined twice — once in each role.

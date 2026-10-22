@@ -11,7 +11,7 @@ datasets:
     source: core.dim_fare_regime
     primary_key: [fare_regime_key]
     unique_keys:
-      - [fare_component, valid_from_date]
+      - [fare_component, applies_to_fleet, valid_from_date]
     description: One row per surcharge regime version, effective-dated per fare component.
     fields:
       - name: fare_regime_key
@@ -69,7 +69,7 @@ datasets:
         description: True for the current version of each regime.
     custom_extensions:
       - vendor_name: VIBEDATA
-        data: '{"vibedata_version": "1.1", "scd": {"type": 2, "natural_key": "fare_component", "valid_from": "valid_from_date", "valid_to": "valid_to_date", "is_current": "is_current_regime", "open_ended_value": "2099-12-31"}, "logical_sources": [{"name": "LTS1_detail", "physical_table": "dim_fare_regime", "priority_group": 1, "content_grain": ["fare_regime_key"], "column_map": {"fare_regime_key": "fare_regime_key", "fare_component": "fare_component", "rate_amount": "rate_amount", "applies_to_fleet": "applies_to_fleet", "valid_from_date": "valid_from_date", "valid_to_date": "valid_to_date", "is_current_regime": "is_current_regime"}}]}'
+        data: '{"vibedata_version": "1.1", "logical_sources": [{"name": "LTS1_detail", "physical_table": "dim_fare_regime", "priority_group": 1, "content_grain": ["fare_regime_key"], "column_map": {"fare_regime_key": "fare_regime_key", "fare_component": "fare_component", "rate_amount": "rate_amount", "applies_to_fleet": "applies_to_fleet", "valid_from_date": "valid_from_date", "valid_to_date": "valid_to_date", "is_current_regime": "is_current_regime"}}]}'
 custom_extensions:
   - vendor_name: VIBEDATA
-    data: '{"vibedata_version": "1.1", "physical_tables": [{"name": "dim_fare_regime", "source": "core.dim_fare_regime", "dbt_model": "dim_fare_regime", "table_type": "TABLE", "note": "Standalone by design: not conformed to the trip fact and carries no join key into any star; a consuming mart must add the component+date key before this folds into one. S10"}], "physical_joins": []}'
+    data: '{"vibedata_version": "1.1", "physical_tables": [{"name": "dim_fare_regime", "source": "core.dim_fare_regime", "dbt_model": "dim_fare_regime", "table_type": "TABLE", "note": "Effective-dated rates, one row per regime code; validity is per (fare_component, applies_to_fleet), so this is not a Type-2 dimension and declares no scd. Standalone by design: no join key into any star yet; folds in by S10 when one lands."}], "physical_joins": []}'

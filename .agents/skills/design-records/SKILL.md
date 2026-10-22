@@ -24,7 +24,7 @@ description: "Use when writing or amending a design record under docs/design/ fo
 
 ## No population statements
 
-A design record states the grain and the decisions. What population a measure covers — which rows are in, which are excluded, how the counts reconcile to the fact — is not recorded here: it belongs on the artifact's logical source in the semantic model (`where` and `note`), and in an ADR when the bound is a business rule. A record that restates it is a second copy that drifts the first time the SQL changes. Cite the ADR or the source; do not repeat the population.
+A design record states the grain and the decisions. What population a measure covers — which rows are in, which are excluded, how the counts reconcile to the fact — is not recorded here: it belongs in the repo's decision record (ADR) when the bound is a business rule, and a `note` on the artifact's logical source cites that ADR and the test that holds the reconciliation. A record that restates it is a second copy that drifts the first time the SQL changes. Cite the ADR or the source; do not repeat the population.
 
 ## No evidence
 

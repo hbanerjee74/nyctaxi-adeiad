@@ -25,8 +25,7 @@ models:
   - name: agg_od_flow_matrix
     description: >
       Origin-to-destination flow -- the same zone dimension joined twice, in both
-      roles. Bounded to pairs with at least 25 trips; the full 265x265 product is
-      mostly ones and twos, and publishing it invites reading noise as a route.
+      roles. Published only for pairs with at least 25 billable trips (ADR 0017).
 
   - name: agg_trip_band_profile
     description: >

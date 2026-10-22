@@ -23,7 +23,6 @@ with window_days as (
 boroughs as (
     select distinct borough_name
     from {{ ref('dim_zone') }}
-    where is_current_version
 
     union
 

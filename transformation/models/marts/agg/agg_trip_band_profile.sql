@@ -5,11 +5,11 @@
 -- trip of exactly three miles lands in "3 - 6", once, rather than in two bands
 -- or none.
 --
--- The joins are LEFT joins on purpose. A refund has a negative total and a
--- negative-duration record has no band, and ADR 0004 says no model removes a
--- trip because of a verdict -- so a trip that falls outside every band appears
--- once with 'unbanded' and an order of 0, and sum(trip_count) here equals the
--- count of in-window trips in fct_trip. The dimension joins are LEFT joins for
+-- The joins are LEFT joins on purpose. A refund carries a negative total and so
+-- has no fare band, a negative duration has no duration band, and ADR 0004 says
+-- no model removes a trip because of a verdict -- so a trip with no matching
+-- band appears once with 'unbanded' in that column and an order of 0, and
+-- sum(trip_count) here equals the count of in-window trips in fct_trip. The dimension joins are LEFT joins for
 -- the same reason: ADR 0015 keeps an unmatched zone key null, so an inner join
 -- to dim_zone would drop those trips instead of grouping them as unresolved.
 select
