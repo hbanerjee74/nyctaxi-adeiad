@@ -11,7 +11,7 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 ## Step 1 — structure
 
-From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, and `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1. Record each command with its exit code.
+From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 

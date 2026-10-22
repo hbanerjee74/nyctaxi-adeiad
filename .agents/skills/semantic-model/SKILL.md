@@ -11,7 +11,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 
 | Question | Answer |
 | --- | --- |
-| Which commands gate a change? | `validate <dir>` (structure, references, VIBEDATA) and `coverage <dir> <marts>` (gold tables vs `dbt_model`); both must exit 0 |
+| Which commands gate a change? | `validate <dir>`, `coverage <dir> <marts>`, `suppliers <dir>`, `notes <dir> <tests-dir> <adr-dir>`; all four must exit 0 |
 | Where does a refused column go? | The detail source's `note`, naming each column and why |
 | Where does an unmappable table's reason go? | A `note` on its `physical_tables` entry |
 | Where does a blocked decision go? | Ask first (`references/reverse-engineering.md`); write the entry plus its `note` only once ruled |
@@ -52,6 +52,17 @@ A role-playing dimension is one dataset and N relationships: `zone` stays a sing
 ## SCD and hierarchies ride the dataset (S5)
 
 Versioned dimensions declare `scd`, their business key in `unique_keys` (`[[natural_key, valid_from]]`), level lists in `hierarchies[]`, and truly partitioned storage in `partitioned_by` — all naming real fields, all shaped per `references/vibedata-fields.md`.
+
+## The model upgrades itself (S6a)
+
+The key set and the spec version move together, and the tool is the authority. When either changes, upgrade every document in the same change rather than leaving old ones behind:
+
+1. Change the schema and the checker together; the parity test that compares the checker's key sets with `scripts/vibedata-schema.json` is what stops the two drifting.
+2. Rewrite every document mechanically — a script, never hand edits on payload lines — dropping or adding the affected key and stamping the new `vibedata_version` in every payload, so a document cannot carry two generations.
+3. Run `validate`, `suppliers`, `notes` and `coverage`; a document left at the old shape fails `unknown-key` or the version check, which is the point.
+4. Record the change in `references/vibedata-fields.md` with what moved and why, so the next upgrade has a precedent.
+
+A `note` cites what backs it and nothing else: `held by <test-name>` for a reconciliation and `ADR NNNN` for a rule. `notes` (run by the validating skill) resolves both against `transformation/tests/` and `docs/adr/`, so a renamed test or a superseded ADR leaves a dangling pointer that fails rather than a sentence nobody dares touch.
 
 ## Frozen keys (S6)
 
