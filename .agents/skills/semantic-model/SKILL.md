@@ -1,11 +1,11 @@
 ---
 name: semantic-model
-description: "Use when creating or editing the canonical semantic model in logical-model/, its VIBEDATA extensions, or when validating it with tools/ossie.py."
+description: "Use when creating or editing the canonical semantic model, its VIBEDATA extensions, or when validating it."
 ---
 
 # Semantic model
 
-The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (`tools/ossie_vendor/README.md` holds the exact links and the pinned commit; the machine copy is `tools/ossie_vendor/ossie-schema.json`, never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed.
+The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (exact links and pinned commit live beside the vendored machine schema, which is never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS, hierarchies, SCD, partitioning). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed. File locations come from `repo-map.json` at runtime; this file names none.
 
 ## Curated fields, not a mirror (S2)
 
@@ -13,7 +13,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 
 ## Every field needs a supplying LTS (S3)
 
-`logical_sources[].column_map` names the physical column behind each logical field or metric **per LTS**; an aggregate LTS maps only what its `content_grain` supports. Priority convention: `0` is the preferred aggregate, higher numbers are fallbacks ending at the detail grain — every field must be suppliable by at least one non-`0` source (`field-agg-only` fails otherwise). `content_grain` names the grain in the LTS table's own columns where they exist (`pickup_date`, `pickup_location_id`), falling back to the logical grain name for the detail source (`trip`); it is a human-readable grain declaration (list of strings), not a validated reference. Right-side (physical) columns are verified against the mart SQL and `_core.yml`, never assumed identity.
+`logical_sources[].column_map` names the physical column behind each logical field or metric **per LTS**; an aggregate LTS maps only what its `content_grain` supports. Priority convention: `0` is the preferred aggregate, higher numbers are fallbacks ending at the detail grain — every field must be suppliable by at least one non-`0` source (`field-agg-only` fails otherwise). `content_grain` names the grain in the LTS table's own columns where they exist, falling back to the logical grain name for the detail source; it is a human-readable grain declaration (list of strings), not a validated reference. Right-side (physical) columns are verified against the mart definitions, never assumed identity.
 
 Red-flag trap (seen in testing): mapping a filtered measure onto an unfiltered agg column, e.g. `billable_revenue` onto a monthly `total_revenue` — a monthly total is not billable-filtered revenue. `validate` warns (`agg-metric-unverified`) on any metric an aggregate source maps; treat the warning as guilty until the agg SQL proves it innocent.
 
@@ -27,8 +27,8 @@ Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed and machine-readable in `tools/vibedata-schema.json`, with field-by-field meanings in `vibedata-fields.md` beside this file. An unknown key fails `validate` (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in the repo's vibedata schema, with field-by-field meanings in `vibedata-fields.md` beside this file. An unknown key fails validation (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 
-`python3 tools/ossie.py validate logical-model/` is green before any commit touching marts or the canonical file. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. JSON diagnostics go to stdout; the human summary to stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart SQL, `_core.yml`, or `_semantic.yml` change, update the canonical in the same intent (see `workarounds`).
+The canonical file(s) resolved via `repo-map.json` must validate green before any commit touching marts or canonical. Every file validates standalone (`relationships` resolve within the document; there are no cross-file references), so duplication of shared dims is the rule, not a smell. The validate command (see `test-map.json`) emits JSON diagnostics on stdout and a human summary on stderr; exit 1 on any error, warnings allowed. Expect `agg-metric-unverified` on every correct aggregate LTS — the validator cannot see agg SQL, so the warning is routine on aggs and green includes it; answer it by confirming the agg column computes the same aggregation, not by dropping the mapping. After any mart change, update the canonical in the same intent (see `workarounds`).
