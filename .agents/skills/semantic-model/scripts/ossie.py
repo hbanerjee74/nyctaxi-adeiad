@@ -4,8 +4,8 @@ Today: `validate` only. `export` (dbt/Tableau/PowerBI) is an explicit
 follow-up (VD-7126); nothing here writes consumer files.
 
 Usage:
-  python3 tools/ossie.py validate logical-model/nyc_taxi_analytics.ossie.yaml
-  python3 tools/ossie.py validate logical-model/
+  python3 scripts/ossie.py validate <model-file-or-dir>
+  python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
 Exit 0 when no errors (warnings allowed), 1 otherwise.

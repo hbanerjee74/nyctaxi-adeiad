@@ -7,9 +7,10 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+SKILL_SCRIPTS = Path(__file__).resolve().parent.parent / ".agents" / "skills" / "semantic-model" / "scripts"
+sys.path.insert(0, str(SKILL_SCRIPTS))
 
-from tools.ossie import app  # noqa: E402
+from ossie import app  # noqa: E402
 
 RUNNER = CliRunner()
 CANONICAL = Path("logical-model/nyc_taxi_analytics.ossie.yaml")
@@ -223,9 +224,9 @@ def test_hierarchy_unknown_level_fails(tmp_path):
 
 
 def test_checker_keys_match_schema():
-    """tools/ossie_vibedata.py allowlists and tools/vibedata-schema.json agree."""
-    import tools.ossie_vibedata as v
-    schema = json.loads(Path("tools/vibedata-schema.json").read_text())
+    """Skill checker allowlists and vibedata-schema.json agree."""
+    import ossie_vibedata as v
+    schema = json.loads((SKILL_SCRIPTS / "vibedata-schema.json").read_text())
     defs = schema["$defs"]
     pairs = [(v.MODEL_KEYS, "modelPayload"), (v.DATASET_KEYS, "datasetPayload"),
              (v.RELATIONSHIP_KEYS, "relationshipPayload"),

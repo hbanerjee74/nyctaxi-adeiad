@@ -27,7 +27,7 @@ Versioned dimensions declare `scd: {type, natural_key, valid_from, valid_to, is_
 
 ## Frozen keys (S6)
 
-The `VIBEDATA` key set per level is closed and machine-readable in the repo's vibedata schema, with field-by-field meanings in `vibedata-fields.md` beside this file. An unknown key fails validation (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
+The `VIBEDATA` key set per level is closed and machine-readable in the vibedata schema beside this file, with field-by-field meanings in `vibedata-fields.md` beside it. An unknown key fails validation (`unknown-key`). New keys arrive by intent with a schema change, a validator change, and tests, never by silent addition. `vibedata_version` rides every payload.
 
 ## Validate (S7)
 

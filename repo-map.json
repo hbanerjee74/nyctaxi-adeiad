@@ -257,7 +257,7 @@
     },
     "logical_model": {
       "path": "logical-model/",
-      "description": "Canonical semantic model: one Ossie 0.2.0.dev0 document per star plus shared dims (trips first), with VIBEDATA physical/logical extensions. Validated by tools/ossie.py; consumer formats export on the fly and are never committed."
+      "description": "Canonical semantic model: one Ossie 0.2.0.dev0 document per star plus shared dims (trips first), with VIBEDATA physical/logical extensions. Validated by the semantic-model skill scripts; consumer formats export on the fly and are never committed."
     }
   },
   "key_directories": {

@@ -150,16 +150,14 @@
     "logical-model": {
       "sources": [
         "logical-model/",
-        "tools/ossie.py",
-        "tools/ossie_vibedata.py",
-        "tools/ossie_vendor/"
+        ".agents/skills/semantic-model/"
       ],
       "unit": [
         "tests/test_ossie_validate.py"
       ],
       "commands": {
         "unit": "python3 -m pytest tests/test_ossie_validate.py -q",
-        "structural": "python3 tools/ossie.py validate logical-model/"
+        "structural": "python3 .agents/skills/semantic-model/scripts/ossie.py validate logical-model/"
       }
     }
   }

@@ -1,7 +1,7 @@
 # Vendored Apache Ossie validation sources
 
 Pinned to upstream commit `c5cb931d72029dc523a5dd18d267f083403786f2`
-(2026-10-14, `apache/ossie`). Do not edit either file: `tools/ossie.py`
+(2026-10-14, `apache/ossie`). Do not edit either file: `ossie.py`
 imports `validate.py` and reads `ossie-schema.json` as-is.
 
 Canonical definitions (upstream source of truth; these files are copies):

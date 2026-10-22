@@ -1,6 +1,6 @@
 # VIBEDATA fields reference
 
-Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-encoded object of one of three shapes, chosen by level. Machine shapes live in `tools/vibedata-schema.json`; this file explains what each field means. Key set is frozen (S6): unknown keys fail validation.
+Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-encoded object of one of three shapes, chosen by level. Machine shapes live in `vibedata-schema.json` beside this file; this file explains what each field means. Key set is frozen (S6): unknown keys fail validation.
 
 ## Model level
 
