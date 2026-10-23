@@ -7,9 +7,9 @@ same sqlglot dialect mapping and the same single-expression rule. It is then par
 that generic (OSSIE_SQL_2026 / ANSI) dialect, and unquoted identifiers are normalised,
 because the Ossie expression language makes them case-insensitive.
 
-Two things go beyond Ossie's grammar and are VIBEDATA's own: `:name` model variables
-(Ossie has no parameters yet), and rendering compiled SQL for DuckDB, the engine the
-generated tests run on.
+One thing goes beyond Ossie's grammar: compiled SQL is rendered for DuckDB, the engine
+the generated tests run on. A `:name` placeholder parses, but nothing may use one yet:
+the validator reports it, and `rewrite` refuses it.
 """
 
 import importlib.util
@@ -49,7 +49,7 @@ def parse(text):
 
 
 def names(text):
-    """(column names, :variable names) an expression reads. Qualified columns keep 'table.name'."""
+    """(column names, :placeholder names) an expression reads. Qualified columns keep 'table.name'."""
     node = parse(text)
     columns = {f"{c.table}.{c.name}" if c.table else c.name for c in node.find_all(exp.Column)}
     variables = {p.name for p in node.find_all(exp.Placeholder) if p.name}
@@ -60,8 +60,7 @@ def conjuncts(text):
     """The canonical AND-ed terms of a predicate; None or empty text is no condition.
 
     Keywords, spacing and unquoted identifier case are normalised, so two spellings of
-    one condition compare equal. Terms render in the generic dialect, so a :variable
-    reads as written.
+    one condition compare equal. Terms render in the generic dialect.
     """
     if text is None or not str(text).strip():
         return []
@@ -70,18 +69,18 @@ def conjuncts(text):
     return [term.sql() for term in terms]
 
 
-def rewrite(text, column=None, variable=None, name=None):
-    """Return `text` as DuckDB SQL with columns, :variables and bare names replaced.
+def rewrite(text, column=None, name=None):
+    """Return `text` as DuckDB SQL with columns and bare names replaced.
 
     `column(table, name)` returns replacement SQL for a column reference (or None to
-    keep it); `variable(name)` returns SQL for a :variable; `name(identifier)` handles
-    unqualified columns that stand for another object (a metric in a formula).
+    keep it); `name(identifier)` handles unqualified columns that stand for another
+    object (a metric in a formula). A `:placeholder` raises ExpressionError.
     """
     node = parse(text)
 
     def swap(n):
-        if isinstance(n, exp.Placeholder) and variable is not None:
-            return sqlglot.parse_one(variable(n.name), dialect=TARGET)
+        if isinstance(n, exp.Placeholder):
+            raise ExpressionError(f"':{n.name}' is a variable; variables are not supported yet")
         if isinstance(n, exp.Column):
             replacement = None
             if not n.table and name is not None:

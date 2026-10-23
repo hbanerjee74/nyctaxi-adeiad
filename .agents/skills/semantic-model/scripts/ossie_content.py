@@ -30,13 +30,6 @@ def dbt_relation(table):
     return "{{ ref('" + table["dbt_model"] + "') }}"
 
 
-def dbt_variable(var):
-    reference = "{{ var(\"" + var["dbt_var"] + "\") }}"
-    if var.get("datatype") == "Date":
-        return f"cast('{reference}' as date)"
-    return f"'{reference}'"
-
-
 def _differs(model, metric, left, right):
     if model.metrics[metric].get("datatype") in EXACT_TYPES:
         return f"{left} is distinct from {right}"
@@ -91,7 +84,7 @@ def generate(docs):
     """SQL for every aggregate binding in `docs` (parsed dicts)."""
     ctes, checks, n = [], [], 0
     for doc in docs:
-        model = Model(doc, dbt_relation, dbt_variable)
+        model = Model(doc, dbt_relation)
         for fact in model.datasets:
             for src in model.sources(fact):
                 if src.get("priority_group", 1) != 0:

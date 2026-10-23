@@ -15,8 +15,8 @@ s1_detail as (
 select
     SUM(CASE WHEN NOT (f.trip_key) IS NULL THEN 1 ELSE 0 END) as trip_count
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and NOT (f.pickup_zone_key) IS NULL
 ),
 
@@ -32,8 +32,8 @@ select
     SUM(CASE WHEN NOT (f.trip_key) IS NULL THEN 1 ELSE 0 END) as trip_count,
     SUM(CASE WHEN (f.is_billable) THEN 1 ELSE 0 END) as billable_trip_count
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and NOT (f.pickup_zone_key) IS NULL
     and NOT (f.pickup_date_key) IS NULL
     and NOT (f.daypart_code) IS NULL
@@ -50,8 +50,8 @@ s3_detail as (
 select
     SUM(CASE WHEN NOT (f.trip_key) IS NULL THEN 1 ELSE 0 END) as trip_count
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
 ),
 
 s4_source as (
@@ -64,8 +64,8 @@ s4_detail as (
 select
     SUM(CASE WHEN NOT (f.trip_key) IS NULL THEN 1 ELSE 0 END) as trip_count
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
 ),
 
 s5_source as (
@@ -87,8 +87,8 @@ select
 from {{ ref('fct_trip') }} as f
 left join {{ ref('dim_zone') }} as d0 on f.pickup_zone_key = d0.zone_key
 left join {{ ref('dim_zone') }} as d1 on f.dropoff_zone_key = d1.zone_key
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and (f.is_billable)
     and NOT (f.pickup_zone_key) IS NULL
     and NOT (f.dropoff_zone_key) IS NULL
@@ -107,8 +107,8 @@ select
     SUM(CASE WHEN (f.is_billable) THEN 1 ELSE 0 END) as billable_trip_count,
     SUM(CASE WHEN (f.is_billable) THEN (f.total_amount) ELSE 0 END) as billable_revenue
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and (f.is_billable)
     and NOT (f.pickup_zone_key) IS NULL
 ),
@@ -125,8 +125,8 @@ select
     SUM(CASE WHEN (f.is_billable) THEN 1 ELSE 0 END) as billable_trip_count,
     SUM(CASE WHEN (f.is_billable) THEN (f.total_amount) ELSE 0 END) as billable_revenue
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and (f.is_billable)
     and NOT (f.payment_method_key) IS NULL
 ),
@@ -141,8 +141,8 @@ s8_detail as (
 select
     SUM(CASE WHEN NOT (f.trip_key) IS NULL THEN 1 ELSE 0 END) as trip_count
 from {{ ref('fct_trip') }} as f
-where (f.pickup_date) >= CAST('{{ var("report_start") }}' AS DATE)
-    and (f.pickup_date) < CAST('{{ var("report_end") }}' AS DATE)
+where (f.pickup_date) >= CAST('2024-01-01' AS DATE)
+    and (f.pickup_date) < CAST('2024-04-01' AS DATE)
     and NOT (f.trip_quality_key) IS NULL
 ),
 

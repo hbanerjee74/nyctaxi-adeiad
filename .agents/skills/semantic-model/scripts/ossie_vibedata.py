@@ -29,7 +29,7 @@ SCD_ROLLUPS = {"as_of", "current"}
 # A metric computed from another metric rather than from rows: at most one per metric.
 COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "based_on_dimensions")
 
-MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variables"}
+MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins"}
 DATASET_KEYS = {"vibedata_version", "scd", "logical_sources", "levels", "row_level",
                 "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
@@ -37,7 +37,6 @@ RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
 PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role",
                        "partitioned_by", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
-VARIABLE_KEYS = {"name", "datatype", "dbt_var", "note"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
             "content_levels", "content_filter", "navigable",
             "join_cost", "note", "column_map"}
@@ -62,7 +61,7 @@ def _error(code, message):
 
 
 def _names_in(expression):
-    """(names, :variables) a predicate or formula reads, parsed by the shared SQL layer.
+    """(names, :placeholders) a predicate or formula reads, parsed by the shared SQL layer.
 
     Raises ExpressionError when the text does not parse.
     """
@@ -325,15 +324,6 @@ def validate_vibedata(doc):
                           "message": f"model '{model_name}': physical table '{name}' appears "
                                      "in no physical join"})
 
-    variables = set()
-    for var in model_payload.get("variables", []):
-        if not isinstance(var, dict) or not var.get("name"):
-            diags.append(_error("vibedata/variable-nameless",
-                                f"model '{model_name}': variables entry without a name"))
-            continue
-        diags.extend(_unknown_keys(var, VARIABLE_KEYS, f"variable '{var['name']}'"))
-        variables.add(var["name"])
-
     dataset_names = {d.get("name") for d in doc.get("datasets", []) if d.get("name")}
     metric_names = {m.get("name") for m in doc.get("metrics", [])
                     if isinstance(m, dict) and m.get("name")}
@@ -350,7 +340,7 @@ def validate_vibedata(doc):
             if join:
                 join_targets[rel.get("name")] = join.get("to")
     context = {"physical_tables": physical_tables, "metric_names": metric_names,
-               "variables": variables, "dimensions": _dimension_index(doc),
+               "dimensions": _dimension_index(doc),
                "join_targets": join_targets,
                "join_pairs": {(j.get("from"), j.get("to")) for j in joins.values()},
                "relationships": {r.get("name"): r for r in doc.get("relationships", [])
@@ -504,7 +494,7 @@ def _validate_dataset(dataset, context):
         content_filter = src.get("content_filter")
         if content_filter is not None:
             diags.extend(_check_content_filter(content_filter, src, f"{where} logical source "
-                                               f"'{src_name}'", fields, context["variables"]))
+                                               f"'{src_name}'", fields))
         if src.get("physical_table") not in physical_tables:
             diags.append(_error("vibedata/lts-dangling-table",
                                 f"{where}: logical source '{src_name}' references unknown "
@@ -615,7 +605,7 @@ def _check_row_level(payload, dataset, where, scd_type):
     return diags
 
 
-def _check_content_filter(content_filter, src, where, fields, variables):
+def _check_content_filter(content_filter, src, where, fields):
     """A content filter is a predicate in the dataset's own fields, held by a test.
 
     A withdrawn source (empty column_map) binds nothing, so its filter needs no test.
@@ -633,10 +623,10 @@ def _check_content_filter(content_filter, src, where, fields, variables):
         diags.append(_error("vibedata/content-filter-unknown-field",
                             f"{where}: content_filter names '{name}', which is not a "
                             "declared field of the dataset"))
-    for ref in sorted(refs - variables):
-        diags.append(_error("vibedata/content-filter-unknown-variable",
-                            f"{where}: content_filter names ':{ref}', which is not a "
-                            "declared model variable"))
+    for ref in sorted(refs):
+        diags.append(_error("vibedata/content-filter-variable",
+                            f"{where}: content_filter reads ':{ref}'; model variables are not "
+                            "supported yet, so write the value as a literal"))
     if src.get("column_map") and not HELD_BY.search(src.get("note") or ""):
         diags.append(_error("vibedata/content-filter-unheld",
                             f"{where}: a content_filter needs a note naming the test that "

@@ -215,7 +215,7 @@ def test_checker_keys_match_schema():
              (v.PHYSICAL_TABLE_KEYS, "physicalTable"),
              (v.PHYSICAL_JOIN_KEYS, "physicalJoin"), (v.LTS_KEYS, "logicalSource"),
              (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd"),
-             (v.VARIABLE_KEYS, "variable"), (v.LEVEL_KEYS, "level"),
+             (v.LEVEL_KEYS, "level"),
              (v.LEVEL_REF_KEYS, "levelRef"), (v.METRIC_KEYS, "metricPayload"),
              (v.TIME_SERIES_KEYS, "timeSeries"), (v.BASED_ON_KEYS, "basedOnDimensions"),
              (v.LEVEL_KEY_KEYS, "levelKey"), (v.ROW_LEVEL_KEYS, "rowLevel")]
@@ -700,21 +700,21 @@ def test_content_level_must_start_at_its_dataset(tmp_path):
 def test_content_filter_unknown_field_fails(tmp_path):
     doc = _doc()
     trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
-    source["content_filter"] = "pickup_datetime >= :report_start"
+    source["content_filter"] = "pickup_datetime >= DATE '2024-01-01'"
     _set_payload(trips, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/content-filter-unknown-field", "error") in _codes(diags)
 
 
-def test_content_filter_unknown_variable_fails(tmp_path):
+def test_content_filter_variables_are_not_supported_yet(tmp_path):
     doc = _doc()
     trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
-    source["content_filter"] = "pickup_date >= :window_start"
+    source["content_filter"] = "pickup_date >= :report_start"
     _set_payload(trips, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/content-filter-unknown-variable", "error") in _codes(diags)
+    assert ("vibedata/content-filter-variable", "error") in _codes(diags)
 
 
 def test_content_filter_literals_are_not_fields(tmp_path):
@@ -874,17 +874,6 @@ def test_crossdoc_diverged_metric_payload_fails(tmp_path):
                for d in diags)
 
 
-def test_model_variables_name_real_dbt_vars():
-    """A content filter's :variable is only as good as the dbt var it is bound to."""
-    project = yaml.safe_load(Path("transformation/dbt_project.yml").read_text())
-    dbt_vars = set(project.get("vars") or {})
-    for path in sorted(Path("logical-model").glob("*.ossie.yaml")):
-        doc = yaml.safe_load(path.read_text())
-        for variable in _payload(doc).get("variables", []):
-            if "dbt_var" in variable:
-                assert variable["dbt_var"] in dbt_vars, (path, variable)
-
-
 def _rule(doc, name):
     metric = _named(doc["metrics"], name)
     return metric, _payload(metric)
@@ -1031,7 +1020,7 @@ def test_join_expression_must_parse(tmp_path):
 
 
 def test_join_expression_reads_no_variables(tmp_path):
-    doc = _with_join_expression("trips.pickup_date >= :report_start AND trips.pickup_zone_key = zone.zone_key")
+    doc = _with_join_expression("trips.pickup_date >= :start AND trips.pickup_zone_key = zone.zone_key")
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/join-expression-variable", "error") in _codes(diags)

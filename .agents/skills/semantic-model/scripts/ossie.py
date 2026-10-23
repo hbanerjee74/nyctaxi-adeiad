@@ -11,7 +11,7 @@ Usage:
   python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
   python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py content-tests <model-dir> <test-file> [--check]
-  python3 scripts/ossie.py compile <model-file> <query-file> [--var name=value ...]
+  python3 scripts/ossie.py compile <model-file> <query-file>
   python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
   python3 scripts/ossie.py version
 
@@ -415,26 +415,16 @@ def columns(model: str, catalog: str):
 
 
 @app.command("compile")
-def compile_command(model: str, query_file: str,
-                    var: list[str] = typer.Option([], "--var",
-                                                  help="name=value for a model variable")):
+def compile_command(model: str, query_file: str):
     """Compile a semantic query (YAML or JSON) against one model document; print JSON."""
     docs = _load_docs(model)
     if len(docs) != 1:
         print(json.dumps([{"severity": "error", "code": "compile/one-document",
                            "message": "compile reads exactly one model document"}]))
         raise typer.Exit(1)
-    values = dict(v.split("=", 1) for v in var)
-
-    def variable(entry):
-        if entry["name"] not in values:
-            raise CompileError(f"no value for :{entry['name']}; pass --var {entry['name']}=...")
-        value = values[entry["name"]].replace("'", "''")
-        return f"cast('{value}' as date)" if entry.get("datatype") == "Date" else f"'{value}'"
-
     query = Query.from_dict(_vendor.load_yaml_named(Path(query_file).read_text(), query_file))
     try:
-        result = compile_query(Model(docs[0], lambda t: t["source"], variable), query)
+        result = compile_query(Model(docs[0], lambda t: t["source"]), query)
     except CompileError as e:
         print(json.dumps([{"severity": "error", "code": "compile/error", "message": str(e)}]))
         raise typer.Exit(1) from e

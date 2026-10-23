@@ -76,19 +76,14 @@ class Compiled:
 
 
 class Model:
-    """One parsed Ossie document, with renderers for relations and :variables.
+    """One parsed Ossie document; `relation(table)` returns the SQL relation for a
+    physical_tables entry."""
 
-    `relation(table)` returns the SQL relation for a physical_tables entry;
-    `variable(var)` returns a SQL literal for a model `variables` entry.
-    """
-
-    def __init__(self, doc, relation, variable):
+    def __init__(self, doc, relation):
         self.doc = doc
         self.relation = relation
-        self.variable = variable
         model = _payload(doc)
         self.tables = {t["name"]: t for t in model.get("physical_tables") or []}
-        self.variables = {v["name"]: v for v in model.get("variables") or []}
         self.datasets = {d["name"]: d for d in doc.get("datasets") or []}
         self.payloads = {name: _payload(d) for name, d in self.datasets.items()}
         self.relationships = {r["name"]: r for r in doc.get("relationships") or []}
@@ -269,17 +264,18 @@ def _compile_detail(model, query, fact):
     for metric in query.metrics:
         selects.append(f"{_metric_sql(model, metric, base_sql)} as {metric}")
         columns.append(metric)
-    where = [ossie_sql.rewrite(term, column=lambda t, n: f"f.{model.column(src, n, fact)}",
-                               variable=lambda n: _variable(model, n))
+    where = [_rewrite(term, column=lambda t, n: f"f.{model.column(src, n, fact)}")
              for term in ossie_sql.conjuncts(query.filter)]
     relation = model.relation(model.tables[src["physical_table"]])
     return _assemble(selects, relation, "f", joins, where, grouped), columns
 
 
-def _variable(model, name):
-    if name not in model.variables:
-        raise CompileError(f"unknown variable ':{name}'")
-    return model.variable(model.variables[name])
+def _rewrite(text, **replace):
+    """ossie_sql.rewrite, with an unsupported construct reported as a CompileError."""
+    try:
+        return ossie_sql.rewrite(text, **replace)
+    except ossie_sql.ExpressionError as e:
+        raise CompileError(str(e)) from e
 
 
 def _compile_aggregate(model, query, fact, src, forced):
@@ -347,8 +343,7 @@ def _compile_aggregate(model, query, fact, src, forced):
             raise _Ineligible(f"the filter reads '{name}', which it does not map")
         return f"a.{column_map[name]}"
 
-    where = [ossie_sql.rewrite(t, column=mapped, variable=lambda n: _variable(model, n))
-             for t in asked if t not in content_terms]
+    where = [_rewrite(t, column=mapped) for t in asked if t not in content_terms]
     relation = model.relation(model.tables[src["physical_table"]])
     return _assemble(selects, relation, "a", joins, where, grouped), columns
 

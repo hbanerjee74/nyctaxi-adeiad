@@ -18,12 +18,12 @@ from ossie_compile import CompileError, Model, Query, compile_query  # noqa: E40
 RUNNER = CliRunner()
 TRIPS = Path("logical-model/nyc_taxi_analytics.ossie.yaml")
 FLEET = Path("logical-model/nyc_taxi_fleet.ossie.yaml")
-WINDOW = "pickup_date >= :report_start AND pickup_date < :report_end"
+WINDOW = "pickup_date >= DATE '2024-01-01' AND pickup_date < DATE '2024-04-01'"
 
 
 def _model(path=TRIPS):
     doc = yaml.safe_load(path.read_text())
-    return Model(doc, lambda t: t["source"], lambda v: "cast('2024-01-01' as date)")
+    return Model(doc, lambda t: t["source"])
 
 
 def _compile(metrics, group_by=(), filter=None, source=None, path=TRIPS):
@@ -32,7 +32,7 @@ def _compile(metrics, group_by=(), filter=None, source=None, path=TRIPS):
 
 def test_conjuncts_are_canonical():
     assert ossie_sql.conjuncts("a IS NOT NULL and b > 1") == ossie_sql.conjuncts("a is not null AND b>1")
-    assert ossie_sql.conjuncts("d >= :report_start") == ["d >= :report_start"]
+    assert ossie_sql.conjuncts("D >= DATE '2024-01-01'") == ossie_sql.conjuncts("d >= date '2024-01-01'")
     assert ossie_sql.conjuncts(None) == []
 
 
@@ -122,12 +122,11 @@ def test_compile_cli_prints_source_and_sql(tmp_path):
     query.write_text(yaml.safe_dump({"metrics": ["trip_count"],
                                      "group_by": [{"via": "trips_to_date", "level": "month"}],
                                      "filter": WINDOW + " AND pickup_zone_key IS NOT NULL"}))
-    result = RUNNER.invoke(app, ["compile", str(TRIPS), str(query),
-                                 "--var", "report_start=2024-01-01", "--var", "report_end=2024-04-01"])
+    result = RUNNER.invoke(app, ["compile", str(TRIPS), str(query)])
     assert result.exit_code == 0, result.stdout
     out = json.loads(result.stdout)
     assert out["source"] == "LTS2_zone_day_agg"
-    assert "cast('2024-01-01' as date)" not in out["sql"]  # the content filter is not repeated
+    assert "2024-01-01" not in out["sql"]  # the content filter is implied, so not repeated
 
 
 def test_content_tests_are_current():
@@ -151,7 +150,12 @@ def test_compiler_joins_on_a_declared_join_expression():
     payload["join_expression"] = ("trips.pickup_zone_key = zone.zone_key "
                                   "AND trips.pickup_date >= zone.valid_from_date")
     rel["custom_extensions"][0]["data"] = json.dumps(payload)
-    model = Model(doc, lambda t: t["source"], lambda v: "cast('2024-01-01' as date)")
+    model = Model(doc, lambda t: t["source"])
     result = compile_query(model, Query(["trip_count"], [{"via": "trips_to_pickup_zone", "level": "borough"}],
                                         None, "detail"))
     assert "(f.pickup_zone_key) = (d0.zone_key) AND (f.pickup_date) >= (d0.valid_from_date)" in result.sql
+
+
+def test_a_variable_in_a_query_filter_is_refused():
+    with pytest.raises(CompileError, match="variables are not supported"):
+        _compile(["trip_count"], filter="pickup_date >= :report_start", source="detail")

@@ -22,12 +22,6 @@
           "items": {
             "$ref": "#/$defs/physicalJoin"
           }
-        },
-        "variables": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/variable"
-          }
         }
       },
       "additionalProperties": false
@@ -219,7 +213,7 @@
         "content_filter": {
           "type": "string",
           "minLength": 1,
-          "description": "Row predicate over the dataset's fields and :variables that every row of this source satisfies; held by a test named in note"
+          "description": "Row predicate over the dataset's fields that every row of this source satisfies, values written as literals; held by a test named in note"
         },
         "navigable": {
           "type": "boolean",
@@ -291,31 +285,6 @@
         "note": {
           "type": "string",
           "description": "Why this relationship lacks key-covering to_columns, or why a reachable path has none"
-        }
-      },
-      "additionalProperties": false
-    },
-    "variable": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "description": "A named value predicates reference as :name, bound to where the repo defines it (OBIEE repository variable)",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "datatype": {
-          "type": "string",
-          "description": "Ossie DataType of the value"
-        },
-        "dbt_var": {
-          "type": "string",
-          "description": "dbt project var that supplies the value"
-        },
-        "note": {
-          "type": "string"
         }
       },
       "additionalProperties": false
