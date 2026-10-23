@@ -20,7 +20,8 @@ VENDOR = "VIBEDATA"
 
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
 AGGREGATIONS = {"SUM", "MIN", "MAX", "NON_ADDITIVE"}
-TIME_SERIES_FUNCTIONS = {"AGO", "TODATE"}
+TIME_SERIES_FUNCTIONS = {"AGO", "TODATE", "ROLLING"}
+UNRELATED = {"error", "total"}
 DIMENSION_RULES = {"AVG", "SUM", "MIN", "MAX", "MEDIAN", "FIRST", "LAST"}
 SCD_ROLLUPS = {"as_of", "current"}
 # A metric computed from another metric rather than from rows: at most one per metric.
@@ -30,7 +31,8 @@ MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variable
 DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
                 "scd", "logical_sources", "levels", "row_level", "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
-                     "join_type", "join_cost", "join_expression", "note"}
+                     "join_type", "join_cost", "join_expression", "note", "to_level",
+                     "weight"}
 PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
 VARIABLE_KEYS = {"name", "datatype", "dbt_var", "note"}
@@ -43,8 +45,8 @@ LEVEL_KEY_KEYS = {"name", "fields", "primary", "display"}
 ROW_LEVEL_KEYS = {"level", "versioned"}
 LEVEL_REF_KEYS = {"via", "level", "key", "key_columns"}
 METRIC_KEYS = {"vibedata_version", "aggregation", "derived_expression", "at_levels",
-               "time_series", "based_on_dimensions"}
-TIME_SERIES_KEYS = {"function", "of", "via", "level", "offset"}
+               "time_series", "based_on_dimensions", "filter", "unrelated_dimensions"}
+TIME_SERIES_KEYS = {"function", "of", "via", "level", "offset", "periods"}
 BASED_ON_KEYS = {"of", "across", "rule"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
@@ -69,6 +71,63 @@ def _names_in(expression):
     names = {n for n in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
              if n.upper() not in SQL_WORDS}
     return names, variables
+
+
+QUALIFIED = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b")
+
+
+def _qualified_in(expression):
+    """`dataset.field` references in a SQL snippet, and the bare names left over."""
+    text = re.sub(r"'(?:[^']|'')*'", " ", expression)
+    pairs = set(QUALIFIED.findall(text))
+    bare, _ = _names_in(QUALIFIED.sub(" ", text))
+    return pairs, bare
+
+
+def _dimension_sources(doc):
+    """Per dataset, the physical tables of its own coarser sources and the level each holds."""
+    out = {}
+    for dataset in doc.get("datasets", []):
+        if not isinstance(dataset, dict):
+            continue
+        for data in _extensions(dataset):
+            try:
+                payload = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            for src in (payload.get("logical_sources") or []) if isinstance(payload, dict) else []:
+                for ref in (src.get("content_levels") or []) if isinstance(src, dict) else []:
+                    if isinstance(ref, dict) and "via" not in ref and ref.get("level"):
+                        out.setdefault(dataset.get("name"), {})[src.get("physical_table")] = ref["level"]
+    return out
+
+
+def _fields_by_dataset(doc):
+    return {d.get("name"): {f.get("name") for f in d.get("fields") or [] if isinstance(f, dict)}
+            for d in doc.get("datasets", []) if isinstance(d, dict)}
+
+
+def _level_fields(payload):
+    """Fields each level carries: its own keys and attributes plus every coarser level's.
+
+    A source held at a level can supply exactly these fields, because a coarser level's
+    attributes are functionally determined by the finer member.
+    """
+    own = {}
+    for level in payload.get("levels") or []:
+        if isinstance(level, dict) and level.get("name"):
+            fields = set(level.get("attributes") or [])
+            for key in level.get("keys") or []:
+                if isinstance(key, dict):
+                    fields.update(key.get("fields") or [])
+            own[level["name"]] = fields
+    out = {name: set(fields) for name, fields in own.items()}
+    for hier in payload.get("hierarchies") or []:
+        names = [n for n in (hier.get("levels") or []) if isinstance(n, str)] if isinstance(hier, dict) else []
+        for i, name in enumerate(names):
+            for coarser in names[:i]:
+                out.setdefault(name, set()).update(own.get(coarser, set()))
+    return out
 
 
 def _dimension_index(doc):
@@ -171,10 +230,16 @@ def _check_level_ref(ref, where, context, from_dataset=None, need_level=False,
                             f"{where}: key_columns has {len(columns)} column(s) for a key of "
                             f"{len(key_fields)} field(s)"))
     reached = context["join_targets"].get(ref.get("via"))
-    if reached and (aggregate, reached) not in context["join_pairs"]:
+    # A coarser source of the dimension held at this very level (a month table) is as
+    # good a join target as the row-level table the relationship reaches.
+    targets = {reached} | {table for table, held in
+                           context["dimension_sources"].get(target, {}).items()
+                           if held == level_name}
+    if reached and not any((aggregate, t) in context["join_pairs"] for t in targets):
         diags.append(_error("vibedata/content-level-unjoined",
-                            f"{where}: no physical join from '{aggregate}' to '{reached}', the "
-                            f"table '{ref.get('via')}' reaches"))
+                            f"{where}: no physical join from '{aggregate}' to "
+                            f"{' or '.join(sorted(t for t in targets if t))}, the tables that "
+                            f"hold '{ref.get('via')}' at this level"))
     return diags, info
 
 
@@ -345,6 +410,8 @@ def validate_vibedata(doc):
             if join:
                 join_targets[rel.get("name")] = join.get("to")
     context = {"physical_tables": physical_tables, "metric_names": metric_names,
+               "fields": _fields_by_dataset(doc),
+               "dimension_sources": _dimension_sources(doc),
                "variables": variables, "dimensions": _dimension_index(doc),
                "join_targets": join_targets,
                "join_pairs": {(j.get("from"), j.get("to")) for j in joins.values()},
@@ -355,6 +422,7 @@ def validate_vibedata(doc):
     diags.extend(_validate_metrics(doc, context))
     for rel in doc.get("relationships", []):
         diags.extend(_validate_relationship(rel, dataset_names, physical_join_names))
+        diags.extend(_validate_level_join(rel, doc, context))
         diags.extend(_validate_from_columns(rel, doc))
         diags.extend(_validate_to_columns(rel, doc))
     return diags
@@ -491,9 +559,13 @@ def _validate_dataset(dataset, context):
         for i, ref in enumerate(src.get("content_levels") or []):
             aggregate = (src.get("physical_table")
                          if src.get("priority_group", 1) == 0 else None)
-            ref_diags, _ = _check_level_ref(
-                ref, f"{where} logical source '{src_name}' content_levels[{i}]",
-                context, from_dataset=ds_name, aggregate=aggregate)
+            ref_where = f"{where} logical source '{src_name}' content_levels[{i}]"
+            if isinstance(ref, dict) and "via" not in ref:
+                diags.extend(_check_own_level(ref, ref_where, payload, aggregate,
+                                              src.get("column_map") or {}))
+                continue
+            ref_diags, _ = _check_level_ref(ref, ref_where, context, from_dataset=ds_name,
+                                            aggregate=aggregate)
             diags.extend(ref_diags)
         navigable = src.get("navigable", True)
         if not isinstance(navigable, bool):
@@ -614,6 +686,42 @@ def _check_row_level(payload, dataset, where, scd_type):
     return diags
 
 
+def _check_own_level(ref, where, payload, aggregate, column_map):
+    """A dimension source held at one of the dimension's own coarser levels (a month table
+    beside the day table). It names the level with no `via`, the columns carrying the
+    level's key, and maps only the fields that level determines."""
+    diags = _unknown_keys(ref, {"level", "key", "key_columns"}, where)
+    levels = {lv.get("name"): lv for lv in payload.get("levels") or [] if isinstance(lv, dict)}
+    level = levels.get(ref.get("level"))
+    if level is None:
+        return diags + [_error("vibedata/level-ref-unknown-level",
+                               f"{where}: level '{ref.get('level')}' is not a level of this "
+                               "dataset")]
+    keys = {k.get("name"): k.get("fields") or [] for k in level.get("keys") or []
+            if isinstance(k, dict)}
+    primary = next((k.get("name") for k in level.get("keys") or []
+                    if isinstance(k, dict) and k.get("primary") is True), None)
+    key_name = ref.get("key") or primary
+    if key_name not in keys:
+        diags.append(_error("vibedata/level-ref-unknown-key",
+                            f"{where}: key '{key_name}' is not a key of level '{level['name']}'"))
+    columns = ref.get("key_columns")
+    if aggregate is None:
+        diags.append(_error("vibedata/own-level-on-detail",
+                            f"{where}: only a coarser dimension source (priority_group 0) "
+                            "declares its own level; the detail source is the row level"))
+    elif not isinstance(columns, list) or len(columns) != len(keys.get(key_name, [])):
+        diags.append(_error("vibedata/level-ref-key-columns-missing",
+                            f"{where}: name the columns that carry the level's key "
+                            "(key_columns), one per key field"))
+    allowed = _level_fields(payload).get(level["name"], set())
+    for field_name in sorted(set(column_map) - allowed):
+        diags.append(_error("vibedata/own-level-finer-field",
+                            f"{where}: maps '{field_name}', which level '{level['name']}' does "
+                            "not determine (not a key or attribute of it or a coarser level)"))
+    return diags
+
+
 def _check_content_filter(content_filter, src, where, fields, variables):
     """A content filter is a predicate in the dataset's own fields, held by a test.
 
@@ -704,6 +812,15 @@ def _validate_metrics(doc, context):
                 diags.append(_error("vibedata/derived-unknown-metric",
                                     f"{where}: derived_expression names '{ref}', which is "
                                     "not another metric of this model"))
+        unrelated = payload.get("unrelated_dimensions")
+        if unrelated is not None and unrelated not in UNRELATED:
+            diags.append(_error("vibedata/bad-unrelated",
+                                f"{where}: unrelated_dimensions must be one of "
+                                f"{sorted(UNRELATED)}"))
+        metric_filter = payload.get("filter")
+        if metric_filter is not None:
+            diags.extend(_check_metric_filter(metric_filter, metrics[name], kinds, where,
+                                              context))
         for i, ref in enumerate(payload.get("at_levels") or []):
             ref_diags, _ = _check_level_ref(ref, f"{where} at_levels[{i}]", context,
                                             need_level=True)
@@ -715,6 +832,37 @@ def _validate_metrics(doc, context):
         if based_on is not None:
             diags.extend(_check_based_on(based_on, name, metrics, where, context))
     diags.extend(_metric_cycles(inputs))
+    return diags
+
+
+def _check_metric_filter(metric_filter, metric, kinds, where, context):
+    """OBIEE FILTER(measure USING ...): the rows a metric reads, stated as a predicate.
+
+    It names `dataset.field` columns, every one of which the core expression must also
+    read, so the declared population and the computed one cannot silently part.
+    """
+    if not isinstance(metric_filter, str) or not metric_filter.strip():
+        return [_error("vibedata/bad-filter", f"{where}: filter must be a SQL predicate")]
+    diags = []
+    if [k for k in kinds if k != "at_levels"]:
+        diags.append(_error("vibedata/filter-on-computed-metric",
+                            f"{where}: a computed metric inherits the filters of the metrics "
+                            "it reads; declare the filter on them"))
+    pairs, bare = _qualified_in(metric_filter)
+    for name in sorted(bare):
+        diags.append(_error("vibedata/filter-unqualified",
+                            f"{where}: filter names '{name}'; write it as dataset.field"))
+    fields = context["fields"]
+    expression = json.dumps(metric.get("expression"))
+    for dataset, field_name in sorted(pairs):
+        if field_name not in fields.get(dataset, set()):
+            diags.append(_error("vibedata/filter-unknown-field",
+                                f"{where}: filter names '{dataset}.{field_name}', which is not "
+                                "a declared field"))
+        elif f"{dataset}.{field_name}" not in expression:
+            diags.append(_error("vibedata/filter-not-in-expression",
+                                f"{where}: filter reads '{dataset}.{field_name}' but the core "
+                                "expression does not, so the two populations can part"))
     return diags
 
 
@@ -814,9 +962,17 @@ def _check_time_series(series, name, metrics, where, context):
                               or offset < 1):
         diags.append(_error("vibedata/bad-time-series",
                             f"{where}: AGO needs an integer offset of at least 1"))
-    if function == "TODATE" and offset is not None:
+    if function in ("TODATE", "ROLLING") and offset is not None:
         diags.append(_error("vibedata/bad-time-series",
-                            f"{where}: TODATE takes no offset"))
+                            f"{where}: {function} takes no offset"))
+    periods = series.get("periods")
+    if function == "ROLLING" and (not isinstance(periods, int) or isinstance(periods, bool)
+                                  or periods < 2):
+        diags.append(_error("vibedata/bad-time-series",
+                            f"{where}: ROLLING needs an integer periods of at least 2"))
+    if function != "ROLLING" and periods is not None:
+        diags.append(_error("vibedata/bad-time-series",
+                            f"{where}: periods belongs to ROLLING only"))
     ref = {k: series.get(k) for k in ("via", "level")}
     ref_diags, info = _check_level_ref(ref, f"{where} time_series", context, need_level=True)
     diags.extend(ref_diags)
@@ -825,6 +981,117 @@ def _check_time_series(series, name, metrics, where, context):
                             f"{where}: level '{series.get('level')}' is in no time hierarchy "
                             "(is_time)"))
     return diags
+
+
+def _validate_level_join(rel, doc, context):
+    """`to_level` joins a member of a versioned dimension, not a row; `weight` allocates."""
+    diags = []
+    where = f"relationship '{rel.get('name', '<unnamed>')}'"
+    payload = {}
+    for data in _extensions(rel):
+        try:
+            decoded = json.loads(data)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(decoded, dict):
+            payload.update(decoded)
+    to_level = payload.get("to_level")
+    if to_level is not None:
+        level = context["dimensions"].get(rel.get("to"), {}).get("levels", {}).get(to_level)
+        if level is None:
+            diags.append(_error("vibedata/level-ref-unknown-level",
+                                f"{where}: to_level '{to_level}' is not a level of dataset "
+                                f"'{rel.get('to')}'"))
+        elif level["keys"].get(level["primary"]) != rel.get("to_columns"):
+            diags.append(_error("vibedata/to-level-key-mismatch",
+                                f"{where}: to_columns must be the primary key of level "
+                                f"'{to_level}' ({level['keys'].get(level['primary'])})"))
+    weight = payload.get("weight")
+    if weight is not None:
+        source = next((d for d in doc.get("datasets", []) if d.get("name") == rel.get("from")), {})
+        field = next((f for f in source.get("fields") or []
+                      if isinstance(f, dict) and f.get("name") == weight), None)
+        if field is None:
+            diags.append(_error("vibedata/weight-unknown-field",
+                                f"{where}: weight '{weight}' is not a declared field of "
+                                f"'{rel.get('from')}'"))
+        elif field.get("datatype") not in ("Float", "Decimal"):
+            diags.append(_error("vibedata/weight-not-numeric",
+                                f"{where}: weight '{weight}' must be a Float or Decimal share"))
+    return diags
+
+
+def metric_dimensionality(doc):
+    """For each metric: the datasets its rows come from and every dataset a query may group
+    or filter it by. Reachable means many-to-one relationships from the fact, plus a
+    weighted bridge entered from its one side (the weight makes the fan-out an allocation).
+    A metric with `unrelated_dimensions: total` answers every dimension, repeating its
+    value where it has no path; a derived metric answers what all its inputs answer."""
+    edges = {}
+    for rel in doc.get("relationships", []):
+        if not isinstance(rel, dict):
+            continue
+        edges.setdefault(rel.get("from"), set()).add(rel.get("to"))
+        for data in _extensions(rel):
+            try:
+                decoded = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(decoded, dict) and decoded.get("weight"):
+                edges.setdefault(rel.get("to"), set()).add(rel.get("from"))
+
+    def reach(start):
+        seen, stack = set(), [start]
+        while stack:
+            for nxt in edges.get(stack.pop(), ()):
+                if nxt not in seen and nxt != start:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return seen
+
+    metrics = {m.get("name"): m for m in doc.get("metrics", []) if isinstance(m, dict)}
+    all_datasets = {d.get("name") for d in doc.get("datasets", []) if isinstance(d, dict)}
+    # A dimension is anything a relationship lands on, or a weighted bridge; other facts are not.
+    dimensions = {rel.get("to") for rel in doc.get("relationships", []) if isinstance(rel, dict)}
+    dimensions |= {n for targets in edges.values() for n in targets}
+    out, resolving = {}, set()
+
+    def resolve(name):
+        if name in out:
+            return out[name]
+        if name in resolving or name not in metrics:
+            return {"facts": [], "dimensions": [], "unrelated_dimensions": "error"}
+        resolving.add(name)
+        metric = metrics[name]
+        payload = {}
+        for data in _extensions(metric):
+            try:
+                payload.update(json.loads(data))
+            except (TypeError, json.JSONDecodeError, ValueError):
+                continue
+        unrelated = payload.get("unrelated_dimensions", "error")
+        inputs = sorted(_metric_inputs(payload) & set(metrics))
+        if inputs:
+            parts = [resolve(i) for i in inputs]
+            facts = sorted({f for part in parts for f in part["facts"]})
+            answered = [set(part["dimensions"]) for part in parts
+                        if part["unrelated_dimensions"] != "total"]
+            dims = set.intersection(*answered) if answered else set(dimensions)
+        else:
+            pairs, _ = _qualified_in(json.dumps(metric.get("expression")))
+            facts = sorted({d for d, _ in pairs if d in all_datasets})
+            reached = [reach(f) for f in facts]
+            dims = set.intersection(*reached) if reached else set()
+        if unrelated == "total":
+            dims = set(dimensions)
+        out[name] = {"facts": facts, "dimensions": sorted(dims - set(facts)),
+                     "unrelated_dimensions": unrelated}
+        resolving.discard(name)
+        return out[name]
+
+    for name in metrics:
+        resolve(name)
+    return out
 
 
 def _validate_relationship(rel, dataset_names, physical_join_names):

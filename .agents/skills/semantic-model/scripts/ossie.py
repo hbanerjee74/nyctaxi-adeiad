@@ -27,7 +27,12 @@ import typer
 sys.path.insert(0, str(Path(__file__).parent))
 
 from ossie_levels import generate as generate_level_tests  # noqa: E402
-from ossie_vibedata import _names_in, physical_table_index, validate_vibedata  # noqa: E402
+from ossie_vibedata import (  # noqa: E402
+    _names_in,
+    metric_dimensionality,
+    physical_table_index,
+    validate_vibedata,
+)
 
 TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
@@ -383,6 +388,24 @@ def _sources_of(dataset):
         for source in payload.get("logical_sources") or []:
             if isinstance(source, dict):
                 yield source
+
+
+@app.command()
+def dimensionality(model: str):
+    """Per metric: its facts and the dimensions a query may group or filter it by.
+
+    Engines and exporters read this to reject a query that groups a metric by a
+    dimension it cannot reach (unrelated_dimensions: error) or to repeat its total there.
+    """
+    out = {}
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            print(json.dumps([read_diag]))
+            raise typer.Exit(1)
+        doc = _vendor.load_yaml_named(text, str(target))
+        out[doc.get("name", str(target))] = metric_dimensionality(doc)
+    print(json.dumps(out, indent=2))
 
 
 @app.command()
