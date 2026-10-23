@@ -9,6 +9,7 @@ Usage:
   python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
   python3 scripts/ossie.py suppliers <model-file-or-dir>
   python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
+  python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -25,6 +26,7 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from ossie_levels import generate as generate_level_tests  # noqa: E402
 from ossie_vibedata import _names_in, physical_table_index, validate_vibedata  # noqa: E402
 
 TOOLS_DIR = Path(__file__).parent
@@ -145,6 +147,8 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
             "unique_keys": dataset.get("unique_keys"),
             "fields": fields,
             "scd": payload.get("scd"),
+            "levels": payload.get("levels"),
+            "row_level": payload.get("row_level"),
             "hierarchies": payload.get("hierarchies"),
             "logical_sources": sources}
 
@@ -165,9 +169,9 @@ def _vibedata_of(node):
 
 
 def _supplied_through_inputs(metric, supplied):
-    """A derived, time-series or nested metric is supplied when every input it reads is."""
+    """A derived, time-series or dimension-rule metric is supplied when every input it reads is."""
     payload = _vibedata_of(metric)
-    for key in ("time_series", "nested"):
+    for key in ("time_series", "based_on_dimensions"):
         if isinstance(payload.get(key), dict):
             return payload[key].get("of") in supplied
     formula = payload.get("derived_expression")
@@ -336,6 +340,32 @@ def notes(model: str, tests: str, adr: str):
     print(json.dumps(diags, indent=2))
     typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
     raise typer.Exit(1 if diags else 0)
+
+
+@app.command("level-tests")
+def level_tests(model: str, test_file: str,
+                check: bool = typer.Option(False, "--check",
+                                           help="Exit 1 when TEST_FILE is not what MODEL generates")):
+    """Write the dbt test that reports data departing from the declared levels."""
+    docs = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            print(json.dumps([read_diag]))
+            raise typer.Exit(1)
+        docs.append(_vendor.load_yaml_named(text, str(target)))
+    sql = generate_level_tests(docs)
+    path = Path(test_file)
+    if check:
+        current = path.read_text() if path.exists() else None
+        stale = current != sql
+        print(json.dumps([{"severity": "error", "code": "level-tests/stale", "file": str(path),
+                           "message": f"'{path}' is not what the model generates; run "
+                                      "level-tests without --check"}] if stale else []))
+        raise typer.Exit(1 if stale else 0)
+    path.write_text(sql)
+    print(json.dumps([]))
+    typer.echo(f"wrote {path}", err=True)
 
 
 def _sources_of(dataset):

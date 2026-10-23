@@ -129,6 +129,16 @@
           "items": {
             "$ref": "#/$defs/hierarchy"
           }
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/level"
+          },
+          "description": "The dimension's levels (OBIEE logical levels), declared once and shared by its hierarchies"
+        },
+        "row_level": {
+          "$ref": "#/$defs/rowLevel"
         }
       },
       "additionalProperties": false
@@ -235,14 +245,22 @@
         },
         "is_time": {
           "type": "boolean",
-          "description": "Levels order chronologically, so time-series metrics may shift along them"
+          "description": "Levels order chronologically by their primary keys"
+        },
+        "scd_rollup": {
+          "enum": [
+            "as_of",
+            "current"
+          ],
+          "description": "Type 2 only: a member rolls up as of the fact's date, or as it is now"
         },
         "levels": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/level"
+            "type": "string"
           },
-          "minItems": 1
+          "minItems": 1,
+          "description": "Level names, coarsest first"
         }
       },
       "additionalProperties": false
@@ -308,24 +326,26 @@
       "type": "object",
       "required": [
         "name",
-        "key"
+        "keys"
       ],
       "properties": {
         "name": {
           "type": "string",
           "minLength": 1
         },
-        "key": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/levelKey"
+          },
+          "minItems": 1
+        },
+        "attributes": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1,
-          "description": "Fields that identify one member of the level"
-        },
-        "label": {
-          "type": "string",
-          "description": "Field shown for a member when the key is not readable"
+          "description": "Descriptive fields of a member that identify nothing (a name that repeats)"
         }
       },
       "additionalProperties": false
@@ -340,12 +360,20 @@
           "type": "string",
           "description": "Relationship that reaches the dimension (names the role)"
         },
-        "hierarchy": {
-          "type": "string"
-        },
         "level": {
           "type": "string",
-          "description": "Omitted with hierarchy: the target's own key level"
+          "description": "A level of the target dataset; omitted, the target's own rows"
+        },
+        "key": {
+          "type": "string",
+          "description": "Which of the level's keys; default its primary key"
+        },
+        "key_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Aggregate content only: the source's columns that carry that key, in key-field order"
         }
       },
       "additionalProperties": false
@@ -379,8 +407,8 @@
         "time_series": {
           "$ref": "#/$defs/timeSeries"
         },
-        "nested": {
-          "$ref": "#/$defs/nested"
+        "based_on_dimensions": {
+          "$ref": "#/$defs/basedOnDimensions"
         }
       },
       "additionalProperties": false
@@ -391,7 +419,6 @@
         "function",
         "of",
         "via",
-        "hierarchy",
         "level"
       ],
       "properties": {
@@ -408,9 +435,6 @@
         "via": {
           "type": "string"
         },
-        "hierarchy": {
-          "type": "string"
-        },
         "level": {
           "type": "string"
         },
@@ -422,28 +446,73 @@
       },
       "additionalProperties": false
     },
-    "nested": {
+    "rowLevel": {
+      "type": "object",
+      "required": [
+        "level",
+        "versioned"
+      ],
+      "description": "The level one row of the dataset is. versioned: rows are versions of that level's members (Type 2)",
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "versioned": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "levelKey": {
+      "type": "object",
+      "required": [
+        "name",
+        "fields"
+      ],
+      "description": "Fields that identify one member of the level. Every key is unique at its level by declaration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "primary": {
+          "type": "boolean",
+          "description": "Exactly one per level: what joins, aggregate navigation and blending use"
+        },
+        "display": {
+          "type": "boolean",
+          "description": "At most one per level: the key shown for a member; default the primary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "basedOnDimensions": {
       "type": "object",
       "required": [
         "of",
-        "over",
-        "outer"
+        "across",
+        "rule"
       ],
-      "description": "Two-stage aggregation: evaluate `of` at the query grain plus `over`, then fold those values back to the query grain with `outer` (DAX AVERAGEX(VALUES(..)), Essbase time balance, MDX Avg(Descendants(..)))",
+      "description": "OBIEE dimension-based aggregation rule: evaluate `of` at the query's grain refined by `across`, then apply `rule` across those members",
       "properties": {
         "of": {
-          "type": "string",
-          "description": "Metric evaluated at the inner grain"
+          "type": "string"
         },
-        "over": {
+        "across": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/levelRef"
           },
-          "minItems": 1,
-          "description": "Levels added to the query grain for the inner evaluation"
+          "minItems": 1
         },
-        "outer": {
+        "rule": {
           "enum": [
             "AVG",
             "SUM",
@@ -452,15 +521,7 @@
             "MEDIAN",
             "FIRST",
             "LAST"
-          ],
-          "description": "Fold over the inner values; FIRST and LAST order by a time level"
-        },
-        "empty_members": {
-          "enum": [
-            "skip",
-            "calendar"
-          ],
-          "description": "skip (default): fold only members with data (LASTNONBLANK); calendar: every member of the level in the query's period (CLOSINGBALANCEMONTH)"
+          ]
         }
       },
       "additionalProperties": false

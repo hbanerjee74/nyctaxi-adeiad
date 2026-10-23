@@ -189,11 +189,11 @@ def test_duplicate_dataset_fails_upstream(tmp_path):
 def test_hierarchy_unknown_level_fails(tmp_path):
     doc = _doc()
     payload = json.loads(doc["datasets"][1]["custom_extensions"][0]["data"])
-    payload["hierarchies"][0]["levels"].append({"name": "nope", "key": ["nope_level"]})
+    payload["hierarchies"][0]["levels"].append("nope_level")
     doc["datasets"][1]["custom_extensions"][0]["data"] = json.dumps(payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/hierarchy-unknown-field", "error") in _codes(diags)
+    assert ("vibedata/hierarchy-unknown-level", "error") in _codes(diags)
 
 
 def test_checker_keys_match_schema():
@@ -208,7 +208,8 @@ def test_checker_keys_match_schema():
              (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd"),
              (v.VARIABLE_KEYS, "variable"), (v.LEVEL_KEYS, "level"),
              (v.LEVEL_REF_KEYS, "levelRef"), (v.METRIC_KEYS, "metricPayload"),
-             (v.TIME_SERIES_KEYS, "timeSeries"), (v.NESTED_KEYS, "nested")]
+             (v.TIME_SERIES_KEYS, "timeSeries"), (v.BASED_ON_KEYS, "basedOnDimensions"),
+             (v.LEVEL_KEY_KEYS, "levelKey"), (v.ROW_LEVEL_KEYS, "rowLevel")]
     for keys, ref in pairs:
         assert keys == set(defs[ref]["properties"]), ref
 
@@ -503,15 +504,167 @@ def _trips_source(doc, source_name):
     return trips, payload, _named(payload["logical_sources"], source_name)
 
 
-def test_hierarchy_level_needs_key(tmp_path):
+def test_level_needs_keys(tmp_path):
     doc = _doc()
     date = _named(doc["datasets"], "date")
     payload = _payload(date)
-    del payload["hierarchies"][0]["levels"][0]["key"]
+    del payload["levels"][0]["keys"]
     _set_payload(date, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/level-key-missing", "error") in _codes(diags)
+    assert ("vibedata/level-keys-missing", "error") in _codes(diags)
+
+
+def test_level_needs_exactly_one_primary_key(tmp_path):
+    """The primary key is what joins and blends at the level, so there is exactly one."""
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    month = _named(payload["levels"], "month")
+    _named(month["keys"], "year_month")["primary"] = True
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-primary-key", "error") in _codes(diags)
+
+
+def test_level_has_at_most_one_display_key(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    day = _named(payload["levels"], "day")
+    _named(day["keys"], "date_key")["display"] = True
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-display-key", "error") in _codes(diags)
+
+
+def test_level_attribute_must_be_a_field(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    _named(payload["levels"], "zone")["attributes"].append("zone_colour")
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-unknown-field", "error") in _codes(diags)
+
+
+def test_dataset_with_levels_names_its_row_level(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    del payload["row_level"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-missing", "error") in _codes(diags)
+
+
+def test_row_level_key_must_include_the_primary_key(tmp_path):
+    """A row and a member are the same thing only when the table's key is a level key."""
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    day = _named(payload["levels"], "day")
+    day["keys"] = [k for k in day["keys"] if k["name"] != "date_key"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-key", "error") in _codes(diags)
+
+
+def test_type_2_rows_are_versions(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    payload["row_level"]["versioned"] = False
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-versioned", "error") in _codes(diags)
+
+
+def test_versioned_hierarchy_states_its_rollup(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    del payload["hierarchies"][0]["scd_rollup"]
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/hierarchy-scd-rollup", "error") in _codes(diags)
+
+
+def test_aggregate_content_level_names_its_key_columns(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    del source["content_levels"][0]["key_columns"]
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-missing", "error") in _codes(diags)
+
+
+def test_key_columns_match_the_key_arity(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    source["content_levels"][0]["key"] = "year_month"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-arity", "error") in _codes(diags)
+
+
+def test_unknown_level_key_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    source["content_levels"][2]["key"] = "payment_method_code"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-unknown-key", "error") in _codes(diags)
+
+
+def test_key_columns_only_on_aggregate_content(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_pickup_borough")
+    payload = _payload(metric)
+    payload["at_levels"][0]["key_columns"] = ["pickup_borough"]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-misplaced", "error") in _codes(diags)
+
+
+def test_aggregate_content_level_needs_its_physical_join(tmp_path):
+    """An aggregate is joined to a dimension at the level it holds, so the join must exist."""
+    doc = _doc()
+    model = _payload(doc)
+    model["physical_joins"] = [j for j in model["physical_joins"]
+                               if j["name"] != "mart_monthly_service_summary_to_dim_date"]
+    _set_payload(doc, model)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-level-unjoined", "error") in _codes(diags)
+
+
+def test_level_tests_are_current():
+    """The generated level test is what the model generates now."""
+    result = RUNNER.invoke(app, ["level-tests", "logical-model",
+                                 "transformation/tests/assert_semantic_levels_hold.sql", "--check"])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_level_tests_report_every_declared_key(tmp_path):
+    """Each non-primary key and hierarchy step becomes a reported check."""
+    from ossie_levels import generate
+    sql = generate([_doc()])
+    assert "date.month: key year_month names several members" in sql
+    assert "zone.Geography: zone rolls up to several borough members" in sql
+    assert "LTS8_monthly_service_summary: trips_to_payment_method payment_method key is no member" in sql
+    assert "severity='warn'" in sql
 
 
 def test_content_level_unknown_level_fails(tmp_path):
@@ -611,7 +764,7 @@ def test_metric_version_counts_toward_consistency(tmp_path):
     assert ("vibedata/version-mismatch", "error") in _codes(diags)
 
 
-def test_level_based_metric_needs_a_hierarchy_level(tmp_path):
+def test_level_based_metric_needs_a_level(tmp_path):
     doc = _doc()
     metric = _named(doc["metrics"], "billable_revenue_pickup_borough")
     payload = _payload(metric)
@@ -619,7 +772,7 @@ def test_level_based_metric_needs_a_hierarchy_level(tmp_path):
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/level-ref-needs-hierarchy", "error") in _codes(diags)
+    assert ("vibedata/level-ref-needs-level", "error") in _codes(diags)
 
 
 def test_time_series_expression_must_match_its_base(tmp_path):
@@ -636,7 +789,7 @@ def test_time_series_needs_a_time_hierarchy(tmp_path):
     metric = _named(doc["metrics"], "billable_revenue_prior_month")
     payload = _payload(metric)
     payload["time_series"].update(
-        {"via": "trips_to_pickup_zone", "hierarchy": "Geography", "level": "borough"})
+        {"via": "trips_to_pickup_zone", "level": "borough"})
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
@@ -723,64 +876,53 @@ def test_model_variables_name_real_dbt_vars():
                 assert variable["dbt_var"] in dbt_vars, (path, variable)
 
 
-def _nested(doc, name):
+def _rule(doc, name):
     metric = _named(doc["metrics"], name)
     return metric, _payload(metric)
 
 
-def test_nested_expression_must_match_its_inner_metric(tmp_path):
+def test_dimension_rule_expression_must_match_its_metric(tmp_path):
     doc = _doc()
     metric = _named(doc["metrics"], "avg_daily_billable_revenue")
     metric["expression"]["dialects"][0]["expression"] = "SUM(trips.total_amount)"
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/nested-expression", "error") in _codes(diags)
+    assert ("vibedata/based-on-expression", "error") in _codes(diags)
 
 
-def test_nested_last_needs_a_time_level(tmp_path):
+def test_last_needs_a_time_level(tmp_path):
     """LAST is a time balance: it needs one chronological level to order members by."""
     doc = yaml.safe_load(FLEET.read_text())
-    metric, payload = _nested(doc, "closing_active_driver_count")
-    payload["nested"]["over"] = [{"via": "shift_to_driver"}]
+    metric, payload = _rule(doc, "closing_active_driver_count")
+    payload["based_on_dimensions"]["across"] = [{"via": "shift_to_driver"}]
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/nested-order-not-time", "error") in _codes(diags)
+    assert ("vibedata/based-on-order-not-time", "error") in _codes(diags)
 
 
-def test_nested_bad_outer_fails(tmp_path):
+def test_dimension_rule_must_be_known(tmp_path):
     doc = _doc()
-    metric, payload = _nested(doc, "avg_daily_billable_revenue")
-    payload["nested"]["outer"] = "MODE"
+    metric, payload = _rule(doc, "avg_daily_billable_revenue")
+    payload["based_on_dimensions"]["rule"] = "MODE"
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/bad-nested", "error") in _codes(diags)
-
-
-def test_nested_calendar_members_need_a_hierarchy_level(tmp_path):
-    """Calendar members come from a hierarchy level, so a bare relationship cannot supply them."""
-    doc = yaml.safe_load(FLEET.read_text())
-    metric, payload = _nested(doc, "mean_driver_occupancy_rate")
-    payload["nested"]["empty_members"] = "calendar"
-    _set_payload(metric, payload)
-    code, diags = _run("validate", str(_write(tmp_path, doc)))
-    assert code == 1
-    assert ("vibedata/level-ref-needs-hierarchy", "error") in _codes(diags)
+    assert ("vibedata/bad-based-on", "error") in _codes(diags)
 
 
 def test_metric_declares_one_computation(tmp_path):
     doc = _doc()
-    metric, payload = _nested(doc, "avg_daily_billable_revenue")
+    metric, payload = _rule(doc, "avg_daily_billable_revenue")
     payload["time_series"] = {"function": "TODATE", "of": "billable_revenue",
-                              "via": "trips_to_date", "hierarchy": "Time", "level": "month"}
+                              "via": "trips_to_date", "level": "month"}
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/metric-semantics-conflict", "error") in _codes(diags)
 
 
-def test_nested_metric_bound_to_a_column_fails(tmp_path):
+def test_dimension_rule_metric_bound_to_a_column_fails(tmp_path):
     doc = _doc()
     trips, payload, source = _trips_source(doc, "LTS7_daily_zone_revenue")
     source["column_map"]["avg_daily_billable_revenue"] = "total_revenue"
@@ -792,7 +934,7 @@ def test_nested_metric_bound_to_a_column_fails(tmp_path):
 
 def test_metric_cycle_fails(tmp_path):
     doc = _doc()
-    metric, payload = _nested(doc, "billable_average_fare")
+    metric, payload = _rule(doc, "billable_average_fare")
     payload["derived_expression"] = "mean_pickup_zone_average_fare * 1.0"
     _set_payload(metric, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
@@ -800,8 +942,8 @@ def test_metric_cycle_fails(tmp_path):
     assert ("vibedata/metric-cycle", "error") in _codes(diags)
 
 
-def test_suppliers_follow_nested_inputs(tmp_path):
-    """A nested metric is supplied through the metric it nests."""
+def test_suppliers_follow_dimension_rule_inputs(tmp_path):
+    """A dimension-rule metric is supplied through the metric it aggregates."""
     model = tmp_path / "model"
     model.mkdir()
     doc = yaml.safe_load(FLEET.read_text())

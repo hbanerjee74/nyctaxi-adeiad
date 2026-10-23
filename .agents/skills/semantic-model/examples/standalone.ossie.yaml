@@ -41,7 +41,7 @@ datasets:
         datatype: Decimal
     custom_extensions:
       - vendor_name: VIBEDATA
-        data: '{"vibedata_version": "1.2", "logical_sources": [{"name": "LTS1_detail", "physical_table": "mart_daily_zone_revenue", "priority_group": 1, "content_grain": ["revenue_date", "zone_key"], "note": "Billable-only population: this table may not supply the star-level trip_count or revenue metrics.", "column_map": {"revenue_date": "revenue_date", "zone_key": "zone_key", "zone_name": "zone_name", "trip_count": "trip_count", "total_revenue": "total_revenue"}}]}'
+        data: '{"vibedata_version": "1.3", "logical_sources": [{"name": "LTS1_detail", "physical_table": "mart_daily_zone_revenue", "priority_group": 1, "content_grain": ["revenue_date", "zone_key"], "note": "Billable-only population: this table may not supply the star-level trip_count or revenue metrics.", "column_map": {"revenue_date": "revenue_date", "zone_key": "zone_key", "zone_name": "zone_name", "trip_count": "trip_count", "total_revenue": "total_revenue"}}]}'
 metrics:
   - name: billable_zone_day_trip_count
     expression:
@@ -58,4 +58,4 @@ metrics:
     datatype: Decimal
 custom_extensions:
   - vendor_name: VIBEDATA
-    data: '{"vibedata_version": "1.2", "physical_tables": [{"name": "mart_daily_zone_revenue", "source": "finance.mart_daily_zone_revenue", "dbt_model": "mart_daily_zone_revenue", "table_type": "TABLE", "note": "Standalone: billable-only population, so it is not an aggregate source for the trip star."}], "physical_joins": []}'
+    data: '{"vibedata_version": "1.3", "physical_tables": [{"name": "mart_daily_zone_revenue", "source": "finance.mart_daily_zone_revenue", "dbt_model": "mart_daily_zone_revenue", "table_type": "TABLE", "note": "Standalone: billable-only population, so it is not an aggregate source for the trip star."}], "physical_joins": []}'
