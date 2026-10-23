@@ -14,27 +14,168 @@ Pure functions: input is the parsed YAML dict, output is a list of diagnostics.
 """
 
 import json
+import re
 
 VENDOR = "VIBEDATA"
 
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
+AGGREGATIONS = {"SUM", "MIN", "MAX", "NON_ADDITIVE"}
+TIME_SERIES_FUNCTIONS = {"AGO", "TODATE"}
+DIMENSION_RULES = {"AVG", "SUM", "MIN", "MAX", "MEDIAN", "FIRST", "LAST"}
+SCD_ROLLUPS = {"as_of", "current"}
+# A metric computed from another metric rather than from rows: at most one per metric.
+COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "based_on_dimensions")
 
-MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins"}
+MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variables"}
 DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
-                "scd", "logical_sources", "hierarchies"}
+                "scd", "logical_sources", "levels", "row_level", "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
                      "join_type", "join_cost", "join_expression", "note"}
 PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
+VARIABLE_KEYS = {"name", "datatype", "dbt_var", "note"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
+            "content_levels", "content_filter", "navigable",
             "join_cost", "note", "column_map"}
-HIERARCHY_KEYS = {"name", "levels"}
+HIERARCHY_KEYS = {"name", "is_time", "scd_rollup", "levels"}
+LEVEL_KEYS = {"name", "keys", "attributes"}
+LEVEL_KEY_KEYS = {"name", "fields", "primary", "display"}
+ROW_LEVEL_KEYS = {"level", "versioned"}
+LEVEL_REF_KEYS = {"via", "level", "key", "key_columns"}
+METRIC_KEYS = {"vibedata_version", "aggregation", "derived_expression", "at_levels",
+               "time_series", "based_on_dimensions"}
+TIME_SERIES_KEYS = {"function", "of", "via", "level", "offset"}
+BASED_ON_KEYS = {"of", "across", "rule"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
 
 
+# Words a predicate or post-aggregation formula may use that are not names.
+SQL_WORDS = {"AND", "OR", "NOT", "IS", "NULL", "TRUE", "FALSE", "IN", "BETWEEN", "LIKE",
+             "DATE", "TIMESTAMP", "CAST", "AS", "CASE", "WHEN", "THEN", "ELSE", "END",
+             "NULLIF", "COALESCE"}
+HELD_BY = re.compile(r"held by\s+[A-Za-z_][A-Za-z0-9_]*")
+
+
 def _error(code, message):
     return {"severity": "error", "code": code, "message": message}
+
+
+def _names_in(expression):
+    """Bare identifiers and `:variable` references in a SQL snippet, literals removed."""
+    text = re.sub(r"'(?:[^']|'')*'", " ", expression)
+    variables = set(re.findall(r":([A-Za-z_][A-Za-z0-9_]*)", text))
+    text = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", " ", text)
+    names = {n for n in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
+             if n.upper() not in SQL_WORDS}
+    return names, variables
+
+
+def _dimension_index(doc):
+    """Levels per dataset: {dataset: {"levels": {name: {keys, primary}}, "time_levels", "primary_key"}}.
+
+    A level's keys map key name to its fields; `primary` is the primary key's fields.
+    `time_levels` are the levels that sit in a hierarchy marked is_time.
+    """
+    out = {}
+    for dataset in doc.get("datasets", []):
+        if not isinstance(dataset, dict):
+            continue
+        levels, time_levels = {}, set()
+        for data in _extensions(dataset):
+            try:
+                payload = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            for level in payload.get("levels") or []:
+                if not isinstance(level, dict) or not level.get("name"):
+                    continue
+                keys, primary = {}, None
+                for key in level.get("keys") or []:
+                    if isinstance(key, dict) and key.get("name"):
+                        keys[key["name"]] = key.get("fields") or []
+                        if key.get("primary") is True:
+                            primary = key["name"]
+                levels[level["name"]] = {"keys": keys, "primary": primary}
+            for hier in payload.get("hierarchies") or []:
+                if isinstance(hier, dict) and hier.get("is_time") is True:
+                    time_levels.update(n for n in hier.get("levels") or [] if isinstance(n, str))
+        out[dataset.get("name")] = {"levels": levels, "time_levels": time_levels,
+                                    "primary_key": dataset.get("primary_key") or []}
+    return out
+
+
+def _check_level_ref(ref, where, context, from_dataset=None, need_level=False,
+                     aggregate=None):
+    """A level a source holds or a metric is evaluated at, reached through a relationship.
+
+    `level` names a level of the relationship's target; omitted, the target's own rows.
+    `key` picks one of the level's keys (default: its primary key). An aggregate source
+    (`aggregate` is its physical table) must say which of its columns carry that key
+    (`key_columns`), and nothing else may. Returns (diagnostics, {"dataset", "level",
+    "is_time"} or None).
+    """
+    if not isinstance(ref, dict):
+        return [_error("vibedata/level-ref-not-object", f"{where}: level entry must be an object")], None
+    diags = _unknown_keys(ref, LEVEL_REF_KEYS, where)
+    rel = context["relationships"].get(ref.get("via"))
+    if rel is None:
+        return diags + [_error("vibedata/level-ref-unknown-relationship",
+                               f"{where}: via '{ref.get('via')}' is not a relationship")], None
+    if from_dataset is not None and rel.get("from") != from_dataset:
+        diags.append(_error("vibedata/level-ref-wrong-dataset",
+                            f"{where}: via '{ref.get('via')}' does not start at dataset "
+                            f"'{from_dataset}'"))
+    target = rel.get("to")
+    dim = context["dimensions"].get(target, {"levels": {}, "time_levels": set(),
+                                             "primary_key": []})
+    level_name, key_name = ref.get("level"), ref.get("key")
+    info = {"dataset": target, "level": level_name,
+            "is_time": level_name in dim["time_levels"]}
+    if level_name is None:
+        if need_level:
+            diags.append(_error("vibedata/level-ref-needs-level",
+                                f"{where}: names no level of dataset '{target}'"))
+        if key_name is not None:
+            diags.append(_error("vibedata/level-ref-unknown-key",
+                                f"{where}: key '{key_name}' needs a level"))
+        key_fields = dim["primary_key"]
+    else:
+        level = dim["levels"].get(level_name)
+        if level is None:
+            return diags + [_error("vibedata/level-ref-unknown-level",
+                                   f"{where}: level '{level_name}' is not a level of dataset "
+                                   f"'{target}'")], None
+        key_name = key_name or level["primary"]
+        if key_name not in level["keys"]:
+            return diags + [_error("vibedata/level-ref-unknown-key",
+                                   f"{where}: key '{key_name}' is not a key of level "
+                                   f"'{level_name}'")], info
+        key_fields = level["keys"][key_name]
+    columns = ref.get("key_columns")
+    if aggregate is None:
+        if columns is not None:
+            diags.append(_error("vibedata/level-ref-key-columns-misplaced",
+                                f"{where}: key_columns belong only to an aggregate source's "
+                                "content_levels"))
+        return diags, info
+    if (not isinstance(columns, list) or not columns
+            or not all(isinstance(c, str) and c for c in columns)):
+        diags.append(_error("vibedata/level-ref-key-columns-missing",
+                            f"{where}: an aggregate names the columns that carry the level's "
+                            "key (key_columns), so it can be joined at that level"))
+    elif len(columns) != len(key_fields):
+        diags.append(_error("vibedata/level-ref-key-columns-arity",
+                            f"{where}: key_columns has {len(columns)} column(s) for a key of "
+                            f"{len(key_fields)} field(s)"))
+    reached = context["join_targets"].get(ref.get("via"))
+    if reached and (aggregate, reached) not in context["join_pairs"]:
+        diags.append(_error("vibedata/content-level-unjoined",
+                            f"{where}: no physical join from '{aggregate}' to '{reached}', the "
+                            f"table '{ref.get('via')}' reaches"))
+    return diags, info
 
 
 def _extensions(node):
@@ -102,6 +243,8 @@ def _collect_versions(doc):
         grab(dataset, f"dataset '{dataset.get('name', '<unnamed>')}'")
     for rel in doc.get("relationships", []):
         grab(rel, f"relationship '{rel.get('name', '<unnamed>')}'")
+    for metric in doc.get("metrics", []):
+        grab(metric, f"metric '{metric.get('name', '<unnamed>')}'")
     return found
 
 
@@ -177,11 +320,39 @@ def validate_vibedata(doc):
                           "message": f"model '{model_name}': physical table '{name}' appears "
                                      "in no physical join"})
 
+    variables = set()
+    for var in model_payload.get("variables", []):
+        if not isinstance(var, dict) or not var.get("name"):
+            diags.append(_error("vibedata/variable-nameless",
+                                f"model '{model_name}': variables entry without a name"))
+            continue
+        diags.extend(_unknown_keys(var, VARIABLE_KEYS, f"variable '{var['name']}'"))
+        variables.add(var["name"])
+
     dataset_names = {d.get("name") for d in doc.get("datasets", []) if d.get("name")}
     metric_names = {m.get("name") for m in doc.get("metrics", [])
                     if isinstance(m, dict) and m.get("name")}
+    joins = {j.get("name"): j for j in model_payload.get("physical_joins", [])
+             if isinstance(j, dict)}
+    join_targets = {}
+    for rel in doc.get("relationships", []):
+        for data in _extensions(rel):
+            try:
+                rel_payload = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            join = joins.get(rel_payload.get("physical_join")) if isinstance(rel_payload, dict) else None
+            if join:
+                join_targets[rel.get("name")] = join.get("to")
+    context = {"physical_tables": physical_tables, "metric_names": metric_names,
+               "variables": variables, "dimensions": _dimension_index(doc),
+               "join_targets": join_targets,
+               "join_pairs": {(j.get("from"), j.get("to")) for j in joins.values()},
+               "relationships": {r.get("name"): r for r in doc.get("relationships", [])
+                                 if isinstance(r, dict) and r.get("name")}}
     for dataset in doc.get("datasets", []):
-        diags.extend(_validate_dataset(dataset, physical_tables, metric_names))
+        diags.extend(_validate_dataset(dataset, context))
+    diags.extend(_validate_metrics(doc, context))
     for rel in doc.get("relationships", []):
         diags.extend(_validate_relationship(rel, dataset_names, physical_join_names))
         diags.extend(_validate_from_columns(rel, doc))
@@ -189,7 +360,9 @@ def validate_vibedata(doc):
     return diags
 
 
-def _validate_dataset(dataset, physical_tables, metric_names):
+def _validate_dataset(dataset, context):
+    physical_tables = context["physical_tables"]
+    metric_names = context["metric_names"]
     diags = []
     ds_name = dataset.get("name", "<unnamed>")
     where = f"dataset '{ds_name}'"
@@ -227,18 +400,48 @@ def _validate_dataset(dataset, physical_tables, metric_names):
         diags.append(_error("vibedata/alias-dangling",
                             f"{where}: alias_of unknown physical table '{alias_of}'"))
 
+    level_names = []
+    for level in payload.get("levels", []) or []:
+        if not isinstance(level, dict) or not level.get("name"):
+            diags.append(_error("vibedata/level-not-object",
+                                f"{where}: each level is an object with a name"))
+            continue
+        level_names.append(level["name"])
+        diags.extend(_check_level(level, f"{where} level '{level['name']}'", fields))
+    for name in sorted({n for n in level_names if level_names.count(n) > 1}):
+        diags.append(_error("vibedata/level-duplicate",
+                            f"{where}: level '{name}' is declared twice"))
+    scd_type = (payload.get("scd") or {}).get("type") if isinstance(payload.get("scd"), dict) else None
+    diags.extend(_check_row_level(payload, dataset, where, scd_type))
     for hier in payload.get("hierarchies", []):
         if not isinstance(hier, dict):
             diags.append(_error("vibedata/hierarchy-not-object",
                                 f"{where}: hierarchy entry must be an object"))
             continue
-        diags.extend(_unknown_keys(hier, HIERARCHY_KEYS,
-                                   f"{where} hierarchy '{hier.get('name', '<unnamed>')}'"))
-        for level in hier.get("levels", []) or []:
-            if level not in fields:
-                diags.append(_error("vibedata/hierarchy-unknown-field",
-                                    f"{where}: hierarchy '{hier.get('name', '<unnamed>')}' "
-                                    f"level '{level}' is not a declared field"))
+        hier_where = f"{where} hierarchy '{hier.get('name', '<unnamed>')}'"
+        diags.extend(_unknown_keys(hier, HIERARCHY_KEYS, hier_where))
+        members = hier.get("levels")
+        if not isinstance(members, list) or not members:
+            diags.append(_error("vibedata/hierarchy-levels",
+                                f"{hier_where}: levels lists the dataset's level names, "
+                                "coarsest first"))
+            members = []
+        for name in members:
+            if name not in level_names:
+                diags.append(_error("vibedata/hierarchy-unknown-level",
+                                    f"{hier_where}: '{name}' is not a level of this dataset"))
+        if len(set(map(str, members))) != len(members):
+            diags.append(_error("vibedata/hierarchy-levels",
+                                f"{hier_where}: a level appears twice"))
+        rollup = hier.get("scd_rollup")
+        if scd_type == 2 and rollup not in SCD_ROLLUPS:
+            diags.append(_error("vibedata/hierarchy-scd-rollup",
+                                f"{hier_where}: a versioned dimension states whether a member "
+                                f"rolls up as of the fact's date or as it is now: scd_rollup "
+                                f"{sorted(SCD_ROLLUPS)}"))
+        elif scd_type != 2 and rollup is not None:
+            diags.append(_error("vibedata/hierarchy-scd-rollup",
+                                f"{hier_where}: scd_rollup applies only to a Type 2 dimension"))
 
     scd = payload.get("scd")
     if scd:
@@ -285,6 +488,22 @@ def _validate_dataset(dataset, physical_tables, metric_names):
             diags.append(_error("vibedata/bad-grain",
                                 f"{where}: logical source '{src_name}' content_grain "
                                 "must be a list of grain names"))
+        for i, ref in enumerate(src.get("content_levels") or []):
+            aggregate = (src.get("physical_table")
+                         if src.get("priority_group", 1) == 0 else None)
+            ref_diags, _ = _check_level_ref(
+                ref, f"{where} logical source '{src_name}' content_levels[{i}]",
+                context, from_dataset=ds_name, aggregate=aggregate)
+            diags.extend(ref_diags)
+        navigable = src.get("navigable", True)
+        if not isinstance(navigable, bool):
+            diags.append(_error("vibedata/bad-navigable",
+                                f"{where}: logical source '{src_name}' navigable must be "
+                                "true or false"))
+        content_filter = src.get("content_filter")
+        if content_filter is not None:
+            diags.extend(_check_content_filter(content_filter, src, f"{where} logical source "
+                                               f"'{src_name}'", fields, context["variables"]))
         if src.get("physical_table") not in physical_tables:
             diags.append(_error("vibedata/lts-dangling-table",
                                 f"{where}: logical source '{src_name}' references unknown "
@@ -304,6 +523,307 @@ def _validate_dataset(dataset, physical_tables, metric_names):
                 diags.append(_error("vibedata/bad-column-map",
                                     f"{where}: logical source '{src_name}' maps "
                                     f"'{logical_col}' to a non-string column"))
+    return diags
+
+
+def _check_level(level, where, fields):
+    """Keys identify one member each; exactly one is primary, at most one is displayed."""
+    diags = _unknown_keys(level, LEVEL_KEYS, where)
+    keys = level.get("keys")
+    if not isinstance(keys, list) or not keys:
+        return diags + [_error("vibedata/level-keys-missing",
+                               f"{where}: needs keys: the fields that identify one member")]
+    names, primaries, displays = [], 0, 0
+    for key in keys:
+        if not isinstance(key, dict) or not key.get("name"):
+            diags.append(_error("vibedata/level-key-not-object",
+                                f"{where}: each key is an object with a name"))
+            continue
+        key_where = f"{where} key '{key['name']}'"
+        diags.extend(_unknown_keys(key, LEVEL_KEY_KEYS, key_where))
+        names.append(key["name"])
+        primaries += key.get("primary") is True
+        displays += key.get("display") is True
+        key_fields = key.get("fields")
+        if not isinstance(key_fields, list) or not key_fields:
+            diags.append(_error("vibedata/level-key-fields",
+                                f"{key_where}: fields lists the dataset fields that form it"))
+            key_fields = []
+        for col in key_fields:
+            if col not in fields:
+                diags.append(_error("vibedata/level-unknown-field",
+                                    f"{key_where}: '{col}' is not a declared field"))
+    if primaries != 1:
+        diags.append(_error("vibedata/level-primary-key",
+                            f"{where}: exactly one key is primary (has {primaries}); it is "
+                            "unique at the level and is what joins and blends on it"))
+    if displays > 1:
+        diags.append(_error("vibedata/level-display-key",
+                            f"{where}: at most one key is the display key (has {displays})"))
+    for name in sorted({n for n in names if names.count(n) > 1}):
+        diags.append(_error("vibedata/level-key-duplicate",
+                            f"{where}: key '{name}' is declared twice"))
+    for col in level.get("attributes") or []:
+        if col not in fields:
+            diags.append(_error("vibedata/level-unknown-field",
+                                f"{where}: attribute '{col}' is not a declared field"))
+    return diags
+
+
+def _check_row_level(payload, dataset, where, scd_type):
+    """Which level a row of the dataset is, and whether rows are versions of its members."""
+    levels = {lv.get("name"): lv for lv in payload.get("levels") or []
+              if isinstance(lv, dict) and lv.get("name")}
+    row = payload.get("row_level")
+    if row is None:
+        if levels:
+            return [_error("vibedata/row-level-missing",
+                           f"{where}: a dataset with levels names the level its rows are "
+                           "(row_level)")]
+        return []
+    if not isinstance(row, dict):
+        return [_error("vibedata/row-level-not-object", f"{where}: row_level must be an object")]
+    diags = _unknown_keys(row, ROW_LEVEL_KEYS, f"{where} row_level")
+    level = levels.get(row.get("level"))
+    if level is None:
+        return diags + [_error("vibedata/row-level-unknown",
+                               f"{where}: row_level '{row.get('level')}' is not a level of "
+                               "this dataset")]
+    versioned = row.get("versioned")
+    if not isinstance(versioned, bool):
+        return diags + [_error("vibedata/row-level-not-object",
+                               f"{where}: row_level.versioned must be true or false")]
+    keys = [k for k in level.get("keys") or [] if isinstance(k, dict)]
+    primary = next((k.get("fields") for k in keys if k.get("primary") is True), None)
+    if versioned:
+        natural = (payload.get("scd") or {}).get("natural_key") if scd_type == 2 else None
+        if natural is None or primary != [natural]:
+            diags.append(_error("vibedata/row-level-versioned",
+                                f"{where}: versioned rows need a Type 2 scd whose natural_key "
+                                "is the row level's primary key"))
+    else:
+        if scd_type == 2:
+            diags.append(_error("vibedata/row-level-versioned",
+                                f"{where}: a Type 2 dimension's rows are versions of its "
+                                "members (versioned: true)"))
+        if dataset.get("primary_key") not in [k.get("fields") for k in keys]:
+            diags.append(_error("vibedata/row-level-key",
+                                f"{where}: the primary key {dataset.get('primary_key')} must be "
+                                f"one of level '{row.get('level')}''s keys, so a row and a "
+                                "member are the same thing"))
+    return diags
+
+
+def _check_content_filter(content_filter, src, where, fields, variables):
+    """A content filter is a predicate in the dataset's own fields, held by a test.
+
+    A withdrawn source (empty column_map) binds nothing, so its filter needs no test.
+    """
+    if not isinstance(content_filter, str) or not content_filter.strip():
+        return [_error("vibedata/bad-content-filter",
+                       f"{where}: content_filter must be a non-empty SQL predicate")]
+    diags = []
+    names, refs = _names_in(content_filter)
+    for name in sorted(names - fields):
+        diags.append(_error("vibedata/content-filter-unknown-field",
+                            f"{where}: content_filter names '{name}', which is not a "
+                            "declared field of the dataset"))
+    for ref in sorted(refs - variables):
+        diags.append(_error("vibedata/content-filter-unknown-variable",
+                            f"{where}: content_filter names ':{ref}', which is not a "
+                            "declared model variable"))
+    if src.get("column_map") and not HELD_BY.search(src.get("note") or ""):
+        diags.append(_error("vibedata/content-filter-unheld",
+                            f"{where}: a content_filter needs a note naming the test that "
+                            "holds it ('held by <test>')"))
+    return diags
+
+
+def _metric_payload(metric, where):
+    diags, payloads = [], []
+    for data in _extensions(metric):
+        payload, errs = _decode(data, where)
+        diags.extend(errs)
+        if payload:
+            payloads.append(payload)
+    if len(payloads) > 1:
+        diags.append(_error("vibedata/duplicate-entry",
+                            f"{where}: multiple VIBEDATA entries; keep exactly one"))
+    merged = {}
+    for p in payloads:
+        merged.update(p)
+    return merged, diags
+
+
+def _validate_metrics(doc, context):
+    """Rollup rule, post-aggregation formula, pinned levels and time series on metrics."""
+    diags = []
+    metrics = {m.get("name"): m for m in doc.get("metrics", [])
+               if isinstance(m, dict) and m.get("name")}
+    mapped = set()
+    for dataset in doc.get("datasets", []):
+        for data in _extensions(dataset):
+            try:
+                payload = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            for src in (payload.get("logical_sources") or []) if isinstance(payload, dict) else []:
+                if isinstance(src, dict) and isinstance(src.get("column_map"), dict):
+                    mapped.update(src["column_map"])
+    inputs = {}
+    for name, metric in metrics.items():
+        where = f"metric '{name}'"
+        payload, errs = _metric_payload(metric, where)
+        diags.extend(errs)
+        if not payload:
+            continue
+        diags.extend(_unknown_keys(payload, METRIC_KEYS, where))
+        kinds = [k for k in COMPUTED_KEYS if payload.get(k) is not None]
+        if len(kinds) > 1:
+            diags.append(_error("vibedata/metric-semantics-conflict",
+                                f"{where}: declares {', '.join(kinds)}; a metric wraps one "
+                                "other metric one way, so split it into a chain"))
+        if any(k != "at_levels" for k in kinds) and name in mapped:
+            diags.append(_error("vibedata/computed-metric-mapped",
+                                f"{where}: computed from other metrics after aggregation, so "
+                                "it must not be bound to a column"))
+        inputs[name] = _metric_inputs(payload)
+        aggregation = payload.get("aggregation")
+        if aggregation is not None and aggregation not in AGGREGATIONS:
+            diags.append(_error("vibedata/bad-aggregation",
+                                f"{where}: aggregation '{aggregation}' must be one of "
+                                f"{sorted(AGGREGATIONS)}"))
+        derived = payload.get("derived_expression")
+        if derived is not None:
+            names, _ = _names_in(derived) if isinstance(derived, str) else (set(), set())
+            if not isinstance(derived, str) or not names:
+                diags.append(_error("vibedata/bad-derived-expression",
+                                    f"{where}: derived_expression must be a formula over "
+                                    "other metrics"))
+            for ref in sorted(names - (set(metrics) - {name})):
+                diags.append(_error("vibedata/derived-unknown-metric",
+                                    f"{where}: derived_expression names '{ref}', which is "
+                                    "not another metric of this model"))
+        for i, ref in enumerate(payload.get("at_levels") or []):
+            ref_diags, _ = _check_level_ref(ref, f"{where} at_levels[{i}]", context,
+                                            need_level=True)
+            diags.extend(ref_diags)
+        series = payload.get("time_series")
+        if series is not None:
+            diags.extend(_check_time_series(series, name, metrics, where, context))
+        based_on = payload.get("based_on_dimensions")
+        if based_on is not None:
+            diags.extend(_check_based_on(based_on, name, metrics, where, context))
+    diags.extend(_metric_cycles(inputs))
+    return diags
+
+
+def _metric_inputs(payload):
+    """The other metrics a computed metric reads."""
+    out = set()
+    if isinstance(payload.get("derived_expression"), str):
+        out |= _names_in(payload["derived_expression"])[0]
+    for key in ("time_series", "based_on_dimensions"):
+        if isinstance(payload.get(key), dict) and payload[key].get("of"):
+            out.add(payload[key]["of"])
+    return out
+
+
+def _metric_cycles(inputs):
+    """A metric must not reach itself through the metrics it reads."""
+    diags, reported = [], set()
+    for start in sorted(inputs):
+        stack, seen = list(inputs[start]), set()
+        while stack:
+            current = stack.pop()
+            if current == start:
+                if start not in reported:
+                    diags.append(_error("vibedata/metric-cycle",
+                                        f"metric '{start}': reaches itself through the "
+                                        "metrics it is computed from"))
+                    reported.add(start)
+                break
+            if current in seen:
+                continue
+            seen.add(current)
+            stack.extend(inputs.get(current, ()))
+    return diags
+
+
+def _check_based_on(rule, name, metrics, where, context):
+    """OBIEE dimension-based aggregation: `of` is evaluated at the query's grain refined by
+    the `across` levels, and `rule` then aggregates those values across that dimension."""
+    if not isinstance(rule, dict):
+        return [_error("vibedata/bad-based-on", f"{where}: based_on_dimensions must be an object")]
+    diags = _unknown_keys(rule, BASED_ON_KEYS, f"{where} based_on_dimensions")
+    base = metrics.get(rule.get("of"))
+    if base is None or rule.get("of") == name:
+        diags.append(_error("vibedata/based-on-unknown-metric",
+                            f"{where}: based_on_dimensions.of '{rule.get('of')}' is not another "
+                            "metric of this model"))
+    elif json.dumps(base.get("expression"), sort_keys=True) != json.dumps(
+            metrics[name].get("expression"), sort_keys=True):
+        diags.append(_error("vibedata/based-on-expression",
+                            f"{where}: expression must equal that of '{rule.get('of')}', the "
+                            "metric it aggregates"))
+    how = rule.get("rule")
+    if how not in DIMENSION_RULES:
+        diags.append(_error("vibedata/bad-based-on",
+                            f"{where}: based_on_dimensions.rule must be one of "
+                            f"{sorted(DIMENSION_RULES)}"))
+    across = rule.get("across")
+    if not isinstance(across, list) or not across:
+        return diags + [_error("vibedata/bad-based-on",
+                               f"{where}: based_on_dimensions.across lists the levels the rule "
+                               "aggregates across")]
+    infos = []
+    for i, ref in enumerate(across):
+        ref_diags, info = _check_level_ref(ref, f"{where} based_on_dimensions.across[{i}]",
+                                           context)
+        diags.extend(ref_diags)
+        infos.append(info)
+    if how in ("FIRST", "LAST") and (len(across) != 1 or infos[0] is None
+                                     or not infos[0]["is_time"]):
+        diags.append(_error("vibedata/based-on-order-not-time",
+                            f"{where}: {how} needs exactly one level, in a time hierarchy "
+                            "(is_time), whose key orders the members chronologically"))
+    return diags
+
+
+def _check_time_series(series, name, metrics, where, context):
+    if not isinstance(series, dict):
+        return [_error("vibedata/bad-time-series", f"{where}: time_series must be an object")]
+    diags = _unknown_keys(series, TIME_SERIES_KEYS, f"{where} time_series")
+    function = series.get("function")
+    if function not in TIME_SERIES_FUNCTIONS:
+        diags.append(_error("vibedata/bad-time-series",
+                            f"{where}: time_series.function must be one of "
+                            f"{sorted(TIME_SERIES_FUNCTIONS)}"))
+    base = metrics.get(series.get("of"))
+    if base is None or series.get("of") == name:
+        diags.append(_error("vibedata/time-series-unknown-metric",
+                            f"{where}: time_series.of '{series.get('of')}' is not another "
+                            "metric of this model"))
+    elif json.dumps(base.get("expression"), sort_keys=True) != json.dumps(
+            metrics[name].get("expression"), sort_keys=True):
+        diags.append(_error("vibedata/time-series-expression",
+                            f"{where}: expression must equal that of '{series.get('of')}', "
+                            "the metric it shifts"))
+    offset = series.get("offset")
+    if function == "AGO" and (not isinstance(offset, int) or isinstance(offset, bool)
+                              or offset < 1):
+        diags.append(_error("vibedata/bad-time-series",
+                            f"{where}: AGO needs an integer offset of at least 1"))
+    if function == "TODATE" and offset is not None:
+        diags.append(_error("vibedata/bad-time-series",
+                            f"{where}: TODATE takes no offset"))
+    ref = {k: series.get(k) for k in ("via", "level")}
+    ref_diags, info = _check_level_ref(ref, f"{where} time_series", context, need_level=True)
+    diags.extend(ref_diags)
+    if info is not None and series.get("level") and not info["is_time"]:
+        diags.append(_error("vibedata/time-series-not-time",
+                            f"{where}: level '{series.get('level')}' is in no time hierarchy "
+                            "(is_time)"))
     return diags
 
 

@@ -9,6 +9,7 @@ Usage:
   python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
   python3 scripts/ossie.py suppliers <model-file-or-dir>
   python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
+  python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -25,7 +26,8 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ossie_vibedata import physical_table_index, validate_vibedata  # noqa: E402
+from ossie_levels import generate as generate_level_tests  # noqa: E402
+from ossie_vibedata import _names_in, physical_table_index, validate_vibedata  # noqa: E402
 
 TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
@@ -136,15 +138,47 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
             continue
         sources[source.get("name")] = json.dumps(
             [source.get("physical_table"), source.get("priority_group"),
-             source.get("content_grain"), source.get("column_map")],
+             source.get("content_grain"), source.get("column_map"),
+             source.get("content_levels"), source.get("content_filter"),
+             source.get("navigable")],
             sort_keys=True)
     return {"source": dataset.get("source"),
             "primary_key": dataset.get("primary_key"),
             "unique_keys": dataset.get("unique_keys"),
             "fields": fields,
             "scd": payload.get("scd"),
+            "levels": payload.get("levels"),
+            "row_level": payload.get("row_level"),
             "hierarchies": payload.get("hierarchies"),
             "logical_sources": sources}
+
+
+def _vibedata_of(node):
+    """The decoded VIBEDATA payload on a node, version stripped; {} when absent or bad."""
+    payload = {}
+    for ext in node.get("custom_extensions") or []:
+        if isinstance(ext, dict) and ext.get("vendor_name") == "VIBEDATA":
+            try:
+                decoded = json.loads(ext.get("data") or "{}")
+            except json.JSONDecodeError:
+                continue
+            if isinstance(decoded, dict):
+                payload.update(decoded)
+    payload.pop("vibedata_version", None)
+    return payload
+
+
+def _supplied_through_inputs(metric, supplied):
+    """A derived, time-series or dimension-rule metric is supplied when every input it reads is."""
+    payload = _vibedata_of(metric)
+    for key in ("time_series", "based_on_dimensions"):
+        if isinstance(payload.get(key), dict):
+            return payload[key].get("of") in supplied
+    formula = payload.get("derived_expression")
+    if isinstance(formula, str):
+        names, _ = _names_in(formula)
+        return bool(names) and names <= supplied
+    return False
 
 
 def cross_document_drift(docs):
@@ -168,7 +202,8 @@ def cross_document_drift(docs):
         for metric in doc.get("metrics") or []:
             if isinstance(metric, dict) and metric.get("name"):
                 seen.setdefault(("metric", metric["name"]), []).append(
-                    (target, json.dumps(metric.get("expression"), sort_keys=True)))
+                    (target, json.dumps([metric.get("expression"), _vibedata_of(metric)],
+                                        sort_keys=True)))
         for name, table in physical_table_index(doc).items():
             seen.setdefault(("physical_table", name), []).append((target, table))
     for (kind, name), entries in seen.items():
@@ -242,8 +277,17 @@ def suppliers(model: str):
                                   "file": str(target),
                                   "message": f"{dataset.get('name')}.{field['name']} is "
                                              "supplied by no logical source"})
-        for metric in doc.get("metrics") or []:
-            if isinstance(metric, dict) and metric.get("name") not in supplied:
+        metrics = [m for m in doc.get("metrics") or [] if isinstance(m, dict)]
+        grew = True
+        while grew:  # inputs may themselves be derived
+            grew = False
+            for metric in metrics:
+                if (metric.get("name") not in supplied
+                        and _supplied_through_inputs(metric, supplied)):
+                    supplied.add(metric["name"])
+                    grew = True
+        for metric in metrics:
+            if metric.get("name") not in supplied:
                 diags.append({"severity": "finding", "code": "suppliers/metric",
                               "file": str(target),
                               "message": f"metric '{metric['name']}' is supplied by no "
@@ -296,6 +340,32 @@ def notes(model: str, tests: str, adr: str):
     print(json.dumps(diags, indent=2))
     typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
     raise typer.Exit(1 if diags else 0)
+
+
+@app.command("level-tests")
+def level_tests(model: str, test_file: str,
+                check: bool = typer.Option(False, "--check",
+                                           help="Exit 1 when TEST_FILE is not what MODEL generates")):
+    """Write the dbt test that reports data departing from the declared levels."""
+    docs = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            print(json.dumps([read_diag]))
+            raise typer.Exit(1)
+        docs.append(_vendor.load_yaml_named(text, str(target)))
+    sql = generate_level_tests(docs)
+    path = Path(test_file)
+    if check:
+        current = path.read_text() if path.exists() else None
+        stale = current != sql
+        print(json.dumps([{"severity": "error", "code": "level-tests/stale", "file": str(path),
+                           "message": f"'{path}' is not what the model generates; run "
+                                      "level-tests without --check"}] if stale else []))
+        raise typer.Exit(1 if stale else 0)
+    path.write_text(sql)
+    print(json.dumps([]))
+    typer.echo(f"wrote {path}", err=True)
 
 
 def _sources_of(dataset):

@@ -193,7 +193,7 @@ def test_hierarchy_unknown_level_fails(tmp_path):
     doc["datasets"][1]["custom_extensions"][0]["data"] = json.dumps(payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/hierarchy-unknown-field", "error") in _codes(diags)
+    assert ("vibedata/hierarchy-unknown-level", "error") in _codes(diags)
 
 
 def test_checker_keys_match_schema():
@@ -205,7 +205,11 @@ def test_checker_keys_match_schema():
              (v.RELATIONSHIP_KEYS, "relationshipPayload"),
              (v.PHYSICAL_TABLE_KEYS, "physicalTable"),
              (v.PHYSICAL_JOIN_KEYS, "physicalJoin"), (v.LTS_KEYS, "logicalSource"),
-             (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd")]
+             (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd"),
+             (v.VARIABLE_KEYS, "variable"), (v.LEVEL_KEYS, "level"),
+             (v.LEVEL_REF_KEYS, "levelRef"), (v.METRIC_KEYS, "metricPayload"),
+             (v.TIME_SERIES_KEYS, "timeSeries"), (v.BASED_ON_KEYS, "basedOnDimensions"),
+             (v.LEVEL_KEY_KEYS, "levelKey"), (v.ROW_LEVEL_KEYS, "rowLevel")]
     for keys, ref in pairs:
         assert keys == set(defs[ref]["properties"]), ref
 
@@ -230,7 +234,9 @@ def test_version_consistent_and_present(tmp_path):
 def test_note_keys_accepted(tmp_path):
     doc = _doc()
     payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
-    payload["logical_sources"][1]["note"] = "billable_revenue refused: agg sums unfiltered totals"
+    payload["logical_sources"][1]["note"] = (
+        "billable_revenue refused: agg sums unfiltered totals; content_filter held by "
+        "assert_trip_sources_match_their_content_filter")
     doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
     model_payload = json.loads(doc["custom_extensions"][0]["data"])
     model_payload["physical_tables"][0]["note"] = "detail grain base table"
@@ -478,3 +484,476 @@ def test_notes_survives_malformed_payload(tmp_path):
     result = RUNNER.invoke(app, ["notes", str(model), str(tests), str(adrs)])
     assert result.exit_code in (0, 1)
     json.loads(result.stdout)  # stdout stays pure JSON
+
+
+def _payload(node):
+    return json.loads(node["custom_extensions"][0]["data"])
+
+
+def _set_payload(node, payload):
+    node["custom_extensions"][0]["data"] = json.dumps(payload)
+
+
+def _named(items, name):
+    return next(item for item in items if item["name"] == name)
+
+
+def _trips_source(doc, source_name):
+    trips = _named(doc["datasets"], "trips")
+    payload = _payload(trips)
+    return trips, payload, _named(payload["logical_sources"], source_name)
+
+
+def test_level_needs_keys(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    del payload["levels"][0]["keys"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-keys-missing", "error") in _codes(diags)
+
+
+def test_level_needs_exactly_one_primary_key(tmp_path):
+    """The primary key is what joins and blends at the level, so there is exactly one."""
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    month = _named(payload["levels"], "month")
+    _named(month["keys"], "year_month")["primary"] = True
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-primary-key", "error") in _codes(diags)
+
+
+def test_level_has_at_most_one_display_key(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    day = _named(payload["levels"], "day")
+    _named(day["keys"], "date_key")["display"] = True
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-display-key", "error") in _codes(diags)
+
+
+def test_level_attribute_must_be_a_field(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    _named(payload["levels"], "zone")["attributes"].append("zone_colour")
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-unknown-field", "error") in _codes(diags)
+
+
+def test_dataset_with_levels_names_its_row_level(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    del payload["row_level"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-missing", "error") in _codes(diags)
+
+
+def test_row_level_key_must_include_the_primary_key(tmp_path):
+    """A row and a member are the same thing only when the table's key is a level key."""
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    day = _named(payload["levels"], "day")
+    day["keys"] = [k for k in day["keys"] if k["name"] != "date_key"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-key", "error") in _codes(diags)
+
+
+def test_type_2_rows_are_versions(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    payload["row_level"]["versioned"] = False
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/row-level-versioned", "error") in _codes(diags)
+
+
+def test_versioned_hierarchy_states_its_rollup(tmp_path):
+    doc = _doc()
+    zone = _named(doc["datasets"], "zone")
+    payload = _payload(zone)
+    del payload["hierarchies"][0]["scd_rollup"]
+    _set_payload(zone, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/hierarchy-scd-rollup", "error") in _codes(diags)
+
+
+def test_aggregate_content_level_names_its_key_columns(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    del source["content_levels"][0]["key_columns"]
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-missing", "error") in _codes(diags)
+
+
+def test_key_columns_match_the_key_arity(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    source["content_levels"][0]["key"] = "year_month"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-arity", "error") in _codes(diags)
+
+
+def test_unknown_level_key_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS8_monthly_service_summary")
+    source["content_levels"][2]["key"] = "payment_method_code"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-unknown-key", "error") in _codes(diags)
+
+
+def test_key_columns_only_on_aggregate_content(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_pickup_borough")
+    payload = _payload(metric)
+    payload["at_levels"][0]["key_columns"] = ["pickup_borough"]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-misplaced", "error") in _codes(diags)
+
+
+def test_aggregate_content_level_needs_its_physical_join(tmp_path):
+    """An aggregate is joined to a dimension at the level it holds, so the join must exist."""
+    doc = _doc()
+    model = _payload(doc)
+    model["physical_joins"] = [j for j in model["physical_joins"]
+                               if j["name"] != "mart_monthly_service_summary_to_dim_date"]
+    _set_payload(doc, model)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-level-unjoined", "error") in _codes(diags)
+
+
+def test_level_tests_are_current():
+    """The generated level test is what the model generates now."""
+    result = RUNNER.invoke(app, ["level-tests", "logical-model",
+                                 "transformation/tests/assert_semantic_levels_hold.sql", "--check"])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_level_tests_report_every_declared_key(tmp_path):
+    """Each non-primary key and hierarchy step becomes a reported check."""
+    from ossie_levels import generate
+    sql = generate([_doc()])
+    assert "date.month: key year_month names several members" in sql
+    assert "zone.Geography: zone rolls up to several borough members" in sql
+    assert "LTS8_monthly_service_summary: trips_to_payment_method payment_method key is no member" in sql
+    assert "severity='warn'" in sql
+
+
+def test_content_level_unknown_level_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_levels"][0]["level"] = "fortnight"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-unknown-level", "error") in _codes(diags)
+
+
+def test_content_level_must_start_at_its_dataset(tmp_path):
+    doc = _doc()
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    payload["logical_sources"][0]["content_levels"] = [{"via": "trips_to_vendor"}]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-wrong-dataset", "error") in _codes(diags)
+
+
+def test_content_filter_unknown_field_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = "pickup_datetime >= :report_start"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-filter-unknown-field", "error") in _codes(diags)
+
+
+def test_content_filter_unknown_variable_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = "pickup_date >= :window_start"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-filter-unknown-variable", "error") in _codes(diags)
+
+
+def test_content_filter_literals_are_not_fields(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = "airport_fee_status = 'not charged' AND pickup_date >= DATE '2024-01-01'"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0, diags
+
+
+def test_content_filter_needs_a_holding_test(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["note"] = "checked by reading the SQL"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-filter-unheld", "error") in _codes(diags)
+
+
+def test_navigable_must_be_boolean(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS6_od_flow")
+    source["navigable"] = "no"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-navigable", "error") in _codes(diags)
+
+
+def test_metric_bad_aggregation_fails(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "trip_count")
+    _set_payload(metric, {"vibedata_version": "1.2", "aggregation": "AVG"})
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-aggregation", "error") in _codes(diags)
+
+
+def test_metric_unknown_key_fails(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "trip_count")
+    _set_payload(metric, {"vibedata_version": "1.2", "dimensionality": ["zone"]})
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/unknown-key", "error") in _codes(diags)
+
+
+def test_metric_version_counts_toward_consistency(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "trip_count")
+    _set_payload(metric, {"vibedata_version": "1.1", "aggregation": "SUM"})
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/version-mismatch", "error") in _codes(diags)
+
+
+def test_level_based_metric_needs_a_level(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_pickup_borough")
+    payload = _payload(metric)
+    payload["at_levels"] = [{"via": "trips_to_pickup_zone"}]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-needs-level", "error") in _codes(diags)
+
+
+def test_time_series_expression_must_match_its_base(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_prior_month")
+    metric["expression"]["dialects"][0]["expression"] = "SUM(trips.total_amount)"
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/time-series-expression", "error") in _codes(diags)
+
+
+def test_time_series_needs_a_time_hierarchy(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_prior_month")
+    payload = _payload(metric)
+    payload["time_series"].update(
+        {"via": "trips_to_pickup_zone", "level": "borough"})
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/time-series-not-time", "error") in _codes(diags)
+
+
+def test_ago_needs_an_offset(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_prior_month")
+    payload = _payload(metric)
+    del payload["time_series"]["offset"]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-time-series", "error") in _codes(diags)
+
+
+FLEET = Path("logical-model/nyc_taxi_fleet.ossie.yaml")
+
+
+def test_derived_metric_bound_to_a_column_fails(tmp_path):
+    """A post-aggregation ratio read from an aggregate column re-sums ratios (ADR 0016)."""
+    doc = yaml.safe_load(FLEET.read_text())
+    shift = _named(doc["datasets"], "shift")
+    payload = _payload(shift)
+    _named(payload["logical_sources"], "LTS2_driver_day")["column_map"]["occupancy_rate"] = "occupancy_rate"
+    _set_payload(shift, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/computed-metric-mapped", "error") in _codes(diags)
+
+
+def test_derived_metric_unknown_input_fails(tmp_path):
+    doc = yaml.safe_load(FLEET.read_text())
+    metric = _named(doc["metrics"], "occupancy_rate")
+    _set_payload(metric, {"vibedata_version": "1.2",
+                          "derived_expression": "on_trip_hours / NULLIF(paid_hours, 0)"})
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/derived-unknown-metric", "error") in _codes(diags)
+
+
+def test_suppliers_follow_derived_inputs(tmp_path):
+    """A derived metric is supplied through its inputs; drop an input and it goes unsupplied."""
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = yaml.safe_load(FLEET.read_text())
+    shift = _named(doc["datasets"], "shift")
+    payload = _payload(shift)
+    for source in payload["logical_sources"]:
+        source["column_map"].pop("on_trip_hours", None)
+    _set_payload(shift, payload)
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    result = RUNNER.invoke(app, ["suppliers", str(model)])
+    assert result.exit_code == 1
+    assert "on_trip_hours" in result.stdout
+    assert "occupancy_rate" in result.stdout
+
+
+def test_crossdoc_diverged_metric_payload_fails(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = _doc()
+    (model / "a.ossie.yaml").write_text(yaml.safe_dump(doc))
+    twin = _doc()
+    twin["name"] = "twin"
+    _set_payload(_named(twin["metrics"], "trip_count"),
+                 {"vibedata_version": "1.2", "aggregation": "MAX"})
+    (model / "b.ossie.yaml").write_text(yaml.safe_dump(twin))
+    code, diags = _run("validate", str(model))
+    assert code == 1
+    assert any(d["code"] == "crossdoc/diverged" and "metric 'trip_count'" in d["message"]
+               for d in diags)
+
+
+def test_model_variables_name_real_dbt_vars():
+    """A content filter's :variable is only as good as the dbt var it is bound to."""
+    project = yaml.safe_load(Path("transformation/dbt_project.yml").read_text())
+    dbt_vars = set(project.get("vars") or {})
+    for path in sorted(Path("logical-model").glob("*.ossie.yaml")):
+        doc = yaml.safe_load(path.read_text())
+        for variable in _payload(doc).get("variables", []):
+            if "dbt_var" in variable:
+                assert variable["dbt_var"] in dbt_vars, (path, variable)
+
+
+def _rule(doc, name):
+    metric = _named(doc["metrics"], name)
+    return metric, _payload(metric)
+
+
+def test_dimension_rule_expression_must_match_its_metric(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "avg_daily_billable_revenue")
+    metric["expression"]["dialects"][0]["expression"] = "SUM(trips.total_amount)"
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/based-on-expression", "error") in _codes(diags)
+
+
+def test_last_needs_a_time_level(tmp_path):
+    """LAST is a time balance: it needs one chronological level to order members by."""
+    doc = yaml.safe_load(FLEET.read_text())
+    metric, payload = _rule(doc, "closing_active_driver_count")
+    payload["based_on_dimensions"]["across"] = [{"via": "shift_to_driver"}]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/based-on-order-not-time", "error") in _codes(diags)
+
+
+def test_dimension_rule_must_be_known(tmp_path):
+    doc = _doc()
+    metric, payload = _rule(doc, "avg_daily_billable_revenue")
+    payload["based_on_dimensions"]["rule"] = "MODE"
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-based-on", "error") in _codes(diags)
+
+
+def test_metric_declares_one_computation(tmp_path):
+    doc = _doc()
+    metric, payload = _rule(doc, "avg_daily_billable_revenue")
+    payload["time_series"] = {"function": "TODATE", "of": "billable_revenue",
+                              "via": "trips_to_date", "level": "month"}
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/metric-semantics-conflict", "error") in _codes(diags)
+
+
+def test_dimension_rule_metric_bound_to_a_column_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS7_daily_zone_revenue")
+    source["column_map"]["avg_daily_billable_revenue"] = "total_revenue"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/computed-metric-mapped", "error") in _codes(diags)
+
+
+def test_metric_cycle_fails(tmp_path):
+    doc = _doc()
+    metric, payload = _rule(doc, "billable_average_fare")
+    payload["derived_expression"] = "mean_pickup_zone_average_fare * 1.0"
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/metric-cycle", "error") in _codes(diags)
+
+
+def test_suppliers_follow_dimension_rule_inputs(tmp_path):
+    """A dimension-rule metric is supplied through the metric it aggregates."""
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = yaml.safe_load(FLEET.read_text())
+    shift = _named(doc["datasets"], "shift")
+    payload = _payload(shift)
+    for source in payload["logical_sources"]:
+        source["column_map"].pop("active_driver_count", None)
+    _set_payload(shift, payload)
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    result = RUNNER.invoke(app, ["suppliers", str(model)])
+    assert result.exit_code == 1
+    assert "avg_daily_active_drivers" in result.stdout
+    assert "closing_active_driver_count" in result.stdout
