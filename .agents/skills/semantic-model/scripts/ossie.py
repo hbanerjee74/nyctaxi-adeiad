@@ -165,10 +165,11 @@ def _vibedata_of(node):
 
 
 def _supplied_through_inputs(metric, supplied):
-    """A post-aggregation or time-series metric is supplied when every input it reads is."""
+    """A derived, time-series or nested metric is supplied when every input it reads is."""
     payload = _vibedata_of(metric)
-    if "time_series" in payload and isinstance(payload["time_series"], dict):
-        return payload["time_series"].get("of") in supplied
+    for key in ("time_series", "nested"):
+        if isinstance(payload.get(key), dict):
+            return payload[key].get("of") in supplied
     formula = payload.get("derived_expression")
     if isinstance(formula, str):
         names, _ = _names_in(formula)

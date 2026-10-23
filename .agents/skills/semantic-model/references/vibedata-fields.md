@@ -58,15 +58,39 @@ The core `expression` stays the metric's aggregate over detail rows. The payload
 | Field | Meaning | Example |
 | --- | --- | --- |
 | `aggregation` | How a pre-aggregated column rolls up to a coarser grain (OBIEE aggregation rule): `SUM`, `MIN`, `MAX`, or `NON_ADDITIVE`, which never rolls up, so only a source at the query's own grain or the detail can answer (distinct counts) | `"SUM"` |
-| `derived_expression` | Post-aggregation formula over other metrics (OBIEE logical-column measure). The metric binds to no column: an engine evaluates its inputs at the query's grain, then applies the formula, which is how a rate is rebuilt from summed numerator and denominator (ADR 0016). Binding one to a column fails `derived-metric-mapped`; `suppliers` counts it supplied when its inputs are | `"on_trip_hours * 1.0 / NULLIF(online_hours, 0)"` |
+| `derived_expression` | Post-aggregation formula over other metrics (OBIEE logical-column measure). The metric binds to no column: an engine evaluates its inputs at the query's grain, then applies the formula, which is how a rate is rebuilt from summed numerator and denominator (ADR 0016). Binding one to a column fails `computed-metric-mapped`; `suppliers` counts it supplied when its inputs are | `"on_trip_hours * 1.0 / NULLIF(online_hours, 0)"` |
 | `at_levels[]` | Level-based metric (OBIEE level-based measure): evaluated at these `{via, hierarchy, level}` levels whatever finer level the query groups by. The denominator of a share of parent | `{"via": "trips_to_pickup_zone", "hierarchy": "Geography", "level": "borough"}` |
 | `time_series` | `function` (`AGO` with an `offset` of periods back, or `TODATE`), `of` (the metric shifted, whose core `expression` this metric must repeat), and the `via`/`hierarchy`/`level` period, on an `is_time` hierarchy | `{"function": "AGO", "of": "billable_revenue", "via": "trips_to_date", "hierarchy": "Time", "level": "month", "offset": 1}` |
 
-`at_levels` and `time_series` change what the number means but not the core `expression`, so a consumer that ignores VIBEDATA must not expose those metrics: its value would be the base metric's.
+| `nested` | Two-stage aggregation: evaluate `of` at the query's grain **plus** the `over` levels, then fold those values back to the query's grain with `outer` (`AVG`, `SUM`, `MIN`, `MAX`, `MEDIAN`, `FIRST`, `LAST`). `empty_members` is `skip` (default: fold only members that have data, DAX `LASTNONBLANK`, Essbase skip-missing) or `calendar` (every member of the level within the query's period, so an empty day counts: `CLOSINGBALANCEMONTH`); with no filter on that dimension the period runs from the first to the last member that has data. `FIRST` and `LAST` take exactly one `over` level, on an `is_time` hierarchy: that is a time balance (opening or closing value). The core `expression` repeats `of`'s; the metric binds to no column | `{"of": "billable_revenue", "over": [{"via": "trips_to_date", "hierarchy": "Time", "level": "day"}], "outer": "AVG"}` |
+
+A metric declares at most one of `derived_expression`, `at_levels`, `time_series` and `nested` (`metric-semantics-conflict`); compose them as a chain of metrics instead, and the chain may not loop (`metric-cycle`). `at_levels`, `time_series` and `nested` change what the number means but not the core `expression`, so a consumer that ignores VIBEDATA must not expose those metrics: its value would be the base metric's.
+
+### Evaluation order (two-pass)
+
+An engine evaluates a metric for one query context (a grain plus filters) like this, and every context is evaluated afresh, totals included:
+
+1. A base metric aggregates rows (detail, or an aggregate source whose content covers the context) at the context's grain, and rolls up by its `aggregation`.
+2. `at_levels` replaces the context's grain on the named roles with the pinned level; `time_series` replaces its period; `nested` refines its grain by the `over` levels, then folds with `outer`. Each applies to the metric it names, so a chain applies outside-in: the prior month of a closing balance shifts the period first, then takes the closing day inside it.
+3. `derived_expression` is applied last, to its inputs already evaluated in the current context. A time-series or nested metric of a rate therefore shifts or nests the **inputs** and re-applies the formula: month-to-date occupancy is to-date on-trip hours over to-date online hours, never a running sum of daily rates, and a driver's rate inside `mean_driver_occupancy_rate` is rebuilt from that driver's sums.
+
+A total is the sum of the rows above it only when every link in its chain is a `SUM`; for every other chain it is evaluated at the total's own grain (Essbase two-pass, MDX non-visual totals).
+
+### Which ratio is meant
+
+| Question | Shape | Example |
+| --- | --- | --- |
+| Ratio of totals (weighted by the denominator) | `derived_expression` over two metrics | `billable_average_fare`, `occupancy_rate` |
+| Average of a row-level ratio | Base metric whose core expression is `AVG(a / b)` over row fields | — |
+| Average of per-group ratios (each group weighs the same) | `nested` of the ratio metric, `outer: AVG`, `over` the group level | `mean_pickup_zone_average_fare`, `mean_driver_occupancy_rate` |
+| Typical or extreme period | `nested` over a time level with `AVG`, `MAX`, `MIN` or `MEDIAN` | `avg_daily_billable_revenue`, `peak_day_billable_trip_count` |
+| Opening or closing value of a period | `nested` over a time level with `FIRST` or `LAST` | `closing_active_driver_count` |
+
+Name the weighting in the description whenever a weighted and an unweighted figure both exist: they answer different questions and read alike.
 
 ## Upgrades
 
 | Version | What moved | Why |
 | --- | --- | --- |
 | `1.1` | `logical_sources[].where` removed | It was prose; a population is a decision (ADR) held by a test, not a sentence |
-| `1.2` | Added `variables`, `content_levels`, `content_filter`, `navigable`, metric payloads (`aggregation`, `derived_expression`, `at_levels`, `time_series`); hierarchy levels became `{name, key, label}` objects with `is_time` on the hierarchy; date gained `month_start_date` and `week_start_date` | An engine could not pick an aggregate (grain was prose), could not tell a windowed aggregate from the full fact (the aggregates silently covered fewer trips than the detail), keyed levels on non-unique columns (`calendar_month`, `zone_name`), and re-summed ratio columns. `content_filter` is the machine-checked successor of `where` |
+| `1.2` | Added `variables`, `content_levels`, `content_filter`, `navigable`, metric payloads (`aggregation`, `derived_expression`, `at_levels`, `time_series`, `nested`, with the evaluation order above); hierarchy levels became `{name, key, label}` objects with `is_time` on the hierarchy; date gained `month_start_date` and `week_start_date` | An engine could not pick an aggregate (grain was prose), could not tell a windowed aggregate from the full fact (the aggregates silently covered fewer trips than the detail), keyed levels on non-unique columns (`calendar_month`, `zone_name`), and re-summed ratio columns. `content_filter` is the machine-checked successor of `where` |

@@ -21,6 +21,7 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 | What does an aggregate declare beyond its `column_map`? | `content_levels` from its `GROUP BY`, `content_filter` from its `WHERE` and inner joins, held by a test its `note` names (S3b) |
 | A rate or ratio? | A `derived_expression` over its numerator and denominator metrics, bound to no column (S3c) |
 | A hierarchy level? | `{name, key, label}`: a key unique per member, checked against the data (S3b) |
+| Sum per day, then average? Closing headcount? Mean of zone averages? | A `nested` metric over the inner level with the right `outer` (S3c) |
 
 ## Stars are atomic; documents partition stars (S1)
 
@@ -52,7 +53,7 @@ A hierarchy level is keyed by the fields that identify one member, never by a la
 
 ## Metrics carry their rollup rule (S3c)
 
-Every metric declares `aggregation`. A ratio or rate is a `derived_expression` over its numerator and denominator metrics and binds to no column, so an engine rebuilds it after aggregation at any grain (ADR 0016); a precomputed rate column is refused on every source. A distinct count is `NON_ADDITIVE`. A level-based metric (`at_levels`) and a time-series metric (`time_series`, whose core `expression` repeats the metric it shifts) are consumption measures: add one only when a consumer needs the number, and never one whose meaning depends on a filter the model does not state.
+Every metric declares `aggregation`. A ratio or rate is a `derived_expression` over its numerator and denominator metrics and binds to no column, so an engine rebuilds it after aggregation at any grain (ADR 0016); a precomputed rate column is refused on every source. A distinct count is `NON_ADDITIVE`. A level-based metric (`at_levels`), a time-series metric (`time_series`) and a two-stage metric (`nested`: evaluate at a finer grain, then fold back with `AVG`, `MAX`, `LAST`, …) are consumption measures. Each wraps exactly one other metric and repeats its core `expression`. Add one only when a consumer needs the number, and never one whose meaning depends on a filter the model does not state. Before writing one, decide which ratio or average the question means (weighted ratio of totals, or equal-weight mean of per-group values) from the table in `references/vibedata-fields.md`, and say which in the description. A semi-additive snapshot is a `nested` metric with `outer: LAST` over a day level, not a plain `SUM`. The evaluation order there is normative: a formula is always applied last, to inputs already shifted or nested.
 
 ## Additivity decides which measure becomes a metric (S3a)
 

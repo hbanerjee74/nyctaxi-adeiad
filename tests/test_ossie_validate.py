@@ -208,7 +208,7 @@ def test_checker_keys_match_schema():
              (v.HIERARCHY_KEYS, "hierarchy"), (v.SCD_KEYS, "scd"),
              (v.VARIABLE_KEYS, "variable"), (v.LEVEL_KEYS, "level"),
              (v.LEVEL_REF_KEYS, "levelRef"), (v.METRIC_KEYS, "metricPayload"),
-             (v.TIME_SERIES_KEYS, "timeSeries")]
+             (v.TIME_SERIES_KEYS, "timeSeries"), (v.NESTED_KEYS, "nested")]
     for keys, ref in pairs:
         assert keys == set(defs[ref]["properties"]), ref
 
@@ -666,7 +666,7 @@ def test_derived_metric_bound_to_a_column_fails(tmp_path):
     _set_payload(shift, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
-    assert ("vibedata/derived-metric-mapped", "error") in _codes(diags)
+    assert ("vibedata/computed-metric-mapped", "error") in _codes(diags)
 
 
 def test_derived_metric_unknown_input_fails(tmp_path):
@@ -721,3 +721,97 @@ def test_model_variables_name_real_dbt_vars():
         for variable in _payload(doc).get("variables", []):
             if "dbt_var" in variable:
                 assert variable["dbt_var"] in dbt_vars, (path, variable)
+
+
+def _nested(doc, name):
+    metric = _named(doc["metrics"], name)
+    return metric, _payload(metric)
+
+
+def test_nested_expression_must_match_its_inner_metric(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "avg_daily_billable_revenue")
+    metric["expression"]["dialects"][0]["expression"] = "SUM(trips.total_amount)"
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/nested-expression", "error") in _codes(diags)
+
+
+def test_nested_last_needs_a_time_level(tmp_path):
+    """LAST is a time balance: it needs one chronological level to order members by."""
+    doc = yaml.safe_load(FLEET.read_text())
+    metric, payload = _nested(doc, "closing_active_driver_count")
+    payload["nested"]["over"] = [{"via": "shift_to_driver"}]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/nested-order-not-time", "error") in _codes(diags)
+
+
+def test_nested_bad_outer_fails(tmp_path):
+    doc = _doc()
+    metric, payload = _nested(doc, "avg_daily_billable_revenue")
+    payload["nested"]["outer"] = "MODE"
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-nested", "error") in _codes(diags)
+
+
+def test_nested_calendar_members_need_a_hierarchy_level(tmp_path):
+    """Calendar members come from a hierarchy level, so a bare relationship cannot supply them."""
+    doc = yaml.safe_load(FLEET.read_text())
+    metric, payload = _nested(doc, "mean_driver_occupancy_rate")
+    payload["nested"]["empty_members"] = "calendar"
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-needs-hierarchy", "error") in _codes(diags)
+
+
+def test_metric_declares_one_computation(tmp_path):
+    doc = _doc()
+    metric, payload = _nested(doc, "avg_daily_billable_revenue")
+    payload["time_series"] = {"function": "TODATE", "of": "billable_revenue",
+                              "via": "trips_to_date", "hierarchy": "Time", "level": "month"}
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/metric-semantics-conflict", "error") in _codes(diags)
+
+
+def test_nested_metric_bound_to_a_column_fails(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS7_daily_zone_revenue")
+    source["column_map"]["avg_daily_billable_revenue"] = "total_revenue"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/computed-metric-mapped", "error") in _codes(diags)
+
+
+def test_metric_cycle_fails(tmp_path):
+    doc = _doc()
+    metric, payload = _nested(doc, "billable_average_fare")
+    payload["derived_expression"] = "mean_pickup_zone_average_fare * 1.0"
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/metric-cycle", "error") in _codes(diags)
+
+
+def test_suppliers_follow_nested_inputs(tmp_path):
+    """A nested metric is supplied through the metric it nests."""
+    model = tmp_path / "model"
+    model.mkdir()
+    doc = yaml.safe_load(FLEET.read_text())
+    shift = _named(doc["datasets"], "shift")
+    payload = _payload(shift)
+    for source in payload["logical_sources"]:
+        source["column_map"].pop("active_driver_count", None)
+    _set_payload(shift, payload)
+    (model / "m.ossie.yaml").write_text(yaml.safe_dump(doc))
+    result = RUNNER.invoke(app, ["suppliers", str(model)])
+    assert result.exit_code == 1
+    assert "avg_daily_active_drivers" in result.stdout
+    assert "closing_active_driver_count" in result.stdout

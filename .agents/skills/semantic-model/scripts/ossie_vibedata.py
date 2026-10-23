@@ -21,6 +21,10 @@ VENDOR = "VIBEDATA"
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
 AGGREGATIONS = {"SUM", "MIN", "MAX", "NON_ADDITIVE"}
 TIME_SERIES_FUNCTIONS = {"AGO", "TODATE"}
+OUTER_AGGREGATIONS = {"AVG", "SUM", "MIN", "MAX", "MEDIAN", "FIRST", "LAST"}
+EMPTY_MEMBERS = {"skip", "calendar"}
+# A metric computed from another metric rather than from rows: at most one per metric.
+COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "nested")
 
 MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variables"}
 DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
@@ -37,8 +41,9 @@ HIERARCHY_KEYS = {"name", "is_time", "levels"}
 LEVEL_KEYS = {"name", "key", "label"}
 LEVEL_REF_KEYS = {"via", "hierarchy", "level"}
 METRIC_KEYS = {"vibedata_version", "aggregation", "derived_expression", "at_levels",
-               "time_series"}
+               "time_series", "nested"}
 TIME_SERIES_KEYS = {"function", "of", "via", "hierarchy", "level", "offset"}
+NESTED_KEYS = {"of", "over", "outer", "empty_members"}
 SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
 
@@ -501,6 +506,7 @@ def _validate_metrics(doc, context):
             for src in (payload.get("logical_sources") or []) if isinstance(payload, dict) else []:
                 if isinstance(src, dict) and isinstance(src.get("column_map"), dict):
                     mapped.update(src["column_map"])
+    inputs = {}
     for name, metric in metrics.items():
         where = f"metric '{name}'"
         payload, errs = _metric_payload(metric, where)
@@ -508,6 +514,16 @@ def _validate_metrics(doc, context):
         if not payload:
             continue
         diags.extend(_unknown_keys(payload, METRIC_KEYS, where))
+        kinds = [k for k in COMPUTED_KEYS if payload.get(k) is not None]
+        if len(kinds) > 1:
+            diags.append(_error("vibedata/metric-semantics-conflict",
+                                f"{where}: declares {', '.join(kinds)}; a metric wraps one "
+                                "other metric one way, so split it into a chain"))
+        if any(k != "at_levels" for k in kinds) and name in mapped:
+            diags.append(_error("vibedata/computed-metric-mapped",
+                                f"{where}: computed from other metrics after aggregation, so "
+                                "it must not be bound to a column"))
+        inputs[name] = _metric_inputs(payload)
         aggregation = payload.get("aggregation")
         if aggregation is not None and aggregation not in AGGREGATIONS:
             diags.append(_error("vibedata/bad-aggregation",
@@ -524,10 +540,6 @@ def _validate_metrics(doc, context):
                 diags.append(_error("vibedata/derived-unknown-metric",
                                     f"{where}: derived_expression names '{ref}', which is "
                                     "not another metric of this model"))
-            if name in mapped:
-                diags.append(_error("vibedata/derived-metric-mapped",
-                                    f"{where}: a post-aggregation metric is computed from "
-                                    "its inputs and must not be bound to a column"))
         for i, ref in enumerate(payload.get("at_levels") or []):
             ref_diags, _ = _check_level_ref(ref, f"{where} at_levels[{i}]",
                                             context["relationships"], context["hierarchies"],
@@ -536,6 +548,86 @@ def _validate_metrics(doc, context):
         series = payload.get("time_series")
         if series is not None:
             diags.extend(_check_time_series(series, name, metrics, where, context))
+        nested = payload.get("nested")
+        if nested is not None:
+            diags.extend(_check_nested(nested, name, metrics, where, context))
+    diags.extend(_metric_cycles(inputs))
+    return diags
+
+
+def _metric_inputs(payload):
+    """The other metrics a computed metric reads."""
+    out = set()
+    if isinstance(payload.get("derived_expression"), str):
+        out |= _names_in(payload["derived_expression"])[0]
+    for key in ("time_series", "nested"):
+        if isinstance(payload.get(key), dict) and payload[key].get("of"):
+            out.add(payload[key]["of"])
+    return out
+
+
+def _metric_cycles(inputs):
+    """A metric must not reach itself through the metrics it reads."""
+    diags, reported = [], set()
+    for start in sorted(inputs):
+        stack, seen = list(inputs[start]), set()
+        while stack:
+            current = stack.pop()
+            if current == start:
+                if start not in reported:
+                    diags.append(_error("vibedata/metric-cycle",
+                                        f"metric '{start}': reaches itself through the "
+                                        "metrics it is computed from"))
+                    reported.add(start)
+                break
+            if current in seen:
+                continue
+            seen.add(current)
+            stack.extend(inputs.get(current, ()))
+    return diags
+
+
+def _check_nested(nested, name, metrics, where, context):
+    """Evaluate `of` at the query grain plus `over`, then fold back with `outer` (two-stage)."""
+    if not isinstance(nested, dict):
+        return [_error("vibedata/bad-nested", f"{where}: nested must be an object")]
+    diags = _unknown_keys(nested, NESTED_KEYS, f"{where} nested")
+    base = metrics.get(nested.get("of"))
+    if base is None or nested.get("of") == name:
+        diags.append(_error("vibedata/nested-unknown-metric",
+                            f"{where}: nested.of '{nested.get('of')}' is not another metric "
+                            "of this model"))
+    elif json.dumps(base.get("expression"), sort_keys=True) != json.dumps(
+            metrics[name].get("expression"), sort_keys=True):
+        diags.append(_error("vibedata/nested-expression",
+                            f"{where}: expression must equal that of '{nested.get('of')}', "
+                            "the metric it nests"))
+    outer = nested.get("outer")
+    if outer not in OUTER_AGGREGATIONS:
+        diags.append(_error("vibedata/bad-nested",
+                            f"{where}: nested.outer must be one of {sorted(OUTER_AGGREGATIONS)}"))
+    empty = nested.get("empty_members", "skip")
+    if empty not in EMPTY_MEMBERS:
+        diags.append(_error("vibedata/bad-nested",
+                            f"{where}: nested.empty_members must be one of "
+                            f"{sorted(EMPTY_MEMBERS)}"))
+    over = nested.get("over")
+    if not isinstance(over, list) or not over:
+        return diags + [_error("vibedata/bad-nested",
+                               f"{where}: nested.over must list the levels the inner metric "
+                               "is evaluated at")]
+    hierarchies = []
+    for i, ref in enumerate(over):
+        ref_diags, hier = _check_level_ref(ref, f"{where} nested.over[{i}]",
+                                           context["relationships"], context["hierarchies"],
+                                           need_hierarchy=(empty == "calendar"))
+        diags.extend(ref_diags)
+        hierarchies.append(hier)
+    if outer in ("FIRST", "LAST") and (len(over) != 1 or hierarchies[0] is None
+                                       or not hierarchies[0]["is_time"]):
+        diags.append(_error("vibedata/nested-order-not-time",
+                            f"{where}: {outer} needs exactly one level, on a time hierarchy "
+                            "(is_time), to order the members by"))
     return diags
 
 

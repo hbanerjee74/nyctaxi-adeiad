@@ -378,6 +378,9 @@
         },
         "time_series": {
           "$ref": "#/$defs/timeSeries"
+        },
+        "nested": {
+          "$ref": "#/$defs/nested"
         }
       },
       "additionalProperties": false
@@ -415,6 +418,49 @@
           "type": "integer",
           "minimum": 1,
           "description": "AGO only: periods back"
+        }
+      },
+      "additionalProperties": false
+    },
+    "nested": {
+      "type": "object",
+      "required": [
+        "of",
+        "over",
+        "outer"
+      ],
+      "description": "Two-stage aggregation: evaluate `of` at the query grain plus `over`, then fold those values back to the query grain with `outer` (DAX AVERAGEX(VALUES(..)), Essbase time balance, MDX Avg(Descendants(..)))",
+      "properties": {
+        "of": {
+          "type": "string",
+          "description": "Metric evaluated at the inner grain"
+        },
+        "over": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/levelRef"
+          },
+          "minItems": 1,
+          "description": "Levels added to the query grain for the inner evaluation"
+        },
+        "outer": {
+          "enum": [
+            "AVG",
+            "SUM",
+            "MIN",
+            "MAX",
+            "MEDIAN",
+            "FIRST",
+            "LAST"
+          ],
+          "description": "Fold over the inner values; FIRST and LAST order by a time level"
+        },
+        "empty_members": {
+          "enum": [
+            "skip",
+            "calendar"
+          ],
+          "description": "skip (default): fold only members with data (LASTNONBLANK); calendar: every member of the level in the query's period (CLOSINGBALANCEMONTH)"
         }
       },
       "additionalProperties": false

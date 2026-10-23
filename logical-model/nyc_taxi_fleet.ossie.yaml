@@ -999,6 +999,32 @@ metrics:
     custom_extensions:
       - vendor_name: VIBEDATA
         data: '{"vibedata_version": "1.2", "derived_expression": "gross_revenue * 1.0 / NULLIF(online_hours, 0)"}'
+  - name: mean_driver_occupancy_rate
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(shift.on_trip_seconds) * 1.0 / NULLIF(SUM(shift.online_seconds), 0)
+    description: "Unweighted mean of each driver's occupancy rate: the rate is rebuilt per driver first (ADR 0016), then drivers are averaged with equal weight. occupancy_rate is the fleet's time-weighted figure."
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Average driver occupancy
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "occupancy_rate", "over": [{"via": "shift_to_driver"}], "outer": "AVG", "empty_members": "skip"}}'
+  - name: occupancy_rate_month_to_date
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(shift.on_trip_seconds) * 1.0 / NULLIF(SUM(shift.online_seconds), 0)
+    description: "Occupancy from the first of the month to each row's date: the ratio of to-date on-trip hours to to-date online hours, never a running sum of daily rates."
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Month-to-date occupancy
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "time_series": {"function": "TODATE", "of": "occupancy_rate", "via": "shift_to_date", "hierarchy": "Time", "level": "month"}}'
   - name: active_driver_count
     expression:
       dialects:
@@ -1012,6 +1038,32 @@ metrics:
     custom_extensions:
       - vendor_name: VIBEDATA
         data: '{"vibedata_version": "1.2", "aggregation": "NON_ADDITIVE"}'
+  - name: avg_daily_active_drivers
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: COUNT(DISTINCT shift.driver_key)
+    description: "Distinct drivers per shift day, averaged over the days with shifts."
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Average daily active drivers
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "active_driver_count", "over": [{"via": "shift_to_date", "hierarchy": "Time", "level": "day"}], "outer": "AVG", "empty_members": "skip"}}'
+  - name: closing_active_driver_count
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: COUNT(DISTINCT shift.driver_key)
+    description: "Distinct drivers on the last day of the period that had shifts: a time balance, so a month reports its closing headcount, not the sum of its days."
+    datatype: Integer
+    ai_context:
+      synonyms:
+        - Closing active drivers
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "active_driver_count", "over": [{"via": "shift_to_date", "hierarchy": "Time", "level": "day"}], "outer": "LAST", "empty_members": "skip"}}'
 custom_extensions:
   - vendor_name: VIBEDATA
     data: '{"vibedata_version": "1.2", "physical_tables": [{"name": "fct_shift", "source": "core.fct_shift", "dbt_model": "fct_shift", "table_type": "TABLE"}, {"name": "fct_status_interval", "source": "core.fct_status_interval", "dbt_model": "fct_status_interval", "table_type": "TABLE"}, {"name": "fct_maintenance", "source": "core.fct_maintenance", "dbt_model": "fct_maintenance", "table_type": "TABLE"}, {"name": "dim_driver", "source": "core.dim_driver", "dbt_model": "dim_driver", "table_type": "TABLE"}, {"name": "dim_vehicle", "source": "core.dim_vehicle", "dbt_model": "dim_vehicle", "table_type": "TABLE"}, {"name": "dim_garage", "source": "core.dim_garage", "dbt_model": "dim_garage", "table_type": "TABLE"}, {"name": "dim_date", "source": "core.dim_date", "dbt_model": "dim_date", "table_type": "TABLE"}, {"name": "dim_daypart", "source": "core.dim_daypart", "dbt_model": "dim_daypart", "table_type": "TABLE"}, {"name": "dim_zone", "source": "core.dim_zone", "dbt_model": "dim_zone", "table_type": "TABLE"}, {"name": "agg_driver_daily", "source": "agg.agg_driver_daily", "dbt_model": "agg_driver_daily", "table_type": "TABLE"}, {"name": "agg_driver_monthly", "source": "agg.agg_driver_monthly", "dbt_model": "agg_driver_monthly", "table_type": "TABLE"}, {"name": "agg_vehicle_daily", "source": "agg.agg_vehicle_daily", "dbt_model": "agg_vehicle_daily", "table_type": "TABLE"}, {"name": "agg_vehicle_monthly", "source": "agg.agg_vehicle_monthly", "dbt_model": "agg_vehicle_monthly", "table_type": "TABLE"}, {"name": "agg_garage_monthly", "source": "agg.agg_garage_monthly", "dbt_model": "agg_garage_monthly", "table_type": "TABLE"}, {"name": "agg_zone_occupancy_hourly", "source": "agg.agg_zone_occupancy_hourly", "dbt_model": "agg_zone_occupancy_hourly", "table_type": "TABLE"}, {"name": "mart_driver_scorecard", "source": "ops.mart_driver_scorecard", "dbt_model": "mart_driver_scorecard", "table_type": "TABLE"}, {"name": "mart_vehicle_utilisation", "source": "ops.mart_vehicle_utilisation", "dbt_model": "mart_vehicle_utilisation", "table_type": "TABLE"}], "physical_joins": [{"name": "fct_shift_to_dim_driver", "from": "fct_shift", "to": "dim_driver"}, {"name": "fct_shift_to_dim_vehicle", "from": "fct_shift", "to": "dim_vehicle"}, {"name": "fct_shift_to_dim_garage", "from": "fct_shift", "to": "dim_garage"}, {"name": "fct_shift_to_dim_date", "from": "fct_shift", "to": "dim_date"}, {"name": "fct_status_interval_to_dim_driver", "from": "fct_status_interval", "to": "dim_driver"}, {"name": "fct_status_interval_to_dim_vehicle", "from": "fct_status_interval", "to": "dim_vehicle"}, {"name": "fct_status_interval_to_dim_date", "from": "fct_status_interval", "to": "dim_date"}, {"name": "fct_status_interval_to_dim_daypart", "from": "fct_status_interval", "to": "dim_daypart"}, {"name": "fct_status_interval_to_dim_zone", "from": "fct_status_interval", "to": "dim_zone"}, {"name": "fct_maintenance_to_dim_vehicle", "from": "fct_maintenance", "to": "dim_vehicle"}, {"name": "fct_maintenance_to_dim_garage", "from": "fct_maintenance", "to": "dim_garage"}, {"name": "fct_maintenance_to_dim_date", "from": "fct_maintenance", "to": "dim_date"}, {"name": "agg_driver_daily_to_dim_driver", "from": "agg_driver_daily", "to": "dim_driver"}, {"name": "agg_driver_monthly_to_dim_driver", "from": "agg_driver_monthly", "to": "dim_driver"}, {"name": "agg_vehicle_daily_to_dim_vehicle", "from": "agg_vehicle_daily", "to": "dim_vehicle"}, {"name": "agg_vehicle_monthly_to_dim_vehicle", "from": "agg_vehicle_monthly", "to": "dim_vehicle"}, {"name": "agg_garage_monthly_to_dim_garage", "from": "agg_garage_monthly", "to": "dim_garage"}, {"name": "agg_zone_occupancy_hourly_to_dim_zone", "from": "agg_zone_occupancy_hourly", "to": "dim_zone"}, {"name": "mart_driver_scorecard_to_dim_driver", "from": "mart_driver_scorecard", "to": "dim_driver"}, {"name": "mart_vehicle_utilisation_to_dim_vehicle", "from": "mart_vehicle_utilisation", "to": "dim_vehicle"}]}'

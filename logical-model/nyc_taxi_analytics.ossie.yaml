@@ -668,6 +668,58 @@ metrics:
     custom_extensions:
       - vendor_name: VIBEDATA
         data: '{"vibedata_version": "1.2", "aggregation": "SUM"}'
+  - name: billable_average_fare
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(CASE WHEN trips.is_billable THEN trips.total_amount ELSE 0 END) * 1.0 / NULLIF(SUM(CASE WHEN trips.is_billable THEN 1 ELSE 0 END), 0)
+    description: 'Average total per billable trip, weighted by trips: billable revenue over billable trips, rebuilt at whatever grain is asked (two-pass).'
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Average fare
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "derived_expression": "billable_revenue * 1.0 / NULLIF(billable_trip_count, 0)"}'
+  - name: mean_pickup_zone_average_fare
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(CASE WHEN trips.is_billable THEN trips.total_amount ELSE 0 END) * 1.0 / NULLIF(SUM(CASE WHEN trips.is_billable THEN 1 ELSE 0 END), 0)
+    description: "Unweighted mean of each pickup zone's average fare: the average fare is computed per zone first, then the zones are averaged with equal weight. A thin zone counts as much as a busy one; billable_average_fare is the trip-weighted figure."
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Average of zone average fares
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "billable_average_fare", "over": [{"via": "trips_to_pickup_zone", "hierarchy": "Geography", "level": "zone"}], "outer": "AVG", "empty_members": "skip"}}'
+  - name: avg_daily_billable_revenue
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(CASE WHEN trips.is_billable THEN trips.total_amount ELSE 0 END)
+    description: Billable revenue summed per pickup day, then averaged over the days that had billable trips.
+    datatype: Decimal
+    ai_context:
+      synonyms:
+        - Average daily billable revenue
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "billable_revenue", "over": [{"via": "trips_to_date", "hierarchy": "Time", "level": "day"}], "outer": "AVG", "empty_members": "skip"}}'
+  - name: peak_day_billable_trip_count
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: SUM(CASE WHEN trips.is_billable THEN 1 ELSE 0 END)
+    description: 'Billable trips on the busiest pickup day of the period: counted per day, then the largest day kept.'
+    datatype: Integer
+    ai_context:
+      synonyms:
+        - Busiest day trips
+    custom_extensions:
+      - vendor_name: VIBEDATA
+        data: '{"vibedata_version": "1.2", "nested": {"of": "billable_trip_count", "over": [{"via": "trips_to_date", "hierarchy": "Time", "level": "day"}], "outer": "MAX", "empty_members": "skip"}}'
   - name: fare_residual_total
     expression:
       dialects:
