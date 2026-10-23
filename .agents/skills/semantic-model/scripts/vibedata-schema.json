@@ -285,6 +285,14 @@
         "note": {
           "type": "string",
           "description": "Why this relationship lacks key-covering to_columns, or why a reachable path has none"
+        },
+        "to_level": {
+          "type": "string",
+          "description": "Level of the target whose primary key to_columns carry: the join reaches a member of a versioned dimension, not one of its rows"
+        },
+        "weight": {
+          "type": "string",
+          "description": "Field of the from dataset that allocates a measure entering this relationship from its one side (a weighted bridge); the weights of one member sum to 1"
         }
       },
       "additionalProperties": false
@@ -319,13 +327,10 @@
     },
     "levelRef": {
       "type": "object",
-      "required": [
-        "via"
-      ],
       "properties": {
         "via": {
           "type": "string",
-          "description": "Relationship that reaches the dimension (names the role)"
+          "description": "Relationship that reaches the dimension (names the role). Omitted only on a dimension's own coarser source, where the level is one of the dataset's own levels"
         },
         "level": {
           "type": "string",
@@ -376,6 +381,17 @@
         },
         "based_on_dimensions": {
           "$ref": "#/$defs/basedOnDimensions"
+        },
+        "filter": {
+          "type": "string",
+          "description": "OBIEE FILTER(... USING ...): the rows the metric reads, as a predicate over dataset.field columns the core expression also reads"
+        },
+        "unrelated_dimensions": {
+          "enum": [
+            "error",
+            "total"
+          ],
+          "description": "A query that groups or filters by a dimension the metric cannot reach: error (default) rejects the query; total repeats the metric's value without that dimension"
         }
       },
       "additionalProperties": false
@@ -392,7 +408,8 @@
         "function": {
           "enum": [
             "AGO",
-            "TODATE"
+            "TODATE",
+            "ROLLING"
           ]
         },
         "of": {
@@ -409,6 +426,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "AGO only: periods back"
+        },
+        "periods": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "ROLLING only: the current member and periods - 1 before it, in the time dimension's chronological order"
         }
       },
       "additionalProperties": false

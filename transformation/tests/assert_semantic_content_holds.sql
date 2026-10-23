@@ -151,7 +151,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('agg_driver_daily') }} as a
 ),
 
@@ -160,7 +161,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.driver_key) IS NULL
 ),
@@ -170,7 +172,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('agg_driver_monthly') }} as a
 ),
 
@@ -179,7 +182,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.driver_key) IS NULL
 ),
@@ -189,7 +193,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('agg_vehicle_daily') }} as a
 ),
 
@@ -198,7 +203,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.vehicle_key) IS NULL
 ),
@@ -208,7 +214,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('agg_vehicle_monthly') }} as a
 ),
 
@@ -217,7 +224,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.vehicle_key) IS NULL
 ),
@@ -227,7 +235,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('agg_garage_monthly') }} as a
 ),
 
@@ -236,7 +245,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.vehicle_key) IS NULL
 ),
@@ -246,7 +256,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('mart_driver_scorecard') }} as a
 ),
 
@@ -255,7 +266,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.driver_key) IS NULL
 ),
@@ -265,7 +277,8 @@ select
     sum(a.shift_count) as shift_count,
     sum(a.online_hours) as online_hours,
     sum(a.on_trip_hours) as on_trip_hours,
-    sum(a.gross_revenue) as gross_revenue
+    sum(a.gross_revenue) as gross_revenue,
+    sum(a.on_trip_hours) as fleet_on_trip_hours
 from {{ ref('mart_vehicle_utilisation') }} as a
 ),
 
@@ -274,7 +287,8 @@ select
     SUM(CASE WHEN NOT (f.shift_id) IS NULL THEN 1 ELSE 0 END) as shift_count,
     SUM((f.online_seconds)) / 3600.0 as online_hours,
     SUM((f.on_trip_seconds)) / 3600.0 as on_trip_hours,
-    SUM((f.gross_revenue)) as gross_revenue
+    SUM((f.gross_revenue)) as gross_revenue,
+    SUM((f.on_trip_seconds)) / 3600.0 as fleet_on_trip_hours
 from {{ ref('fct_shift') }} as f
 where NOT (f.vehicle_key) IS NULL
 )
@@ -407,6 +421,14 @@ where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gro
 
 union all
 
+select 'shift.LTS2_driver_day.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s9_source as s cross join s9_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
+
+union all
+
 select 'shift.LTS3_driver_month.shift_count' as binding,
     cast(s.shift_count as varchar) as source_value,
     cast(d.shift_count as varchar) as detail_value
@@ -436,6 +458,14 @@ select 'shift.LTS3_driver_month.gross_revenue' as binding,
     cast(d.gross_revenue as varchar) as detail_value
 from s10_source as s cross join s10_detail as d
 where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gross_revenue, 2) - round(d.gross_revenue, 2)) > 0.01)
+
+union all
+
+select 'shift.LTS3_driver_month.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s10_source as s cross join s10_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
 
 union all
 
@@ -471,6 +501,14 @@ where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gro
 
 union all
 
+select 'shift.LTS4_vehicle_day.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s11_source as s cross join s11_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
+
+union all
+
 select 'shift.LTS5_vehicle_month.shift_count' as binding,
     cast(s.shift_count as varchar) as source_value,
     cast(d.shift_count as varchar) as detail_value
@@ -500,6 +538,14 @@ select 'shift.LTS5_vehicle_month.gross_revenue' as binding,
     cast(d.gross_revenue as varchar) as detail_value
 from s12_source as s cross join s12_detail as d
 where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gross_revenue, 2) - round(d.gross_revenue, 2)) > 0.01)
+
+union all
+
+select 'shift.LTS5_vehicle_month.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s12_source as s cross join s12_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
 
 union all
 
@@ -535,6 +581,14 @@ where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gro
 
 union all
 
+select 'shift.LTS6_garage_month.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s13_source as s cross join s13_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
+
+union all
+
 select 'shift.LTS7_driver_scorecard.shift_count' as binding,
     cast(s.shift_count as varchar) as source_value,
     cast(d.shift_count as varchar) as detail_value
@@ -567,6 +621,14 @@ where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gro
 
 union all
 
+select 'shift.LTS7_driver_scorecard.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s14_source as s cross join s14_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)
+
+union all
+
 select 'shift.LTS8_vehicle_utilisation.shift_count' as binding,
     cast(s.shift_count as varchar) as source_value,
     cast(d.shift_count as varchar) as detail_value
@@ -596,3 +658,11 @@ select 'shift.LTS8_vehicle_utilisation.gross_revenue' as binding,
     cast(d.gross_revenue as varchar) as detail_value
 from s15_source as s cross join s15_detail as d
 where ((s.gross_revenue is null) <> (d.gross_revenue is null) or abs(round(s.gross_revenue, 2) - round(d.gross_revenue, 2)) > 0.01)
+
+union all
+
+select 'shift.LTS8_vehicle_utilisation.fleet_on_trip_hours' as binding,
+    cast(s.fleet_on_trip_hours as varchar) as source_value,
+    cast(d.fleet_on_trip_hours as varchar) as detail_value
+from s15_source as s cross join s15_detail as d
+where ((s.fleet_on_trip_hours is null) <> (d.fleet_on_trip_hours is null) or abs(round(s.fleet_on_trip_hours, 2) - round(d.fleet_on_trip_hours, 2)) > 0.01)

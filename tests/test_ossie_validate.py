@@ -1107,3 +1107,199 @@ def test_columns_need_a_catalog(tmp_path):
     result = RUNNER.invoke(app, ["columns", str(CANONICAL), str(tmp_path / "missing.json")])
     assert result.exit_code == 1
     assert "columns/no-catalog" in result.stdout
+
+
+STAR = SKILL_SCRIPTS.parent / "examples" / "star.ossie.yaml"
+
+
+def _metric_payload_set(doc, name, **changes):
+    metric = _named(doc["metrics"], name)
+    payload = _payload(metric)
+    payload.update(changes)
+    _set_payload(metric, payload)
+    return metric
+
+
+def test_metric_filter_must_be_qualified(tmp_path):
+    doc = _doc()
+    _metric_payload_set(doc, "billable_revenue", filter="is_billable")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/filter-unqualified", "error") in _codes(diags)
+
+
+def test_metric_filter_unknown_field_fails(tmp_path):
+    doc = _doc()
+    _metric_payload_set(doc, "billable_revenue", filter="trips.is_refund")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/filter-unknown-field", "error") in _codes(diags)
+
+
+def test_metric_filter_must_be_read_by_the_expression(tmp_path):
+    """A filter the expression does not apply would declare a population nobody computes."""
+    doc = _doc()
+    _metric_payload_set(doc, "billable_revenue", filter="trips.is_fleet_attributed")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/filter-not-in-expression", "error") in _codes(diags)
+
+
+def test_metric_filter_not_on_computed_metric(tmp_path):
+    doc = _doc()
+    _metric_payload_set(doc, "billable_revenue_prior_month", filter="trips.is_billable")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/filter-on-computed-metric", "error") in _codes(diags)
+
+
+def test_unrelated_dimensions_value_checked(tmp_path):
+    doc = _doc()
+    _metric_payload_set(doc, "trip_count", unrelated_dimensions="blank")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-unrelated", "error") in _codes(diags)
+
+
+def test_rolling_needs_periods(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_rolling_28_days")
+    payload = _payload(metric)
+    del payload["time_series"]["periods"]
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-time-series", "error") in _codes(diags)
+
+
+def test_periods_belongs_to_rolling_only(tmp_path):
+    doc = _doc()
+    metric = _named(doc["metrics"], "billable_revenue_prior_month")
+    payload = _payload(metric)
+    payload["time_series"]["periods"] = 3
+    _set_payload(metric, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/bad-time-series", "error") in _codes(diags)
+
+
+def _bridge(doc, **changes):
+    rel = _named(doc["relationships"], "zone_poi_to_zone")
+    payload = _payload(rel)
+    payload.update(changes)
+    _set_payload(rel, payload)
+    return rel
+
+
+def test_to_level_columns_must_be_the_level_key(tmp_path):
+    doc = _doc()
+    rel = _bridge(doc)
+    rel["to_columns"] = ["zone_key"]
+    rel["from_columns"] = ["poi_id"]
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/to-level-key-mismatch", "error") in _codes(diags)
+
+
+def test_to_level_unknown_level_fails(tmp_path):
+    doc = _doc()
+    _bridge(doc, to_level="street")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-unknown-level", "error") in _codes(diags)
+
+
+def test_bridge_weight_must_be_a_numeric_field(tmp_path):
+    doc = _doc()
+    _bridge(doc, weight="poi_name")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/weight-not-numeric", "error") in _codes(diags)
+    _bridge(doc, weight="nope")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert ("vibedata/weight-unknown-field", "error") in _codes(diags)
+
+
+def _month_table(doc):
+    date = _named(doc["datasets"], "date")
+    payload = _payload(date)
+    return date, payload, _named(payload["logical_sources"], "LTS2_month_table")
+
+
+def test_month_table_cannot_supply_a_day_field(tmp_path):
+    """A dimension source held at month supplies month and above, never a day."""
+    doc = yaml.safe_load(STAR.read_text())
+    date, payload, source = _month_table(doc)
+    source["column_map"]["calendar_date"] = "first_day"
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/own-level-finer-field", "error") in _codes(diags)
+
+
+def test_own_level_needs_key_columns(tmp_path):
+    doc = yaml.safe_load(STAR.read_text())
+    date, payload, source = _month_table(doc)
+    del source["content_levels"][0]["key_columns"]
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/level-ref-key-columns-missing", "error") in _codes(diags)
+
+
+def test_own_level_only_on_a_coarser_source(tmp_path):
+    doc = yaml.safe_load(STAR.read_text())
+    date, payload, source = _month_table(doc)
+    source["priority_group"] = 1
+    _set_payload(date, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/own-level-on-detail", "error") in _codes(diags)
+
+
+def test_monthly_aggregate_must_join_a_table_at_its_level(tmp_path):
+    """The monthly aggregate is honest only while it joins the month table (or the day one)."""
+    doc = yaml.safe_load(STAR.read_text())
+    model = _payload(doc)
+    model["physical_joins"] = [j for j in model["physical_joins"]
+                               if j["name"] != "agg_order_monthly_to_dim_month"]
+    _set_payload(doc, model)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-level-unjoined", "error") in _codes(diags)
+
+
+def _dimensionality(path):
+    result = RUNNER.invoke(app, ["dimensionality", str(path)])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.stdout)
+
+
+def test_dimensionality_errors_where_a_fact_has_no_path():
+    fleet = _dimensionality(FLEET)["nyc_taxi_fleet"]
+    assert "zone" not in fleet["online_hours"]["dimensions"]
+    assert fleet["online_hours"]["unrelated_dimensions"] == "error"
+    assert "zone" in fleet["on_trip_interval_hours"]["dimensions"]
+
+
+def test_dimensionality_total_metric_answers_every_dimension():
+    fleet = _dimensionality(FLEET)["nyc_taxi_fleet"]
+    total = fleet["fleet_on_trip_hours"]
+    assert total["unrelated_dimensions"] == "total"
+    assert {"zone", "daypart"} <= set(total["dimensions"])
+    assert "status_interval" not in total["dimensions"]  # another fact, not a dimension
+    share = fleet["zone_share_of_fleet_on_trip_hours"]
+    assert {"zone", "daypart", "driver"} <= set(share["dimensions"])
+    assert "garage" not in share["dimensions"]  # the interval fact cannot reach it
+
+
+def test_dimensionality_follows_a_weighted_bridge_only(tmp_path):
+    trips = _dimensionality(CANONICAL)["nyc_taxi_trips"]
+    assert "zone_poi" in trips["billable_revenue"]["dimensions"]
+    doc = _doc()
+    rel = _named(doc["relationships"], "zone_poi_to_zone")
+    payload = _payload(rel)
+    del payload["weight"]
+    _set_payload(rel, payload)
+    unweighted = _dimensionality(_write(tmp_path, doc))["nyc_taxi_trips"]
+    assert "zone_poi" not in unweighted["billable_revenue"]["dimensions"]
