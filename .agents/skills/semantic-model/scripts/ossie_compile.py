@@ -17,7 +17,8 @@ the same answer as the detail, and otherwise from the detail:
 6. a source marked `navigable: false` is used only when the query names it.
 
 The detail joins each dimension with a LEFT JOIN on a many-to-one relationship, so it
-neither drops nor repeats a fact row. A `derived_expression` is applied after its
+neither drops nor repeats a fact row. The join is the relationship's `join_expression`
+when it declares one, else its core from/to columns. A `derived_expression` is applied after its
 inputs are aggregated. Level-based, time-series and dimension-rule metrics, metrics
 over several datasets and `scd_rollup: current` are not compiled yet: they raise
 CompileError rather than return a wrong answer.
@@ -242,9 +243,17 @@ def _compile_detail(model, query, fact):
                                    "which the compiler does not compile yet")
             dim_src = model.detail(target)
             table = model.tables[dim_src["physical_table"]]
-            on = " and ".join(
-                f"f.{model.column(src, fc, fact)} = d{i}.{model.column(dim_src, tc, target)}"
-                for fc, tc in zip(rel["from_columns"], rel["to_columns"]))
+            predicate = _payload(rel).get("join_expression")
+            if predicate:
+                def side(table, name, i=i, dim_src=dim_src, target=target):
+                    if table == fact:
+                        return f"f.{model.column(src, name, fact)}"
+                    return f"d{i}.{model.column(dim_src, name, target)}"
+                on = ossie_sql.rewrite(predicate, column=side)
+            else:
+                on = " and ".join(
+                    f"f.{model.column(src, fc, fact)} = d{i}.{model.column(dim_src, tc, target)}"
+                    for fc, tc in zip(rel["from_columns"], rel["to_columns"]))
             joins.append(f"left join {model.relation(table)} as d{i} on {on}")
             exprs = [f"d{i}.{model.column(dim_src, c, target)}" for c in fields]
         for expr, name in zip(exprs, fields):

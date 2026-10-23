@@ -163,18 +163,27 @@ def test_scd_bad_type_fails(tmp_path):
     assert ("vibedata/scd-bad-type", "error") in _codes(diags)
 
 
-def test_partitioned_by_shape(tmp_path):
+def test_partitioned_by_lives_on_the_physical_table(tmp_path):
+    """Partitioning is physical: a physical table may declare it, a logical dataset may not."""
     doc = _doc()
-    payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
-    payload["partitioned_by"] = ["pickup_date"]
-    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
-    code, _ = _run("validate", str(_write(tmp_path, doc)))
-    assert code == 0
-    payload["partitioned_by"] = "pickup_date"
-    doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
+    model = _payload(doc)
+    model["physical_tables"][0]["partitioned_by"] = ["pickup_date"]
+    _set_payload(doc, model)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0, diags
+    model["physical_tables"][0]["partitioned_by"] = "pickup_date"
+    _set_payload(doc, model)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/bad-partitioned-by", "error") in _codes(diags)
+    doc = _doc()
+    trips = _named(doc["datasets"], "trips")
+    payload = _payload(trips)
+    payload["partitioned_by"] = ["pickup_date"]
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/unknown-key", "error") in _codes(diags)
 
 
 def test_duplicate_dataset_fails_upstream(tmp_path):
@@ -981,3 +990,131 @@ def test_aggregate_binding_needs_a_holding_test(tmp_path):
     code, diags = _run("validate", str(_write(tmp_path, doc)))
     assert code == 1
     assert ("vibedata/aggregate-binding-unheld", "error") in _codes(diags)
+
+
+def _with_join_expression(text, rel="trips_to_pickup_zone"):
+    doc = _doc()
+    relationship = _named(doc["relationships"], rel)
+    payload = _payload(relationship)
+    payload["join_expression"] = text
+    _set_payload(relationship, payload)
+    return doc
+
+
+def test_join_expression_in_ossie_field_grammar_passes(tmp_path):
+    doc = _with_join_expression(
+        "trips.pickup_zone_key = zone.zone_key AND trips.pickup_date >= zone.valid_from_date")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0, diags
+
+
+def test_join_expression_columns_are_dataset_qualified(tmp_path):
+    doc = _with_join_expression("pickup_zone_key = zone_key")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/join-expression-unqualified", "error") in _codes(diags)
+
+
+def test_join_expression_reads_declared_fields(tmp_path):
+    """The audit that started this: a predicate on a column neither side declares."""
+    doc = _with_join_expression("trips.vendor_id = vendor.vendor_natural_key", "trips_to_vendor")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/join-expression-unknown-field", "error") in _codes(diags)
+
+
+def test_join_expression_must_parse(tmp_path):
+    doc = _with_join_expression("trips.pickup_zone_key = ; drop table x")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/join-expression-unparsable", "error") in _codes(diags)
+
+
+def test_join_expression_reads_no_variables(tmp_path):
+    doc = _with_join_expression("trips.pickup_date >= :report_start AND trips.pickup_zone_key = zone.zone_key")
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/join-expression-variable", "error") in _codes(diags)
+
+
+def test_unquoted_identifiers_are_case_insensitive(tmp_path):
+    """Ossie's expression language: an unquoted identifier matches any case."""
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = source["content_filter"].replace("pickup_zone_key", "PICKUP_ZONE_KEY")
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 0, diags
+
+
+def test_expressions_are_checked_by_ossie_itself(tmp_path):
+    """Ossie's own check rejects a statement list hidden in an expression."""
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = "pickup_zone_key IS NOT NULL; DROP TABLE trips"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert any(d["code"] == "vibedata/content-filter-unparsable" and "statements" in d["message"]
+               for d in diags), diags
+
+
+def _catalog_for(doc):
+    """A dbt catalog holding exactly the columns the document maps or reads."""
+    import ossie_columns
+    import ossie_sql
+    nodes = {}
+    def add(source, column):
+        schema, name = source.split(".")
+        node = nodes.setdefault(source, {"metadata": {"schema": schema, "name": name}, "columns": {}})
+        node["columns"][column] = {"name": column}
+    tables = {t["name"]: t for t in _payload(doc)["physical_tables"]}
+    for table in tables.values():
+        nodes.setdefault(table["source"], {"metadata": dict(zip(("schema", "name"), table["source"].split("."))), "columns": {}})
+    for dataset in doc["datasets"]:
+        for field in dataset.get("fields") or []:
+            for name in ossie_sql.names(field["expression"]["dialects"][0]["expression"])[0]:
+                add(dataset["source"], name)
+        for src in ossie_columns._payload(dataset).get("logical_sources") or []:
+            for physical in (src.get("column_map") or {}).values():
+                add(tables[src["physical_table"]]["source"], physical)
+            for ref in src.get("content_levels") or []:
+                for column in ref.get("key_columns") or []:
+                    add(tables[src["physical_table"]]["source"], column)
+    return {"nodes": nodes, "sources": {}}
+
+
+def test_columns_pass_against_a_complete_catalog(tmp_path):
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps(_catalog_for(_doc())))
+    result = RUNNER.invoke(app, ["columns", str(CANONICAL), str(catalog)])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_columns_catch_a_map_onto_a_missing_column(tmp_path):
+    doc = _doc()
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps(_catalog_for(doc)))
+    trips, payload, source = _trips_source(doc, "LTS7_daily_zone_revenue")
+    source["column_map"]["billable_revenue"] = "total_revenu"
+    _set_payload(trips, payload)
+    result = RUNNER.invoke(app, ["columns", str(_write(tmp_path, doc)), str(catalog)])
+    assert result.exit_code == 1
+    assert "columns/map-unknown-column" in result.stdout and "total_revenu" in result.stdout
+
+
+def test_columns_catch_a_field_reading_a_missing_column(tmp_path):
+    doc = _doc()
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps(_catalog_for(doc)))
+    field = _named(_named(doc["datasets"], "trips")["fields"], "fare_residual")
+    field["expression"]["dialects"][0]["expression"] = "fare_residual_amount"
+    result = RUNNER.invoke(app, ["columns", str(_write(tmp_path, doc)), str(catalog)])
+    assert result.exit_code == 1
+    assert "columns/field-unknown-column" in result.stdout
+
+
+def test_columns_need_a_catalog(tmp_path):
+    result = RUNNER.invoke(app, ["columns", str(CANONICAL), str(tmp_path / "missing.json")])
+    assert result.exit_code == 1
+    assert "columns/no-catalog" in result.stdout

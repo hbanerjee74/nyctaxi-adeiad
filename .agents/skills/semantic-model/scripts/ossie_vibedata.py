@@ -30,11 +30,12 @@ SCD_ROLLUPS = {"as_of", "current"}
 COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "based_on_dimensions")
 
 MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variables"}
-DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
-                "scd", "logical_sources", "levels", "row_level", "hierarchies"}
+DATASET_KEYS = {"vibedata_version", "scd", "logical_sources", "levels", "row_level",
+                "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
                      "join_type", "join_cost", "join_expression", "note"}
-PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
+PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role",
+                       "partitioned_by", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
 VARIABLE_KEYS = {"name", "datatype", "dbt_var", "note"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
@@ -290,6 +291,13 @@ def validate_vibedata(doc):
             diags.append(_error("vibedata/alias-dangling",
                                 f"model '{model_name}': physical table '{t['name']}' is an "
                                 f"alias of unknown table '{alias_of}'"))
+        partitioned_by = t.get("partitioned_by")
+        if partitioned_by is not None and (
+                not isinstance(partitioned_by, list)
+                or not all(isinstance(c, str) and c for c in partitioned_by)):
+            diags.append(_error("vibedata/bad-partitioned-by",
+                                f"physical table '{t['name']}': partitioned_by must be a list "
+                                "of column names"))
 
     physical_join_names = set()
     for j in model_payload.get("physical_joins", []):
@@ -351,7 +359,7 @@ def validate_vibedata(doc):
         diags.extend(_validate_dataset(dataset, context))
     diags.extend(_validate_metrics(doc, context))
     for rel in doc.get("relationships", []):
-        diags.extend(_validate_relationship(rel, dataset_names, physical_join_names))
+        diags.extend(_validate_relationship(rel, dataset_names, physical_join_names, doc))
         diags.extend(_validate_from_columns(rel, doc))
         diags.extend(_validate_to_columns(rel, doc))
     return diags
@@ -391,11 +399,6 @@ def _validate_dataset(dataset, context):
     for p in payloads:
         payload.update(p)
     diags.extend(_unknown_keys(payload, DATASET_KEYS, where))
-
-    alias_of = payload.get("alias_of")
-    if alias_of and alias_of not in physical_tables:
-        diags.append(_error("vibedata/alias-dangling",
-                            f"{where}: alias_of unknown physical table '{alias_of}'"))
 
     level_names = []
     for level in payload.get("levels", []) or []:
@@ -454,13 +457,6 @@ def _validate_dataset(dataset, context):
             if col and col not in fields:
                 diags.append(_error("vibedata/scd-unknown-field",
                                     f"{where}: scd.{key} '{col}' is not a declared field"))
-
-    partitioned_by = payload.get("partitioned_by")
-    if partitioned_by is not None and (
-            not isinstance(partitioned_by, list)
-            or not all(isinstance(c, str) for c in partitioned_by)):
-        diags.append(_error("vibedata/bad-partitioned-by",
-                            f"{where}: partitioned_by must be a list of column names"))
 
     sources = payload.get("logical_sources", [])
     if not isinstance(sources, list):
@@ -842,7 +838,44 @@ def _check_time_series(series, name, metrics, where, context):
     return diags
 
 
-def _validate_relationship(rel, dataset_names, physical_join_names):
+def _check_join_expression(text, rel, where, doc):
+    """A join predicate in Ossie's FieldExpr grammar: every column is `dataset.field`,
+    the dataset is one of the two the relationship joins, the field is declared there."""
+    try:
+        names, variables = _names_in(text) if isinstance(text, str) else (set(), set())
+    except ExpressionError as e:
+        return [_error("vibedata/join-expression-unparsable",
+                       f"{where}: join_expression does not parse: {e}")]
+    if not isinstance(text, str) or not names:
+        return [_error("vibedata/bad-join-expression",
+                       f"{where}: join_expression must be a predicate over the two datasets' "
+                       "fields")]
+    sides = (rel.get("from"), rel.get("to"))
+    if sides[0] == sides[1]:
+        return [_error("vibedata/join-expression-self",
+                       f"{where}: a relationship from a dataset to itself cannot name its two "
+                       "sides by dataset; declare it on the core from/to columns")]
+    fields = {d.get("name"): {f.get("name") for f in d.get("fields") or [] if isinstance(f, dict)}
+              for d in doc.get("datasets", []) if isinstance(d, dict)}
+    diags = []
+    for ref in sorted(variables):
+        diags.append(_error("vibedata/join-expression-variable",
+                            f"{where}: join_expression reads ':{ref}'; a join predicate reads "
+                            "only the two datasets' fields"))
+    for name in sorted(names):
+        table, _, column = name.rpartition(".")
+        if table not in sides:
+            diags.append(_error("vibedata/join-expression-unqualified",
+                                f"{where}: '{name}' must be qualified with '{sides[0]}' or "
+                                f"'{sides[1]}' (Ossie dataset.field)"))
+        elif column not in fields.get(table, set()):
+            diags.append(_error("vibedata/join-expression-unknown-field",
+                                f"{where}: '{name}' is not a declared field of dataset "
+                                f"'{table}'"))
+    return diags
+
+
+def _validate_relationship(rel, dataset_names, physical_join_names, doc):
     diags = []
     rel_name = rel.get("name", "<unnamed>")
     where = f"relationship '{rel_name}'"
@@ -862,6 +895,8 @@ def _validate_relationship(rel, dataset_names, physical_join_names):
             diags.append(_error("vibedata/join-dangling",
                                 f"{where}: physical_join '{join}' names no model-level "
                                 "physical join"))
+        if payload.get("join_expression") is not None:
+            diags.extend(_check_join_expression(payload["join_expression"], rel, where, doc))
         cardinality = payload.get("cardinality")
         if cardinality and cardinality not in CARDINALITIES:
             diags.append(_error("vibedata/bad-cardinality",

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://accelerate-data/sample-nyctaxi-comp/logical-model/vibedata-schema.json",
   "title": "VIBEDATA extensions for Apache Ossie (frozen key set)",
-  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these four shapes, chosen by the level it sits at. Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
+  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these four shapes, chosen by the document component it sits on (model, dataset, relationship, metric). Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
   "type": "object",
   "$defs": {
     "modelPayload": {
@@ -70,6 +70,14 @@
         "note": {
           "type": "string",
           "description": "Why-not or partial-mapping rationale, recorded where it cannot drift from the entry"
+        },
+        "partitioned_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Storage partition columns of this physical table, only when it is truly partitioned"
         }
       },
       "additionalProperties": false
@@ -102,18 +110,6 @@
       "properties": {
         "vibedata_version": {
           "type": "string"
-        },
-        "alias_of": {
-          "type": "string"
-        },
-        "physical": {
-          "type": "object"
-        },
-        "partitioned_by": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         },
         "scd": {
           "$ref": "#/$defs/scd"
@@ -288,7 +284,9 @@
           "type": "number"
         },
         "join_expression": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "description": "The join predicate when it is not the core from/to equi-join, in Ossie FieldExpr grammar: every column is <from or to dataset>.<declared field>"
         },
         "note": {
           "type": "string",

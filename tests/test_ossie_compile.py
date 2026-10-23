@@ -142,3 +142,16 @@ def test_content_tests_cover_every_aggregate_binding():
     assert "trips.LTS6_od_flow.billable_trip_count at " in sql  # floored: held group by group
     assert "shift.LTS2_driver_day.shift_count" in sql
     assert "occupancy_rate'" not in sql  # a rate binds no column, so it has nothing to hold
+
+
+def test_compiler_joins_on_a_declared_join_expression():
+    doc = yaml.safe_load(TRIPS.read_text())
+    rel = next(r for r in doc["relationships"] if r["name"] == "trips_to_pickup_zone")
+    payload = json.loads(rel["custom_extensions"][0]["data"])
+    payload["join_expression"] = ("trips.pickup_zone_key = zone.zone_key "
+                                  "AND trips.pickup_date >= zone.valid_from_date")
+    rel["custom_extensions"][0]["data"] = json.dumps(payload)
+    model = Model(doc, lambda t: t["source"], lambda v: "cast('2024-01-01' as date)")
+    result = compile_query(model, Query(["trip_count"], [{"via": "trips_to_pickup_zone", "level": "borough"}],
+                                        None, "detail"))
+    assert "(f.pickup_zone_key) = (d0.zone_key) AND (f.pickup_date) >= (d0.valid_from_date)" in result.sql

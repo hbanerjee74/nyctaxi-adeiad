@@ -12,6 +12,7 @@ Usage:
   python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py content-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py compile <model-file> <query-file> [--var name=value ...]
+  python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -28,6 +29,8 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from ossie_columns import check as check_columns  # noqa: E402
+from ossie_columns import relations as catalog_relations  # noqa: E402
 from ossie_compile import CompileError, Model, Query, compile_query  # noqa: E402
 from ossie_content import generate as generate_content_tests  # noqa: E402
 from ossie_levels import generate as generate_level_tests  # noqa: E402
@@ -386,6 +389,29 @@ def content_tests(model: str, test_file: str,
                            "message": str(e)}]))
         raise typer.Exit(1) from e
     _write_generated(sql, test_file, check, "content-tests")
+
+
+@app.command("columns")
+def columns(model: str, catalog: str):
+    """Every physical column the model names must exist in dbt's catalog.json."""
+    path = Path(catalog)
+    if not path.exists():
+        print(json.dumps([{"severity": "error", "code": "columns/no-catalog",
+                           "message": f"'{catalog}' does not exist; run `dbt docs generate` "
+                                      "against a built warehouse first"}]))
+        raise typer.Exit(1)
+    known = catalog_relations(json.loads(path.read_text()))
+    diags = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            diags.append(read_diag)
+            continue
+        diags.extend(check_columns(_vendor.load_yaml_named(text, str(target)), known, str(target)))
+    print(json.dumps(diags, indent=2))
+    typer.echo(f"{len(known)} relation(s) in the catalog, {len(diags)} unknown column(s).",
+               err=True)
+    raise typer.Exit(1 if diags else 0)
 
 
 @app.command("compile")

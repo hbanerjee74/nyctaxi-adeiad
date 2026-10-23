@@ -1,8 +1,8 @@
 # VIBEDATA fields reference
 
-Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-encoded object of one of four shapes, chosen by level (model, dataset, relationship, metric). Machine shapes live in `vibedata-schema.json` beside this file; this file explains what each field means. Key set is frozen (S6): unknown keys fail validation.
+Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-encoded object of one of four shapes, chosen by the Ossie document component it sits on: the semantic model, a dataset, a relationship or a metric. Fields carry none; they are referenced by name from the dataset and metric payloads. ("Document component" is Ossie's own term; "level" in this file means a dimension level only.) Machine shapes live in `vibedata-schema.json` beside this file; this file explains what each field means. Key set is frozen (S6): unknown keys fail validation.
 
-## Model level
+## Semantic model component
 
 | Field | Meaning | Example |
 | --- | --- | --- |
@@ -13,19 +13,17 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 | `physical_tables[].dbt_model` | dbt `ref()` name that builds this table; aliases name their base model. Links mart changes to the canonical entries they touch | `"dim_zone"` |
 | `physical_tables[].table_type` | `TABLE`, `VIEW`, `ALIAS`, `OPAQUE_VIEW`, `STORED_PROC`, or `SYNONYM` | `"ALIAS"` |
 | `physical_tables[].alias_of` | Base table handle, ALIAS only | `"dim_zone"` |
+| `physical_tables[].partitioned_by[]` | Storage partition columns of this table, only when it is truly partitioned. Partitioning is a property of a physical table, not of the logical dataset | `["pickup_date"]` |
 | `physical_tables[].role` | Business role of the alias, ALIAS only | `"origin zone for trips"` |
 | `physical_tables[].note` | Why-not or partial-mapping rationale, recorded where it cannot drift | `"truncated at HAVING count>=25; no honest mapping"` |
 | `physical_joins[]` | Physical execution joins between handles (one logical join maps to N of these, one per LTS combination) | — |
 | `physical_joins[].{name,from,to}` | Join handle and its two physical-table endpoints | — |
 | `variables[]` | Named values a `content_filter` reads as `:name` (OBIEE repository variables). `name`, `datatype`, `dbt_var` (the dbt project var that supplies it, so the filter moves when the var moves), `note`. `tests/test_ossie_validate.py` fails a `dbt_var` the dbt project does not define | `{"name": "report_start", "datatype": "Date", "dbt_var": "report_start"}` |
 
-## Dataset level
+## Dataset component
 
 | Field | Meaning | Example |
 | --- | --- | --- |
-| `alias_of` | Dataset plays an aliased role (rare; aliases usually live in `physical_tables`) | — |
-| `physical` | Free-form physical notes about the backing table | — |
-| `partitioned_by[]` | Storage partition columns, only when truly partitioned storage | — |
 | `scd` | Slowly-changing-dimension shape: `type` (1/2/3), `natural_key`, `valid_from`, `valid_to`, `is_current` (field names), `open_ended_value` (e.g. `"2099-12-31"`) | — |
 | `logical_sources[]` | LTS list: every physical path that can supply this logical table (S3) | — |
 | `logical_sources[].name` | LTS handle (`LTS1_detail`, `LTS2_zone_day_agg`) | — |
@@ -45,7 +43,7 @@ Every `custom_extensions` entry with `vendor_name: VIBEDATA` carries a JSON-enco
 
 What the data does with these declarations is reported, not obeyed: `ossie.py level-tests` turns them into `transformation/tests/assert_semantic_levels_hold.sql`, a warn-only dbt test listing every repeated key, key that names several members, member with several parents, and aggregate key value that is no member. The tools that consume the model handle such rows (`row_number() = 1` and the like); the declaration stays the intent.
 
-## Relationship level
+## Relationship component
 
 | Field | Meaning | Example |
 | --- | --- | --- |
@@ -54,9 +52,9 @@ What the data does with these declarations is reported, not obeyed: `ossie.py le
 | `join_type` | SQL join type (`LEFT OUTER`, …) | `"LEFT OUTER"` |
 | `join_cost` | Relative cost for LTS selection, lower wins. Comparable only within one model; the only way to order aggregates, which `priority_group` cannot express | — |
 | `note` | Why this relationship is declared without key-covering `to_columns`, or why a reachable path has no relationship | — |
-| `join_expression` | Full predicate including SCD as-of clauses; the core `from/to` columns keep the equi fallback | `"pickup_date >= valid_from_date AND ..."` |
+| `join_expression` | Only when the join is **not** the core `from_columns`/`to_columns` equi-join (a range or as-of predicate on a natural key). Written in Ossie's FieldExpr grammar: every column is `<from or to dataset>.<declared field>`, parsed by the shared expression layer, each name resolved, no `:variables`, and not allowed on a dataset-to-itself relationship. The compiler joins on it when present. A fact that stores the as-of resolved surrogate (`pickup_zone_key`) needs none: the core columns are the executable truth and `scd_rollup: as_of` states the semantics | `"trips.pickup_location_id = zone.zone_natural_key AND trips.pickup_date >= zone.valid_from_date AND trips.pickup_date < zone.valid_to_date"` |
 
-## Metric level
+## Metric component
 
 The core `expression` stays the metric's aggregate over detail rows. The payload says how an engine may answer it from anything else.
 
@@ -100,3 +98,4 @@ Name the weighting in the description whenever a weighted and an unweighted figu
 | `1.1` | `logical_sources[].where` removed | It was prose; a population is a decision (ADR) held by a test, not a sentence |
 | `1.2` | Added `variables`, `content_levels`, `content_filter`, `navigable`, metric payloads (`aggregation`, `derived_expression`, `at_levels`, `time_series`, and a two-stage `nested` rule); hierarchy levels became `{name, key, label}` objects with `is_time` on the hierarchy; date gained `month_start_date` and `week_start_date` | An engine could not pick an aggregate (grain was prose), could not tell a windowed aggregate from the full fact (the aggregates silently covered fewer trips than the detail), keyed levels on non-unique columns (`calendar_month`, `zone_name`), and re-summed ratio columns. `content_filter` is the machine-checked successor of `where` |
 | `1.3` | Levels moved out of hierarchies into the dataset's `levels[]`, each with `keys[]` (`{name, fields, primary, display}`) and `attributes[]`; hierarchies list level names and, on Type 2 dimensions, `scd_rollup`; added `row_level`; level references dropped `hierarchy` and gained `key` and `key_columns`; `nested` became `based_on_dimensions` (`over`→`across`, `outer`→`rule`) and lost `empty_members`; added `ossie.py level-tests` | A level had one key slot and a `label` of undefined meaning, so a repeating name could pass as a key. An aggregate's level had no join key, so it could not be joined to its dimension at that level. A member and a table row were not told apart (a zone versus its versions). `nested.empty_members: calendar` needed a densified member space, which is a cube concern this model does not take on |
+| `1.4` | `join_expression` became Ossie `dataset.field` grammar, parsed and resolved, and used by the compiler; the 21 existing ones were removed; the unused dataset keys `alias_of`, `physical` and `partitioned_by` were removed and `partitioned_by` moved to `physical_tables[]`; the payload groups are named by Ossie document component | Six join expressions named columns neither mart has (`vendor_id`, `driver_id`, `vehicle_id`) and fifteen restated the core columns, and nothing parsed them. Physical facts do not belong on a logical dataset. "Level" now means a dimension level only |

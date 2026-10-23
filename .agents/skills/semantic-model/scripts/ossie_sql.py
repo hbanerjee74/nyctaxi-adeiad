@@ -1,31 +1,51 @@
-"""The one SQL expression layer every other tool uses (sqlglot).
+"""The one SQL expression layer every other tool uses, aligned with Ossie's own.
 
-Predicates (`content_filter`, a query filter) and formulas (`derived_expression`, a
-metric's core expression) are parsed here and nowhere else, so the validator, the
-compiler and the generated tests agree on what an expression names and means.
+Every predicate (`content_filter`, `join_expression`, a query filter) and formula
+(`derived_expression`, a metric's core expression) is checked here exactly as Apache
+Ossie checks a core expression: by the vendored `validate_sql_expression`, with the
+same sqlglot dialect mapping and the same single-expression rule. It is then parsed in
+that generic (OSSIE_SQL_2026 / ANSI) dialect, and unquoted identifiers are normalised,
+because the Ossie expression language makes them case-insensitive.
+
+Two things go beyond Ossie's grammar and are VIBEDATA's own: `:name` model variables
+(Ossie has no parameters yet), and rendering compiled SQL for DuckDB, the engine the
+generated tests run on.
 """
+
+import importlib.util
+from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
-DIALECT = "duckdb"
+TARGET = "duckdb"
+OSSIE_DIALECT = "OSSIE_SQL_2026"
+
+_spec = importlib.util.spec_from_file_location(
+    "ossie_vendor_validate_sql", Path(__file__).parent / "ossie_vendor" / "validate.py")
+_vendor = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_vendor)
 
 
 class ExpressionError(ValueError):
-    """An expression that does not parse."""
+    """An expression Ossie's own check rejects, or that does not parse."""
 
 
 def parse(text):
-    """Parse one SQL expression; raise ExpressionError when it does not parse."""
+    """Check `text` as Ossie does, then parse it with unquoted identifiers normalised."""
     if not isinstance(text, str) or not text.strip():
         raise ExpressionError("empty expression")
+    error = _vendor.validate_sql_expression(text, OSSIE_DIALECT, "expression")
+    if error:
+        raise ExpressionError(error.replace("[SQL] expression: ", ""))
     try:
-        node = sqlglot.parse_one(text, dialect=DIALECT)
+        node = sqlglot.parse_one(text)
     except sqlglot.errors.SqlglotError as e:
         raise ExpressionError(str(e).splitlines()[0]) from e
     if node is None:
         raise ExpressionError("empty expression")
-    return node
+    return normalize_identifiers(node)
 
 
 def names(text):
@@ -39,8 +59,9 @@ def names(text):
 def conjuncts(text):
     """The canonical AND-ed terms of a predicate; None or empty text is no condition.
 
-    Keywords and spacing are normalised; identifiers stay case-sensitive. Terms render
-    in the generic dialect, so a :variable reads as written.
+    Keywords, spacing and unquoted identifier case are normalised, so two spellings of
+    one condition compare equal. Terms render in the generic dialect, so a :variable
+    reads as written.
     """
     if text is None or not str(text).strip():
         return []
@@ -50,7 +71,7 @@ def conjuncts(text):
 
 
 def rewrite(text, column=None, variable=None, name=None):
-    """Return `text` as SQL with columns, :variables and bare names replaced.
+    """Return `text` as DuckDB SQL with columns, :variables and bare names replaced.
 
     `column(table, name)` returns replacement SQL for a column reference (or None to
     keep it); `variable(name)` returns SQL for a :variable; `name(identifier)` handles
@@ -60,7 +81,7 @@ def rewrite(text, column=None, variable=None, name=None):
 
     def swap(n):
         if isinstance(n, exp.Placeholder) and variable is not None:
-            return sqlglot.parse_one(variable(n.name), dialect=DIALECT)
+            return sqlglot.parse_one(variable(n.name), dialect=TARGET)
         if isinstance(n, exp.Column):
             replacement = None
             if not n.table and name is not None:
@@ -68,7 +89,7 @@ def rewrite(text, column=None, variable=None, name=None):
             if replacement is None and column is not None:
                 replacement = column(n.table or None, n.name)
             if replacement is not None:
-                return exp.paren(sqlglot.parse_one(replacement, dialect=DIALECT), copy=False)
+                return exp.paren(sqlglot.parse_one(replacement, dialect=TARGET), copy=False)
         return n
 
-    return node.transform(swap).sql(dialect=DIALECT)
+    return node.transform(swap).sql(dialect=TARGET)
