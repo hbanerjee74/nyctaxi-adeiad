@@ -5,7 +5,7 @@ description: "Use when creating, editing or validating the canonical semantic mo
 
 # Semantic model
 
-The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (exact links and pinned commit live beside the vendored machine schema, which is never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS with content levels and filters, hierarchies, SCD, partitioning, metric aggregation rules, level-based and time-series metrics). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed. Before commit, run the `validating-semantic-model` skill for the content review. Open `references/refactoring.md` for split, fold, rename, grain-change, rule-change, aggregate-lifecycle and star-retirement work; `references/reverse-engineering.md` when onboarding a lakehouse or adding a mart; `references/vibedata-fields.md` for what a payload field means; `examples/standalone.ossie.yaml` beside this file is the shape for a table with no star; `examples/star.ossie.yaml` is the shape to copy for a star: one document, one fact, a role-playing dimension reached by two relationships, one aggregate source, and the two-level VIBEDATA payloads (one at model level for `physical_tables`/`physical_joins`, one per dataset and per relationship, each `data` a JSON-encoded string).
+The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the upstream repo (exact links and pinned commit live beside the vendored machine schema, which is never edited) — flat document, one model per file, plus `VIBEDATA` extensions for the Oracle-style mappings Ossie core has no room for (aliases, multi-source LTS with content levels and filters, hierarchies, SCD, partitioning, metric aggregation rules, level-based and time-series metrics). Consumer formats (MetricFlow, Tableau, PowerBI) export from canonical on the fly and are never committed. Before commit, run the `validating-semantic-model` skill for the content review. Open `references/refactoring.md` for split, fold, rename, grain-change, rule-change, aggregate-lifecycle and star-retirement work; `references/reverse-engineering.md` when onboarding a lakehouse or adding a mart; `references/vibedata-fields.md` for what a payload field means; `examples/standalone.ossie.yaml` beside this file is the shape for a table with no star; `examples/star.ossie.yaml` is the shape to copy for a star: one document, one fact, a role-playing dimension reached by two relationships, a date dimension with a keyed time hierarchy, one aggregate source with its content levels and filter, a derived rate, and the VIBEDATA payloads (one at model level for `physical_tables`/`physical_joins`/`variables`, one per dataset, per relationship and per metric, each `data` a JSON-encoded string).
 
 ## Quick reference
 
@@ -18,6 +18,9 @@ The canonical model is Apache Ossie `0.2.0.dev0` — canonical definition in the
 | Where does a business rule go? | The repo's decision record (ADR). The model cites the rule; it never restates it |
 | Aggregate source or standalone document? | Population decides (`references/refactoring.md`): star population rolled up → aggregate; narrower or different population → standalone |
 | Detail or aggregate priority? | Detail-class `1` (one per role), aggregate `0` |
+| What does an aggregate declare beyond its `column_map`? | `content_levels` from its `GROUP BY`, `content_filter` from its `WHERE` and inner joins, held by a test its `note` names (S3b) |
+| A rate or ratio? | A `derived_expression` over its numerator and denominator metrics, bound to no column (S3c) |
+| A hierarchy level? | `{name, key, label}`: a key unique per member, checked against the data (S3b) |
 
 ## Stars are atomic; documents partition stars (S1)
 
@@ -88,6 +91,8 @@ After any mart change, update the canonical in the same change.
 - Identity column maps assumed from siblings. Verify every right-side column against the mart definitions.
 - New physical table without its `physical_joins` entries. The table exists but no query can reach it; `table-unjoined` warns.
 - New key invented inline instead of arriving with its schema, validator, and test change. `unknown-key` fails it.
+- `content_filter` copied from the mart's `WHERE` alone. Every inner join drops null-key rows too, and the holding test will fail on the difference.
+- Window bounds written as literal dates. Use the `:report_start`/`:report_end` variables, or the filter goes stale when the dbt var moves.
 
 ## Red flags — stop and re-check
 
@@ -95,3 +100,4 @@ After any mart change, update the canonical in the same change.
 - "The agg table must carry this column." Check the agg SQL; grain decides, not hope.
 - "I haven't read the mart SQL, but the column name is obvious." Block: no mapping without reading the mart definitions. Unreadable mart means unmapped source with a `note`, never an assumed map.
 - "One more key won't hurt." It fails. Use the schema file.
+- "The aggregate obviously covers the same trips." Write the `content_filter` and run the holding test; an inner join says otherwise more often than not.
