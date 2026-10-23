@@ -14,6 +14,8 @@ misread.
 | `coverage` | dbt model file names under the marts path vs `dbt_model` values | anything inside the SQL |
 | `suppliers` | declared fields and metrics with no `column_map` entry anywhere; a derived, time-series or dimension-rule metric counts as supplied when its inputs are | whether the mapped column exists in the mart |
 | `level-tests` | the declared levels, hierarchies and aggregate content levels, turned into the warn-only dbt test `assert_semantic_levels_hold`; `--check` fails when the committed test is stale | the data: the dbt test reads it, and only reports |
+| `content-tests` | every aggregate binding of a metric, compiled twice (the source under its content filter, and the detail under the same filter) into `assert_semantic_content_holds`, which fails on any difference: totals for a navigable source, each held group for one that is not; `--check` fails a stale file | whether a binding is the right business rule: an equal total proves the same population, not the right one |
+| `compile` | one semantic query: the source chosen, the rejected sources with reasons, the SQL | anything it reports as unsupported, which it refuses rather than guesses |
 | `notes` | `held by <test>` and `ADR NNNN` pointers in a source `note`, resolved against the tests and ADR directories | whether the test still tests what the note claims |
 
 ## Behaviours worth knowing

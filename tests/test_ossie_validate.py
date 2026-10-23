@@ -236,7 +236,7 @@ def test_note_keys_accepted(tmp_path):
     payload = json.loads(doc["datasets"][0]["custom_extensions"][0]["data"])
     payload["logical_sources"][1]["note"] = (
         "billable_revenue refused: agg sums unfiltered totals; content_filter held by "
-        "assert_trip_sources_match_their_content_filter")
+        "assert_semantic_content_holds")
     doc["datasets"][0]["custom_extensions"][0]["data"] = json.dumps(payload)
     model_payload = json.loads(doc["custom_extensions"][0]["data"])
     model_payload["physical_tables"][0]["note"] = "detail grain base table"
@@ -957,3 +957,27 @@ def test_suppliers_follow_dimension_rule_inputs(tmp_path):
     assert result.exit_code == 1
     assert "avg_daily_active_drivers" in result.stdout
     assert "closing_active_driver_count" in result.stdout
+
+
+def test_content_filter_must_parse(tmp_path):
+    doc = _doc()
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
+    source["content_filter"] = "pickup_date >= AND"
+    _set_payload(trips, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/content-filter-unparsable", "error") in _codes(diags)
+
+
+def test_aggregate_binding_needs_a_holding_test(tmp_path):
+    """An aggregate that binds a metric claims the detail's answer; a test must hold it."""
+    doc = yaml.safe_load(FLEET.read_text())
+    shift = _named(doc["datasets"], "shift")
+    payload = _payload(shift)
+    source = _named(payload["logical_sources"], "LTS3_driver_month")
+    del source["content_filter"]
+    source["note"] = "checked by reading the SQL"
+    _set_payload(shift, payload)
+    code, diags = _run("validate", str(_write(tmp_path, doc)))
+    assert code == 1
+    assert ("vibedata/aggregate-binding-unheld", "error") in _codes(diags)

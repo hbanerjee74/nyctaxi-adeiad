@@ -16,6 +16,9 @@ Pure functions: input is the parsed YAML dict, output is a list of diagnostics.
 import json
 import re
 
+import ossie_sql
+from ossie_sql import ExpressionError
+
 VENDOR = "VIBEDATA"
 
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
@@ -50,10 +53,6 @@ SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
 
 
-# Words a predicate or post-aggregation formula may use that are not names.
-SQL_WORDS = {"AND", "OR", "NOT", "IS", "NULL", "TRUE", "FALSE", "IN", "BETWEEN", "LIKE",
-             "DATE", "TIMESTAMP", "CAST", "AS", "CASE", "WHEN", "THEN", "ELSE", "END",
-             "NULLIF", "COALESCE"}
 HELD_BY = re.compile(r"held by\s+[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -62,13 +61,11 @@ def _error(code, message):
 
 
 def _names_in(expression):
-    """Bare identifiers and `:variable` references in a SQL snippet, literals removed."""
-    text = re.sub(r"'(?:[^']|'')*'", " ", expression)
-    variables = set(re.findall(r":([A-Za-z_][A-Za-z0-9_]*)", text))
-    text = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", " ", text)
-    names = {n for n in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
-             if n.upper() not in SQL_WORDS}
-    return names, variables
+    """(names, :variables) a predicate or formula reads, parsed by the shared SQL layer.
+
+    Raises ExpressionError when the text does not parse.
+    """
+    return ossie_sql.names(expression)
 
 
 def _dimension_index(doc):
@@ -500,6 +497,14 @@ def _validate_dataset(dataset, context):
             diags.append(_error("vibedata/bad-navigable",
                                 f"{where}: logical source '{src_name}' navigable must be "
                                 "true or false"))
+        bound_metrics = sorted(set(src.get("column_map") or {}) & metric_names)
+        if (src.get("priority_group", 1) == 0 and bound_metrics
+                and not HELD_BY.search(src.get("note") or "")):
+            diags.append(_error("vibedata/aggregate-binding-unheld",
+                                f"{where}: logical source '{src_name}' binds metrics "
+                                f"({', '.join(bound_metrics)}) from an aggregate, so its note "
+                                "names the test that proves they equal the detail ('held by "
+                                "<test>')"))
         content_filter = src.get("content_filter")
         if content_filter is not None:
             diags.extend(_check_content_filter(content_filter, src, f"{where} logical source "
@@ -623,7 +628,11 @@ def _check_content_filter(content_filter, src, where, fields, variables):
         return [_error("vibedata/bad-content-filter",
                        f"{where}: content_filter must be a non-empty SQL predicate")]
     diags = []
-    names, refs = _names_in(content_filter)
+    try:
+        names, refs = _names_in(content_filter)
+    except ExpressionError as e:
+        return [_error("vibedata/content-filter-unparsable",
+                       f"{where}: content_filter does not parse: {e}")]
     for name in sorted(names - fields):
         diags.append(_error("vibedata/content-filter-unknown-field",
                             f"{where}: content_filter names '{name}', which is not a "
@@ -695,7 +704,10 @@ def _validate_metrics(doc, context):
                                 f"{sorted(AGGREGATIONS)}"))
         derived = payload.get("derived_expression")
         if derived is not None:
-            names, _ = _names_in(derived) if isinstance(derived, str) else (set(), set())
+            try:
+                names, _ = _names_in(derived) if isinstance(derived, str) else (set(), set())
+            except ExpressionError:
+                names = set()
             if not isinstance(derived, str) or not names:
                 diags.append(_error("vibedata/bad-derived-expression",
                                     f"{where}: derived_expression must be a formula over "
@@ -722,7 +734,10 @@ def _metric_inputs(payload):
     """The other metrics a computed metric reads."""
     out = set()
     if isinstance(payload.get("derived_expression"), str):
-        out |= _names_in(payload["derived_expression"])[0]
+        try:
+            out |= _names_in(payload["derived_expression"])[0]
+        except ExpressionError:
+            pass
     for key in ("time_series", "based_on_dimensions"):
         if isinstance(payload.get(key), dict) and payload[key].get("of"):
             out.add(payload[key]["of"])
