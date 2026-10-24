@@ -1,0 +1,36 @@
+version: 0.2.0.dev0
+name: nyc_taxi_fleet_mapping
+description: Maps the fleet's Shift, Driver, Vehicle and Zone concepts onto the shift document. Shift appears in this document and in the trips document; the ontology holds it once and both mappings identify the same concept.
+ontology_ref:
+  name: nyc_taxi
+semantic_model_ref:
+  name: nyc_taxi_fleet
+concept_mappings:
+- concept: Shift
+  object_mappings:
+  - referent_mappings:
+    - relationship: shift_id
+      expression: shift.shift_id
+    - relationship: driver
+      referent_mappings:
+      - relationship: driver_id
+        expression: shift.driver_key
+    - relationship: vehicle
+      referent_mappings:
+      - relationship: vehicle_id
+        expression: shift.vehicle_key
+- concept: Driver
+  object_mappings:
+  - referent_mappings:
+    - relationship: driver_id
+      expression: driver.driver_key
+- concept: Vehicle
+  object_mappings:
+  - referent_mappings:
+    - relationship: vehicle_id
+      expression: vehicle.vehicle_key
+- concept: Zone
+  object_mappings:
+  - referent_mappings:
+    - relationship: zone_id
+      expression: zone.zone_natural_key

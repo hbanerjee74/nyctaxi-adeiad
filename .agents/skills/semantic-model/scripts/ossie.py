@@ -565,7 +565,7 @@ def refs(ontology: str, model: str):
     """Every mapping ref resolves; every expression names a declared dataset.field."""
     ont_dir, model_dir = Path(ontology), Path(model)
     diags = []
-    ontologies, models, mappings = {}, {}, []
+    ontologies, models, model_files, mappings = {}, {}, {}, []
     for path, doc, diag in _load_docs(ont_dir, ONTOLOGY_SUFFIX):
         if diag:
             diags.append(diag)
@@ -576,6 +576,7 @@ def refs(ontology: str, model: str):
             diags.append(diag)
         else:
             models[doc.get("name")] = doc
+            model_files[doc.get("name")] = str(path)
     for path, doc, diag in _load_docs(ont_dir, MAPPING_SUFFIX):
         if diag:
             diags.append(diag)
@@ -636,7 +637,8 @@ def refs(ontology: str, model: str):
                                                         f"declares"})
 
     for name in sorted(set(models) - mapped):
-        diags.append({"severity": "warning", "code": "mapping/none", "file": str(model_dir),
+        diags.append({"severity": "warning", "code": "mapping/none",
+                      "file": model_files[name],
                       "message": f"model '{name}' has no mapping; each document is mapped or "
                                  f"its description says why no concept reaches it"})
     print(json.dumps(diags, indent=2))
