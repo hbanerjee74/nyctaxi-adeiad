@@ -1,0 +1,99 @@
+version: 0.2.0.dev0
+name: nyc_taxi
+description: The business vocabulary of the NYC taxi data product — a trip, the fleet shift it may be attributed to, the driver and vehicle that shift used, and the zone it started and ended in.
+ontology:
+- concept: TripKey
+  description: The natural identifier of a trip, derived from the columns the TLC records a trip with.
+  type: ValueType
+  extends: [String]
+- concept: ShiftId
+  description: The identifier the operator gives a driver's sign-on.
+  type: ValueType
+  extends: [String]
+- concept: DriverId
+  description: The operator's identifier for one driver.
+  type: ValueType
+  extends: [String]
+- concept: VehicleId
+  description: The operator's identifier for one vehicle.
+  type: ValueType
+  extends: [String]
+- concept: ZoneNaturalKey
+  description: The TLC location id of a taxi zone, which stays the same across the zone's versions.
+  type: ValueType
+  extends: [Integer]
+- concept: Trip
+  description: One completed taxi journey as the TLC records it.
+  type: EntityType
+  identify_by: [trip_key]
+  relationships:
+  - name: trip_key
+    roles:
+    - concept: TripKey
+    verbalizes: ['{Trip} is identified by {TripKey}']
+    multiplicity: OneToOne
+  - name: shift
+    roles:
+    - concept: Shift
+    verbalizes: ['{Trip} is attributed to {Shift}']
+    multiplicity: ManyToOne
+  - name: pickup_zone
+    roles:
+    - concept: Zone
+    verbalizes: ['{Trip} starts in {Zone}']
+    multiplicity: ManyToOne
+  - name: dropoff_zone
+    roles:
+    - concept: Zone
+    verbalizes: ['{Trip} ends in {Zone}']
+    multiplicity: ManyToOne
+- concept: Shift
+  description: A driver's working period on one vehicle, from sign-on to sign-off.
+  type: EntityType
+  identify_by: [shift_id]
+  relationships:
+  - name: shift_id
+    roles:
+    - concept: ShiftId
+    verbalizes: ['{Shift} is identified by {ShiftId}']
+    multiplicity: OneToOne
+  - name: driver
+    roles:
+    - concept: Driver
+    verbalizes: ['{Shift} is worked by {Driver}']
+    multiplicity: ManyToOne
+  - name: vehicle
+    roles:
+    - concept: Vehicle
+    verbalizes: ['{Shift} uses {Vehicle}']
+    multiplicity: ManyToOne
+- concept: Driver
+  description: A person who signs on to work a shift for the fleet operator.
+  type: EntityType
+  identify_by: [driver_id]
+  relationships:
+  - name: driver_id
+    roles:
+    - concept: DriverId
+    verbalizes: ['{Driver} is identified by {DriverId}']
+    multiplicity: OneToOne
+- concept: Vehicle
+  description: A taxi the fleet operator runs, identified by the operator rather than by its medallion.
+  type: EntityType
+  identify_by: [vehicle_id]
+  relationships:
+  - name: vehicle_id
+    roles:
+    - concept: VehicleId
+    verbalizes: ['{Vehicle} is identified by {VehicleId}']
+    multiplicity: OneToOne
+- concept: Zone
+  description: A TLC taxi zone, the area a trip starts or ends in. It belongs to a borough.
+  type: EntityType
+  identify_by: [zone_id]
+  relationships:
+  - name: zone_id
+    roles:
+    - concept: ZoneNaturalKey
+    verbalizes: ['{Zone} is identified by {ZoneNaturalKey}']
+    multiplicity: OneToOne
