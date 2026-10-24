@@ -1323,3 +1323,126 @@ def test_ontology_schema_resolves_offline():
     doc = {"version": "0.2.0.dev0", "name": "X", "ontology": [
         {"concept": "A", "type": "EntityType"}]}
     assert ossie._vendor.validate_document(doc, schema) == []
+
+
+ONTOLOGY = {
+    "version": "0.2.0.dev0", "name": "taxi",
+    "ontology": [
+        {"concept": "Trip", "type": "EntityType", "identify_by": ["trip_id"],
+         "relationships": [
+             {"name": "trip_id", "verbalizes": ["a trip's identifier"],
+              "multiplicity": "OneToOne", "roles": [{"concept": "TripKey"}]},
+             {"name": "pickup_zone", "verbalizes": ["the zone a trip starts in"],
+              "multiplicity": "ManyToOne", "roles": [{"concept": "Zone"}]}]},
+        {"concept": "Zone", "type": "EntityType", "identify_by": ["zone_id"],
+         "relationships": [
+             {"name": "zone_id", "verbalizes": ["a zone's identifier"],
+              "multiplicity": "OneToOne", "roles": [{"concept": "ZoneId"}]}]},
+        {"concept": "TripKey", "type": "ValueType", "extends": ["String"]},
+        {"concept": "ZoneId", "type": "ValueType", "extends": ["Integer"]},
+    ],
+}
+
+MODEL = {"version": "0.2.0.dev0", "name": "nyc_taxi_analytics", "datasets": [
+    {"name": "trips", "fields": [{"name": "trip_key"}, {"name": "pickup_zone_key"}]}]}
+
+MAPPING = {
+    "version": "0.2.0.dev0", "name": "taxi_analytics",
+    "ontology_ref": {"name": "taxi"},
+    "semantic_model_ref": {"name": "nyc_taxi_analytics"},
+    "concept_mappings": [
+        {"concept": "Trip", "object_mappings": [{"expression": "trips.trip_key"}]},
+        {"concept": "Zone", "link_mappings": [
+            {"relationship": "pickup_zone",
+             "object_mapping": {"expression": "trips.pickup_zone_key"}}]},
+    ],
+}
+
+
+def _write_doc(directory, filename, doc):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / filename).write_text(yaml.safe_dump(doc))
+
+
+def _refs(tmp_path, mapping=None, model=None, ontology=None):
+    ontology_dir = tmp_path / "ontology"
+    model_dir = tmp_path / "logical-model"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology or ONTOLOGY)
+    _write_doc(ontology_dir, "taxi.mapping.yaml", mapping or MAPPING)
+    _write_doc(model_dir, "nyc_taxi_analytics.ossie.yaml", model or MODEL)
+    return RUNNER.invoke(app, ["refs", str(ontology_dir), str(model_dir)])
+
+
+def test_validate_detects_ontology_and_mapping_kinds(tmp_path):
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    _write_doc(ontology_dir, "taxi.mapping.yaml", MAPPING)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert not [d for d in diags if d["severity"] == "error"]
+
+
+def test_refs_resolves_a_valid_mapping(tmp_path):
+    result = _refs(tmp_path)
+    assert result.exit_code == 0, result.stdout
+
+
+def test_refs_flags_unknown_semantic_model(tmp_path):
+    mapping = dict(MAPPING, semantic_model_ref={"name": "other"})
+    result = _refs(tmp_path, mapping=mapping)
+    assert result.exit_code == 1
+    assert "mapping/unresolved-ref" in result.stdout
+
+
+def test_refs_flags_a_field_the_model_does_not_expose(tmp_path):
+    mapping = dict(MAPPING, concept_mappings=[
+        {"concept": "Trip", "object_mappings": [{"expression": "trips.no_such_field"}]}])
+    result = _refs(tmp_path, mapping=mapping)
+    assert result.exit_code == 1
+    assert "mapping/unknown-field" in result.stdout
+
+
+def test_refs_reports_a_model_with_no_mapping(tmp_path):
+    result = _refs(tmp_path, mapping=dict(
+        MAPPING, semantic_model_ref={"name": "nyc_taxi_analytics"}))
+    other = tmp_path / "logical-model" / "other.ossie.yaml"
+    other.write_text(yaml.safe_dump(dict(MODEL, name="other_model")))
+    result = RUNNER.invoke(app, ["refs", str(tmp_path / "ontology"),
+                                 str(tmp_path / "logical-model")])
+    assert result.exit_code == 0, result.stdout
+    assert "mapping/none" in result.stdout
+
+
+def test_glossary_flags_an_untraced_entity_concept(tmp_path):
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("# Context\n\n**Trip**:\nA journey.\n\n**Zone**:\nAn area.\n")
+    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
+    assert result.exit_code == 0, result.stdout
+    assert "glossary/concept-untraced" not in result.stdout
+
+    context.write_text("# Context\n\n**Trip**:\nA journey.\n")
+    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
+    assert result.exit_code == 1
+    assert "glossary/concept-untraced" in result.stdout
+
+
+def test_validate_flags_declaration_only_fields_as_warnings(tmp_path):
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0]["requires"] = ["trip_key is not null"]
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert ("declaration-only", "warning") in _codes(diags)
+
+
+def test_validate_flags_an_entity_without_identity(tmp_path):
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0].pop("identify_by")
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 1
+    assert ("ontology/no-identity", "error") in _codes(diags)
