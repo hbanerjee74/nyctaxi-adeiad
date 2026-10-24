@@ -55,10 +55,12 @@ The ontology is not a mirror of the star schema, and it is not the glossary alon
 | Transactional fact: one row per event the business names | Yes, an `EntityType` | its numbers are metrics, not concepts |
 | Junk dimension: a bundle of unrelated low-cardinality flags | No | attributes of the concept that owns them |
 | Degenerate dimension: an identifier with no table, a key on the fact | No | an identity component or a relationship |
-| Accumulating or derived snapshot: rebuilt from events | No | the rule that derives it, in an ADR |
+| Event-derived interval fact: one row per derived interval the business names, with its own id | Yes, an `EntityType` | its durations are metrics; the derivation is the model's business |
+| Rebuilt state snapshot: a state recomputed as of a date, no interval of its own | No | the rule that derives it, in an ADR |
 | Effective-dated rule table: rates, thresholds, bands | No | the rule, in an ADR |
 | Bridge: two concepts many-to-many, with a weight | No | the relationship's `weight` in the model |
 | Aggregate or service mart: a rollup or a report shape | No | metrics on the concepts it rolls up |
+| Transferable entity: a licence, contract or membership whose holder changes over time | Yes, an `EntityType` of its own | the current holding as a `ManyToOne`; the transfers as a gap in the model |
 
 Two consequences worth stating:
 
@@ -66,6 +68,21 @@ Two consequences worth stating:
 - **A classification is not an identity.** A reference dimension whose only key is a surrogate still gets a concept when the business names it, but its identity is that key and the mapping says the natural code is absent. Do not invent a code to satisfy the rule.
 
 Every table in the layer appears in the report's classification table, including the ones that get nothing.
+
+
+## When in doubt, ask — never skip
+
+A silent gap reads as coverage. Every one of these is a question to the user, one at a time, with the options and a recommendation, before a concept is declared or omitted:
+
+- **The table fits no row of the classification.** A junk dimension with one meaningful flag, an interval fact rebuilt from events, a rule table a fact joins as if it were a dimension: name the two readings and ask which the business means.
+- **The standard cannot state the relation.** A many-to-many over time, a validity window, a transfer. Declare what the standard can hold, and say what it cannot — never widen one concept to absorb the other.
+- **Identity cannot be proven from the SQL.** A `*_key` with no code beside it, a name that might rename, a column that might be a surrogate.
+- **A term is missing.** Add it in the same change, or ask whether the business names the thing at all.
+- **Two concepts seem to name one object,** or one concept seems to name two.
+
+Record the ruling where the artifact lives — the concept's description, the mapping's description, or the table's note — and list the table in the report as ruled or blocked. A blocked table is a finding, never an omission.
+
+Do not pick the nearest row of the classification and move on, and do not invent a concept so the table has somewhere to go. The classification is a question the model cannot answer on its own.
 
 ## Red flags — stop and re-check
 
@@ -75,4 +92,6 @@ Every table in the layer appears in the report's classification table, including
 - "This document has no concepts, so no mapping is needed." Report it unmapped with the reason; silence reads as covered.
 - "Every table needs a concept." Junk dimensions, bridges, snapshots and rule tables exist to make queries cheap, not to name a thing.
 - "The glossary is the coverage list." It names what the business says, not what the lakehouse holds; classify the tables, then check the terms.
+- "It is close enough to one of the rows." Close enough is how a snapshot becomes a concept and a licence becomes a vehicle attribute. Ask.
+- "I will leave it out and nobody will notice." An omission in an ontology reads as a statement that the thing does not exist.
 - "The schema allows `requires`." Allowed is not readable: nothing evaluates it, so the rule belongs in an ADR.

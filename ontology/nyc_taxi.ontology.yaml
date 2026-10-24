@@ -50,6 +50,10 @@ ontology:
   description: The only identifier the lakehouse holds for a payment method; it is a key with no natural code beside it.
   type: ValueType
   extends: [String]
+- concept: IntervalId
+  description: The identifier of one driver-state interval, carried from the status event that opened it.
+  type: ValueType
+  extends: [String]
 - concept: MedallionNumber
   description: The plate number the TLC issues for a medallion; it stays with the licence when the licence is transferred.
   type: ValueType
@@ -273,3 +277,43 @@ ontology:
     - concept: MedallionNumber
     verbalizes: ['{Medallion} is identified by {MedallionNumber}']
     multiplicity: OneToOne
+- concept: Status interval
+  description: "A period during which a driver held one state inside a shift, opened by a status event and closed by the next one. It is a fact at interval grain, not a rebuilt snapshot: the sessionizing derives it, as the trip fact derives a journey from meter rows, and rolling it up to the shift loses where the fleet was idle."
+  type: EntityType
+  identify_by: [interval_id]
+  relationships:
+  - name: interval_id
+    roles:
+    - concept: IntervalId
+    verbalizes: ['{Status interval} is identified by {IntervalId}']
+    multiplicity: OneToOne
+  - name: shift
+    roles:
+    - concept: Shift
+    verbalizes: ['{Status interval} falls inside {Shift}']
+    multiplicity: ManyToOne
+  - name: driver
+    roles:
+    - concept: Driver
+    verbalizes: ['{Status interval} is attributed to {Driver}']
+    multiplicity: ManyToOne
+  - name: vehicle
+    roles:
+    - concept: Vehicle
+    verbalizes: ['{Status interval} was spent in {Vehicle}']
+    multiplicity: ManyToOne
+  - name: zone
+    roles:
+    - concept: Zone
+    verbalizes: ['{Status interval} happened in {Zone}']
+    multiplicity: ManyToOne
+  - name: occurred_on
+    roles:
+    - concept: Date
+    verbalizes: ['{Status interval} started on {Date}']
+    multiplicity: ManyToOne
+  - name: part_of_day
+    roles:
+    - concept: Daypart
+    verbalizes: ['{Status interval} started in {Daypart}']
+    multiplicity: ManyToOne

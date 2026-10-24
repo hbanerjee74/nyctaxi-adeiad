@@ -71,3 +71,32 @@ concept_mappings:
   - referent_mappings:
     - relationship: medallion_id
       expression: vehicle.medallion_number
+- concept: Status interval
+  object_mappings:
+  - referent_mappings:
+    - relationship: interval_id
+      expression: status_interval.interval_id
+    - relationship: shift
+      referent_mappings:
+      - relationship: shift_id
+        expression: status_interval.shift_id
+    - relationship: driver
+      referent_mappings:
+      - relationship: driver_id
+        expression: status_interval.driver_key
+    - relationship: vehicle
+      referent_mappings:
+      - relationship: vehicle_id
+        expression: status_interval.vehicle_key
+    - relationship: zone
+      referent_mappings:
+      - relationship: zone_id
+        expression: status_interval.zone_natural_key
+    - relationship: occurred_on
+      referent_mappings:
+      - relationship: date_id
+        expression: status_interval.interval_date
+    - relationship: part_of_day
+      referent_mappings:
+      - relationship: daypart_id
+        expression: status_interval.daypart_code

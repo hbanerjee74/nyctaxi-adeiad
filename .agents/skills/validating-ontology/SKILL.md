@@ -22,7 +22,7 @@ From the repo root, with the paths `repo-map.json` declares:
 
 The tool cannot count what is absent, so this step is a read, not a command. Enumerate the gold marts and classify every `dim_*` and `fct_*` with the table in the `ontology` skill. Then check:
 
-1. **Every table is classified.** A dimension or transactional fact either has a concept or carries its exemption where a reader finds it — a junk dimension, a degenerate key, a derived snapshot, an effective-dated rule, a bridge or an aggregate. A table nobody classified is a finding, and so is a concept invented for one of those kinds.
+1. **Every table is classified.** A dimension, transactional fact or event-derived interval either has a concept or carries its exemption where a reader finds it — a junk dimension, a degenerate key, a rebuilt state snapshot, an effective-dated rule, a bridge or an aggregate. A table nobody classified is a finding, and so is a concept invented for one of those kinds. A table the author could not classify is a blocked finding with the question it raised, never an omission.
 2. **Every concept reaches a dataset.** A concept with no mapping anywhere is either ahead of its data, with its description saying so, or a finding.
 3. **Every identity component is mapped.** A concept mapped on only some of the relationships its `identify_by` names is a partial identity — a gap to report, never a complete mapping.
 4. **Every document is accounted for.** Each canonical document is mapped, or its own description says why no concept reaches it.
@@ -60,3 +60,4 @@ Close with two sections:
 - "An aggregate is a fact." A rollup's rows are a population, not an event; it gets a metric, not a concept.
 - "Every table needs a concept." Junk dimensions, bridges, derived snapshots and rule tables exist to make queries cheap, not to name a thing.
 - "The name matches, so the concept is covered." A term and a concept can be spelled alike and disagree; step 3 reads the SQL.
+- "The table fits no row exactly, so the nearest one will do." That is a question for the user, not a classification: a wrong row silently deletes a concept or invents one.
