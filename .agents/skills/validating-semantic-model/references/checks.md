@@ -30,4 +30,11 @@ misread.
 - The VIBEDATA pass is skipped for a document that already fails the core checks, so fix core errors first.
 - A missing `priority_group` defaults to `1`; nothing reports two detail-class sources.
 - `validate` exits 1 only on structural errors. Warnings it emits are factual (for example `table-unjoined` — a table no join reaches, expected for a standalone document or an aggregate handle) and never fail the run.
-- Unmatched files: a `*.y*ml` file in the model directory that is not `*.ossie.yaml` is an error, so a mis-named model cannot be silently skipped.
+- Unmatched files: a `*.y*ml` file in a validated directory that is not `*.ossie.yaml`, `*.ontology.yaml` or `*.mapping.yaml` is an error, so a mis-named document cannot be silently skipped.
+- `validate` reads all three kinds and picks the schema from the document's own shape (`concept_mappings` → mapping, `ontology` → ontology, otherwise model). A directory can hold all three.
+- The ontology checks are the ones the schema cannot make: an `EntityType` with no `identify_by` is an error, because identity is declared; `requires`, `derived_by`, `prefixes` or `custom_extensions` present is a warning, because nothing evaluates them.
+- `refs` and `glossary` take directories, not files: identity is a claim across documents, so one document alone cannot answer it.
+- A path that is not a directory, or a file that parses to something other than a document, is an error. A gate on a mistyped path must never report zero findings.
+- `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it.
+- `glossary` reports a term with no concept as a `finding`, not an error: a term can name a rule, a measure or a decision, and those stay prose. It exits 1 only for an `EntityType` with no term.
+- `coverage` and `suppliers` read model documents only, so they never trip over `.ontology.yaml` or `.mapping.yaml`.
