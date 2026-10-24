@@ -11,7 +11,7 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 ## Step 1 — structure
 
-From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
+From the repo root, run the checker on the canonical model and on the ontology, and require exit 0 with zero errors on both: `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and `ossie.py validate <ontology-dir>`. Then `ossie.py coverage <model-dir> <model-root>`, where the root is the path `repo-map.json` gives the canonical model's layer — not a fixed `models/marts`, because a dataset may name a silver model as readily as a gold one — and require `0 coverage error(s)`. Then `ossie.py refs <ontology-dir> <model-dir>` and require zero errors, `ossie.py glossary <ontology-dir> <CONTEXT.md>` and require zero errors, `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 
@@ -31,10 +31,14 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 8. **Datatypes and SCD are honest.** Each field's `datatype` matches the column the staging or ingestion SQL produces, and each `scd` claim matches the ADR that rules it — a Type 2 claim on a Type 1 source is a finding.
 9. **Documents hold whole stars.** A dataset that exists only to bridge two documents is a partition error, not a table.
 10. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
+11. **Identity is natural.** An `identify_by` relationship must reach the value type that holds the entity's natural key in the mart or its staging SQL. A surrogate over natural key plus valid-from is a version, not an identity, and naming it is a finding.
+12. **A relationship's direction matches the foreign key.** Read the mart: the declared direction and multiplicity are the one the FK has. The inverse is implicit, so a declared inverse, or two relationships where one would do, is a finding.
+13. **Cross-document identity is the claim under test.** Where two documents map the same concept, both expressions must identify the same real-world object. A mapping that bridges the two through a version surrogate asserts an identity the model does not have — a finding, and the reason the concept is declared once.
+14. **Declaration status is stated.** No `requires`, `derived_by`, `prefixes`, `iri` or vendor payload; the report carries a section saying the mappings are declarations and that nothing parses, converts or executes them.
 
 ## Step 3 — fix, or escalate
 
-You fix what the model can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
+You fix what the model can settle without a business decision, and re-run `validate`, `refs`, `glossary` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
 
 You escalate as a grilling session — one finding at a time, location → evidence → options → recommendation, waiting for the ruling before raising the next — when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
 
@@ -42,11 +46,15 @@ Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wron
 
 ## Step 4 — report
 
-Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim, and every content fix is followed by re-running `validate` and `suppliers` — a content edit is an edit.
+Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim, and every content fix is followed by re-running `validate`, `refs`, `glossary` and `suppliers` — a content edit is an edit.
+
+The report closes with a declaration-versus-executable section: which artifacts are checked for shape, which expressions no tool reads, and the concepts or documents left unmapped with their reasons. A green ontology run proves the documents resolve; it never proves a mapping executes.
 
 ## Red flags — stop and re-check
 
 - "The tool says green." It says the file parses. Step 2 is unstarted.
+- "The mapping validates, so the identity is right." Shape does not pick a natural key; item 11 does.
+- "The ontology is a gold-mart artifact." Concepts come from the glossary and map at any layer. A silver-named dataset is not a phantom.
 - "The note says it was checked." Read the SQL; a note is a claim, not evidence.
 - "No warehouse, so I'll assume the keys are unique." Report the unknown as unknown; never convert it into a pass.
 - "One mapping looked odd but validate passed." That is a finding.
