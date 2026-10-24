@@ -1472,3 +1472,32 @@ def test_glossary_fails_on_a_mistyped_directory(tmp_path):
     result = RUNNER.invoke(app, ["glossary", str(tmp_path / "nope"), str(context)])
     assert result.exit_code == 1
     assert "cli/no-files" in result.stdout
+
+
+def test_refs_flags_a_partial_identity(tmp_path):
+    """Mapping one identity component of several is a gap, not a complete mapping."""
+    mapping = yaml.safe_load(yaml.safe_dump(MAPPING))
+    mapping["concept_mappings"] = [
+        {"concept": "Trip", "object_mappings": [{"referent_mappings": [
+            {"relationship": "trip_id", "expression": "trips.trip_key"}]}]}]
+    result = _refs(tmp_path, mapping=mapping)
+    assert "mapping/partial-identity" not in result.stdout
+
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    trip = next(c for c in ontology["ontology"] if c["concept"] == "Trip")
+    trip["identify_by"] = ["trip_id", "pickup_zone"]
+    _write_doc(tmp_path / "ontology", "taxi.ontology.yaml", ontology)
+    result = RUNNER.invoke(app, ["refs", str(tmp_path / "ontology"),
+                                 str(tmp_path / "logical-model")])
+    assert "mapping/partial-identity" in result.stdout
+
+
+def test_ontology_flags_an_iri_on_a_concept(tmp_path):
+    """An iri names a vocabulary nothing resolves, so it is refused on a concept."""
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0]["iri"] = "https://example.org/Trip"
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert ("declaration-only", "warning") in _codes(diags)

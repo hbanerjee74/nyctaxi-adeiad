@@ -34,7 +34,7 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 11. **Identity is natural.** An `identify_by` relationship must reach the value type that holds the entity's natural key in the mart or its staging SQL. A surrogate over natural key plus valid-from is a version, not an identity, and naming it is a finding.
 12. **A relationship's direction matches the foreign key.** Read the mart: the declared direction and multiplicity are the one the FK has. The inverse is implicit, so a declared inverse, or two relationships where one would do, is a finding.
 13. **Cross-document identity is the claim under test.** Where two documents map the same concept, both expressions must identify the same real-world object. A mapping that bridges the two through a version surrogate asserts an identity the model does not have — a finding, and the reason the concept is declared once.
-14. **Declaration status is stated.** No `requires`, `derived_by`, `prefixes`, `iri` or vendor payload; the report carries a section saying the mappings are declarations and that nothing parses, converts or executes them.
+14. **Declaration status is stated.** No `requires`, `derived_by`, `prefixes` or vendor payload, and no `iri` on a concept or relationship; the report carries a section saying the mappings are declarations and that nothing parses, converts or executes them. A mapped concept whose identity components are only partly mapped is a reported gap (`mapping/partial-identity`), never a complete mapping.
 
 ## Step 3 — fix, or escalate
 

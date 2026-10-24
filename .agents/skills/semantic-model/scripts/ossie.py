@@ -539,6 +539,14 @@ def ontology_checks(data) -> list:
                           "message": f"EntityType '{component.get('concept')}' has no "
                                      f"identify_by; identity is a declared relationship to a "
                                      f"value type, never a surrogate"})
+        for name, relation in [("concept", component)] + [
+                ("relationship", r) for r in component.get("relationships") or []
+                if isinstance(r, dict)]:
+            if relation.get("iri"):
+                diags.append({"severity": "warning", "code": "declaration-only",
+                              "message": f"{name} '{relation.get('concept') or relation.get('name')}' "
+                                         f"carries an iri, which names an external vocabulary "
+                                         f"nothing resolves; drop it or declare it as prose"})
     return diags + _declaration_warnings(data)
 
 
@@ -607,6 +615,7 @@ def refs(ontology: str, model: str):
         else:
             mappings.append((path, doc))
 
+    mapped_refs = {}
     mapped = set()
     for path, doc in mappings:
         file = str(path)
@@ -635,6 +644,12 @@ def refs(ontology: str, model: str):
                     for dataset in (referenced_model or {}).get("datasets") or []
                     if isinstance(dataset, dict)
                     for field in dataset.get("fields") or [] if isinstance(field, dict)}
+        for block in doc.get("concept_mappings") or []:
+            if not isinstance(block, dict) or not block.get("concept"):
+                continue
+            seen = mapped_refs.setdefault((ontology_name, block["concept"]), set())
+            seen.update(node.get("relationship") for node in _walk(block)
+                        if node.get("relationship"))
         for node in _walk(doc.get("concept_mappings") or []):
             concept = node.get("concept")
             if concept and concept not in concepts:
@@ -659,6 +674,20 @@ def refs(ontology: str, model: str):
                               "file": file, "message": f"expression '{expression}' names no "
                                                         f"dataset.field that '{model_name}' "
                                                         f"declares"})
+
+    for (ontology_name, concept), seen in sorted(mapped_refs.items()):
+        ontology_doc = ontologies.get(ontology_name) or {}
+        component = next((c for c in ontology_doc.get("ontology") or []
+                          if isinstance(c, dict) and c.get("concept") == concept), None)
+        if component is None:
+            continue
+        missing = sorted(set(component.get("identify_by") or []) - seen)
+        if missing:
+            diags.append({"severity": "warning", "code": "mapping/partial-identity",
+                          "file": f"ontology/{concept}",
+                          "message": f"concept '{concept}' is mapped but its identity "
+                                     f"components {missing} are not; a partial identity is a "
+                                     f"gap to report, not a complete mapping"})
 
     for name in sorted(set(models) - mapped):
         diags.append({"severity": "warning", "code": "mapping/none",

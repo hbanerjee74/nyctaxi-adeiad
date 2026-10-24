@@ -36,5 +36,7 @@ misread.
 - `refs` and `glossary` take directories, not files: identity is a claim across documents, so one document alone cannot answer it.
 - A path that is not a directory, or a file that parses to something other than a document, is an error. A gate on a mistyped path must never report zero findings.
 - `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it.
+- `refs` also reports `mapping/partial-identity` when a mapped concept maps only some of the relationships its `identify_by` names. A partial natural key is a real gap on a versioned dimension, so the check reports it rather than calling the concept mapped.
+- Only a concept's own `iri`, or a relationship's, is refused: a mapping's document references carry the `iri` the schema defines for them.
 - `glossary` reports a term with no concept as a `finding`, not an error: a term can name a rule, a measure or a decision, and those stay prose. It exits 1 only for an `EntityType` with no term.
 - `coverage` and `suppliers` read model documents only, so they never trip over `.ontology.yaml` or `.mapping.yaml`.
