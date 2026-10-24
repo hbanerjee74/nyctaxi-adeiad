@@ -557,7 +557,7 @@ def ontology_checks(data) -> list:
     return diags + _declaration_warnings(data)
 
 
-def _load_docs(directory: Path, suffix: str):
+def _load_kind_docs(directory: Path, suffix: str):
     """Yield (path, document, diag) for every document of one kind in a directory."""
     for path in sorted(directory.glob(f"*{suffix}")):
         text, read_diag = _read_text(path)
@@ -605,18 +605,18 @@ def refs(ontology: str, model: str):
         typer.echo(f"{len(diags)} error(s): a gate needs both directories.", err=True)
         raise typer.Exit(1)
     ontologies, models, model_files, mappings = {}, {}, {}, []
-    for path, doc, diag in _load_docs(ont_dir, ONTOLOGY_SUFFIX):
+    for path, doc, diag in _load_kind_docs(ont_dir, ONTOLOGY_SUFFIX):
         if diag:
             diags.append(diag)
         else:
             ontologies[doc.get("name")] = doc
-    for path, doc, diag in _load_docs(model_dir, MODEL_SUFFIX):
+    for path, doc, diag in _load_kind_docs(model_dir, MODEL_SUFFIX):
         if diag:
             diags.append(diag)
         else:
             models[doc.get("name")] = doc
             model_files[doc.get("name")] = str(path)
-    for path, doc, diag in _load_docs(ont_dir, MAPPING_SUFFIX):
+    for path, doc, diag in _load_kind_docs(ont_dir, MAPPING_SUFFIX):
         if diag:
             diags.append(diag)
         else:
@@ -726,7 +726,7 @@ def glossary(ontology: str, context: str):
                  for name in TERM_HEADING.findall(text)}
     concepts = {}
     _require_dir(Path(ontology), "ontology", diags)
-    for path, doc, diag in _load_docs(Path(ontology), ONTOLOGY_SUFFIX):
+    for path, doc, diag in _load_kind_docs(Path(ontology), ONTOLOGY_SUFFIX):
         if diag:
             diags.append(diag)
             continue
