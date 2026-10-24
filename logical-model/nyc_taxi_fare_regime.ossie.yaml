@@ -1,6 +1,6 @@
 version: "0.2.0.dev0"
 name: nyc_taxi_fare_regime
-description: "Effective-dated surcharge rates by fare component. Standalone model: it explains a surcharge when joined on component and date, and is not a conformed dimension of the trip star."
+description: "Effective-dated surcharge rates by fare component. Standalone model: it explains a surcharge when joined on component and date, and is not a conformed dimension of the trip star. It carries no ontology concept: a fare regime is a rule about pricing, not an entity with identity."
 ai_context:
   instructions: Join on fare component and the effective date interval to explain a surcharge. Rates are effective-dated, so an as-of join uses half-open validity.
   synonyms:

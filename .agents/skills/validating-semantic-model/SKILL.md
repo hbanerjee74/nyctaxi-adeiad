@@ -1,6 +1,6 @@
 ---
 name: validating-semantic-model
-description: "Use when checking a canonical semantic model before commit, after a mart change, or when asked to validate it or whether a metric is trustworthy — covering both the structural tool run and the content review that decides whether the model is honest."
+description: "Use when checking a canonical semantic model before commit, after a mart change, or when asked to validate it or whether a metric is trustworthy — covering the structural tool run, the terms it shares with the ontology, and the content review that decides whether the model is honest."
 ---
 
 # Validating a semantic model
@@ -11,7 +11,9 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 ## Step 1 — structure
 
-From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <marts-dir>` and require `0 coverage error(s)`, `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
+From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <model-root>`, where the root is the directory `repo-map.json` gives the layer the document covers — `layers.<name>.path` for a gold model, or the parent of `artifact_paths.semantic_model` when the map names no layer — not a fixed `models/marts`, because a dataset may name a silver model as readily as a gold one — and require `0 coverage error(s)`. Then `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
+
+The ontology and its mappings are a separate step: run `validating-ontology` for them. This skill checks the model's side of the same facts — the terms it shares with the ontology — in item 11.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 
@@ -31,6 +33,9 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 8. **Datatypes and SCD are honest.** Each field's `datatype` matches the column the staging or ingestion SQL produces, and each `scd` claim matches the ADR that rules it — a Type 2 claim on a Type 1 source is a finding.
 9. **Documents hold whole stars.** A dataset that exists only to bridge two documents is a partition error, not a table.
 10. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
+11. **The model's terms agree with the ontology's concepts.** Read the ontology and `CONTEXT.md`. Every business object the model names in a description or `ai_context` is a concept; a metric whose name states a measure of an object uses that object's term; and no dataset description asserts an identity the concept contradicts. A model that invents a business name the glossary does not hold is a finding — the vocabulary is the language layer's to own, not the model's. The `glossary` report the ontology review runs is where such a name shows up as a `terms_without_concept` entry; read the same list.
+12. **Every dataset a concept populates is claimed.** For each concept, the datasets that carry its identity are named in that concept's mapping. A dataset whose key is a concept's identity and which no mapping names understates the model, even when another dataset states the same concept. The ontology side of this rule is `validating-ontology` item 5.
+13. **A rename or reinterpretation lands in both.** When the model renames a business object, changes its grain or changes what a key identifies, the concept, its `CONTEXT.md` sentence and its mapping move in the same change. A model change that leaves the concept stating the old meaning is a finding, even when every expression still resolves.
 
 ## Step 3 — fix, or escalate
 
@@ -43,6 +48,8 @@ Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wron
 ## Step 4 — report
 
 Give the verdict, then each finding as location → evidence → fix, then the checks you could not run and why (no warehouse, no dbt, no catalog). A verdict of "passes" needs a cited file per claim, and every content fix is followed by re-running `validate` and `suppliers` — a content edit is an edit.
+
+The report closes with a declaration-versus-executable section: which artifacts are checked for shape and which expressions no tool reads. The ontology's mappings, their coverage and their identity claims are reported by `validating-ontology`, and a green run there never proves a mapping executes either.
 
 ## Red flags — stop and re-check
 

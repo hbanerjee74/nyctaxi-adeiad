@@ -1,0 +1,16 @@
+#!/bin/sh
+# Chain: this repo's own lint, then any hook the CI bundle installed.
+#
+# Install once per clone with:
+#   git config core.hooksPath .githooks/ci-bundle   # if the bundle already owns the path
+# or, when no bundle hook exists:
+#   ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+#
+# Never point core.hooksPath at this directory alone: the CI bundle installs its
+# own hooks there, and replacing the path silently disables them.
+set -e
+root=$(git rev-parse --show-toplevel)
+python3 "$root/tools/ossie_lint.py" --quiet
+
+bundle="$root/.git/hooks/pre-commit.ci"
+if [ -x "$bundle" ]; then "$bundle" "$@"; fi

@@ -61,14 +61,11 @@ _Not_: blended tip rate, because it falls in proportion to how much traffic pays
 **Unmeasured tip**:
 A tip the payment method does not record. It is not a zero tip.
 
-**Rate plan**:
-How a trip is priced: metered, flat fare or negotiated.
-
 **Fare regime**:
 A set of surcharge rates with the dates they apply between.
 
 **Daypart**:
-A named band of the day, defined by the business.
+A named band of the day, defined by the business. The lakehouse holds one row per hour, so the hour is its grain.
 
 **Trip band**:
 A range of distance, duration or fare used to profile trips.
@@ -80,7 +77,7 @@ The trips between one pickup zone and one dropoff zone.
 An origin-destination pair with at least 25 billable trips in the reporting window, the population the origin-destination matrix reports (ADR 0017). Narrower than a flow: a pair below the floor exists in the trips but is not published.
 
 **Medallion**:
-The licence to operate a taxi, and by extension the vehicle it covers.
+The licence to operate a taxi. It is transferable: the licence outlives the vehicle it currently covers and the driver who currently holds it, so it is neither of them.
 _Not_: the bronze, silver and gold layering, which is a platform term defined elsewhere.
 
 **Fleet attribution**:
@@ -91,6 +88,14 @@ A depot where the operator keeps its vehicles.
 
 **Shift**:
 A driver's working period on one vehicle, from sign-on to sign-off. When no sign-off is recorded the shift is unclosed and ends at the operator's derived end, shortly after its last trip.
+
+**Driver**:
+A person who signs on to work a shift for the fleet operator. A driver is identified by the operator's own driver id, not by name or licence number.
+_Not_: medallion holder, because a medallion is a licence to operate a taxi and its holder may drive none of the operator's shifts.
+
+**Vehicle**:
+A taxi the fleet operator runs. It is identified by the operator's own vehicle id, which stays with the vehicle across shifts and across a change of medallion.
+_Not_: medallion, because the licence can move to another vehicle and one vehicle can be covered by more than one licence over its life.
 
 **Lease type**:
 How a driver pays for a vehicle: owner-operators share revenue, lease drivers pay a fixed rate.
@@ -110,6 +115,15 @@ An hour a driver is signed on. Driver performance is ranked on revenue per onlin
 
 **Asset utilisation**:
 The share of the 24-hour day a vehicle is in use. A vehicle idle in the depot is an asset question; a driver idle on the road is a labour question.
+
+**Date**:
+A calendar day. Trips are reported on the day they started, and the same day means the same day in every document.
+
+**Rate plan**:
+How a trip is priced: metered, flat fare or negotiated.
+
+**Maintenance event**:
+One visit that takes a vehicle out of service, with the days lost and the cost. Availability is derived from these events, so the event is the record and the downtime is a measure.
 
 **Maintenance downtime**:
 Days a vehicle is out of service. They are removed from its availability, so a vehicle in the shop does not look idle.

@@ -1,18 +1,25 @@
 """Ossie canonical-model tooling for this repo.
 
-Commands: `validate` (core + VIBEDATA), `coverage` (marts on disk vs
-`dbt_model` names), `version`. `export` (dbt/Tableau/PowerBI) is an explicit
-follow-up (VD-7126); nothing here writes consumer files.
+Commands: `validate` (schema and structure), `coverage` (models on disk vs
+`dbt_model` names), `refs` (mapping reference integrity), `glossary` (lists the
+vocabulary drift both ways and judges nothing), `version`. Coverage and the
+meaning of a mapping are review steps in the `validating-ontology` and
+`validating-semantic-model` skills: this script proves shape and reports facts,
+never meaning.
+`export` (dbt/Tableau/PowerBI) is an explicit follow-up (VD-7126); nothing here
+writes consumer files.
 
 Usage:
-  python3 scripts/ossie.py validate <model-file-or-dir>
-  python3 scripts/ossie.py coverage <model-file-or-dir> <marts-dir>
+  python3 scripts/ossie.py validate <file-or-dir>
+  python3 scripts/ossie.py coverage <model-file-or-dir> <model-root>
   python3 scripts/ossie.py suppliers <model-file-or-dir>
   python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
   python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py content-tests <model-dir> <test-file> [--check]
   python3 scripts/ossie.py compile <model-file> <query-file>
   python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
+  python3 scripts/ossie.py refs <ontology-dir> <model-dir>
+  python3 scripts/ossie.py glossary <ontology-dir> <context-md>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -45,18 +52,42 @@ TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
 
 _spec = importlib.util.spec_from_file_location(
-    "ossie_vendor_validate", VENDOR_DIR / "validate.py")
+    "ossie_vendor_validate", VENDOR_DIR / "validation" / "validate.py")
 _vendor = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_vendor)
 
 app = typer.Typer(no_args_is_help=True)
 
 
+MODEL_SUFFIX = ".ossie.yaml"
+ONTOLOGY_SUFFIX = ".ontology.yaml"
+MAPPING_SUFFIX = ".mapping.yaml"
+SUFFIXES = (MODEL_SUFFIX, ONTOLOGY_SUFFIX, MAPPING_SUFFIX)
+
+
 def _resolve_targets(model: str) -> list[Path]:
+    """Model documents only: the commands that read datasets and metrics."""
     p = Path(model)
     if p.is_dir():
-        return sorted(p.glob("*.ossie.yaml"))
+        return sorted(p.glob(f"*{MODEL_SUFFIX}"))
     return [p]
+
+
+def _canonical_targets(path: str) -> list[Path]:
+    """Every canonical document under a path: models, ontologies and mappings."""
+    p = Path(path)
+    if p.is_dir():
+        return sorted(item for suffix in SUFFIXES for item in p.glob(f"*{suffix}"))
+    return [p]
+
+
+def _kind(doc) -> str:
+    """A canonical document's kind, from the key that only it carries."""
+    if isinstance(doc, dict) and "concept_mappings" in doc:
+        return "mapping"
+    if isinstance(doc, dict) and "ontology" in doc:
+        return "ontology"
+    return "model"
 
 
 UNCODED_CODES = (("does not cover the primary key or a unique key",
@@ -103,9 +134,16 @@ def _read_text(target: Path):
                       "message": f"'{target}' is not valid UTF-8 text: {e}"}
 
 
-def _load_schema():
-    """Load and metaschema-check the vendored schema; (schema, diag)."""
-    path = VENDOR_DIR / "ossie-schema.json"
+SCHEMA_PATHS = {
+    "model": "core-spec/ossie-schema.json",
+    "ontology": "ontology/ontology.json",
+    "mapping": "ontology/mapping.json",
+}
+
+
+def _load_schema(kind: str = "model"):
+    """Load and metaschema-check a vendored schema; (schema, diag)."""
+    path = VENDOR_DIR / SCHEMA_PATHS[kind]
     text, diag = _read_text(path)
     if diag:
         return None, diag
@@ -322,6 +360,11 @@ def notes(model: str, tests: str, adr: str):
     diags = []
     tests_dir = Path(tests)
     adr_dir = Path(adr)
+    for path, role in ((tests_dir, "tests"), (adr_dir, "adr")):
+        if not path.is_dir():
+            diags.append({"severity": "warning", "code": "notes/no-directory",
+                          "message": f"{role} directory '{path}' does not exist, so no pointer "
+                                     f"into it can be checked; a clean run here proves nothing"})
     for target in _resolve_targets(model):
         text, read_diag = _read_text(target)
         if read_diag:
@@ -353,8 +396,10 @@ def notes(model: str, tests: str, adr: str):
                                                  f"cites ADR {number}, which has no file in "
                                                  f"{adr_dir}"})
     print(json.dumps(diags, indent=2))
-    typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
-    raise typer.Exit(1 if diags else 0)
+    errors = [d for d in diags if d["severity"] == "error"]
+    typer.echo(f"{len(errors)} dangling pointer(s), "
+               f"{len(diags) - len(errors)} unchecked director(ies).", err=True)
+    raise typer.Exit(1 if errors else 0)
 
 
 def _load_docs(model):
@@ -463,6 +508,191 @@ def _sources_of(dataset):
                 yield source
 
 
+DECLARATION_KEYS = ("requires", "derived_by")
+
+
+def _walk(node):
+    """Every dict in a document tree, whatever shape the caller's schema allows."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _walk(value)
+
+
+def _declaration_warnings(data) -> list:
+    """Report hidden semantics: fields that look executable and are not."""
+    used = sorted({
+        key for node in _walk(data) for key in DECLARATION_KEYS
+        if node.get(key)
+    })
+    if data.get("prefixes"):
+        used.append("prefixes")
+    if data.get("custom_extensions"):
+        used.append("custom_extensions")
+    if not used:
+        return []
+    return [{"severity": "warning", "code": "declaration-only",
+             "message": f"uses {', '.join(used)}, which no evaluator reads; this document is "
+                        f"declaration-only and must not be described as executable"}]
+
+
+def ontology_checks(data) -> list:
+    """Checks the ontology schema cannot make: identity is declared, semantics are prose."""
+    diags = []
+    for component in data.get("ontology") or []:
+        if not isinstance(component, dict):
+            continue
+        if component.get("type") == "EntityType" and not component.get("identify_by"):
+            diags.append({"severity": "error", "code": "ontology/no-identity",
+                          "message": f"EntityType '{component.get('concept')}' has no "
+                                     f"identify_by; identity is a declared relationship to a "
+                                     f"value type, never a surrogate"})
+        for name, relation in [("concept", component)] + [
+                ("relationship", r) for r in component.get("relationships") or []
+                if isinstance(r, dict)]:
+            if relation.get("iri"):
+                diags.append({"severity": "warning", "code": "declaration-only",
+                              "message": f"{name} '{relation.get('concept') or relation.get('name')}' "
+                                         f"carries an iri, which names an external vocabulary "
+                                         f"nothing resolves; drop it or declare it as prose"})
+    return diags + _declaration_warnings(data)
+
+
+def _load_kind_docs(directory: Path, suffix: str):
+    """Yield (path, document, diag) for every document of one kind in a directory."""
+    for path in sorted(directory.glob(f"*{suffix}")):
+        text, read_diag = _read_text(path)
+        if read_diag:
+            yield path, None, read_diag
+            continue
+        try:
+            doc = _vendor.load_yaml_named(text, str(path))
+        except Exception as e:  # noqa: BLE001 - report, never traceback
+            yield path, None, {"severity": "error", "code": "cli/bad-yaml",
+                               "file": str(path),
+                               "message": f"'{path}': invalid YAML: {e}"}
+            continue
+        if not isinstance(doc, dict):
+            yield path, None, {"severity": "error", "code": "cli/not-a-document",
+                               "file": str(path),
+                               "message": f"'{path}' is a {type(doc).__name__}, not a document; "
+                                          f"a canonical document is a mapping with a version, a "
+                                          f"name and its own content key"}
+            continue
+        yield path, doc, None
+
+
+def _require_dir(path: Path, role: str, diags: list) -> bool:
+    """A gate on a path that does not exist must fail, never report zero findings."""
+    if path.is_dir():
+        return True
+    diags.append({"severity": "error", "code": "cli/no-files",
+                  "message": f"{role} '{path}' is not a directory; a mistyped path is an "
+                             f"error, not an empty result"})
+    return False
+
+
+DATASET_FIELD = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*$")
+
+
+@app.command()
+def refs(ontology: str, model: str):
+    """Every mapping ref resolves; every expression names a declared dataset.field."""
+    ont_dir, model_dir = Path(ontology), Path(model)
+    diags = []
+    if not (_require_dir(ont_dir, "ontology", diags)
+            and _require_dir(model_dir, "model", diags)):
+        print(json.dumps(diags, indent=2))
+        typer.echo(f"{len(diags)} error(s): a gate needs both directories.", err=True)
+        raise typer.Exit(1)
+    ontologies, models, model_files, mappings = {}, {}, {}, []
+    for path, doc, diag in _load_kind_docs(ont_dir, ONTOLOGY_SUFFIX):
+        if diag:
+            diags.append(diag)
+        else:
+            ontologies[doc.get("name")] = doc
+    for path, doc, diag in _load_kind_docs(model_dir, MODEL_SUFFIX):
+        if diag:
+            diags.append(diag)
+        else:
+            models[doc.get("name")] = doc
+            model_files[doc.get("name")] = str(path)
+    for path, doc, diag in _load_kind_docs(ont_dir, MAPPING_SUFFIX):
+        if diag:
+            diags.append(diag)
+        else:
+            mappings.append((path, doc))
+
+    mapped = set()
+    for path, doc in mappings:
+        file = str(path)
+        model_name = (doc.get("semantic_model_ref") or {}).get("name")
+        ontology_name = (doc.get("ontology_ref") or {}).get("name")
+        referenced_model = models.get(model_name)
+        referenced_ontology = ontologies.get(ontology_name)
+        if referenced_model is None:
+            diags.append({"severity": "error", "code": "mapping/unresolved-ref", "file": file,
+                          "message": f"semantic_model_ref '{model_name}' matches no document "
+                                     f"name in {model_dir}"})
+        else:
+            mapped.add(model_name)
+        if referenced_ontology is None:
+            diags.append({"severity": "error", "code": "mapping/unresolved-ref", "file": file,
+                          "message": f"ontology_ref '{ontology_name}' matches no document "
+                                     f"name in {ont_dir}"})
+            continue
+        concepts = {component.get("concept") for component in
+                    referenced_ontology.get("ontology") or [] if isinstance(component, dict)}
+        relationships = {relationship.get("name") for component in
+                         referenced_ontology.get("ontology") or [] if isinstance(component, dict)
+                         for relationship in component.get("relationships") or []
+                         if isinstance(relationship, dict)}
+        declared = {(dataset.get("name"), field.get("name"))
+                    for dataset in (referenced_model or {}).get("datasets") or []
+                    if isinstance(dataset, dict)
+                    for field in dataset.get("fields") or [] if isinstance(field, dict)}
+        for node in _walk(doc.get("concept_mappings") or []):
+            concept = node.get("concept")
+            if concept and concept not in concepts:
+                diags.append({"severity": "error", "code": "mapping/unknown-concept",
+                              "file": file, "message": f"maps concept '{concept}', which "
+                                                        f"'{ontology_name}' does not declare"})
+            relationship = node.get("relationship")
+            if relationship and relationship not in relationships:
+                diags.append({"severity": "error", "code": "mapping/unknown-relationship",
+                              "file": file, "message": f"maps relationship '{relationship}', "
+                                                        f"which '{ontology_name}' does not declare"})
+            expression = node.get("expression")
+            if not expression:
+                continue
+            match = DATASET_FIELD.match(str(expression))
+            if not match:
+                diags.append({"severity": "error", "code": "mapping/unqualified-expression",
+                              "file": file, "message": f"expression '{expression}' is not "
+                                                        f"dataset.field, so it cannot be checked"})
+            elif match.groups() not in declared:
+                diags.append({"severity": "error", "code": "mapping/unknown-field",
+                              "file": file, "message": f"expression '{expression}' names no "
+                                                        f"dataset.field that '{model_name}' "
+                                                        f"declares"})
+
+    for name in sorted(set(models) - mapped):
+        diags.append({"severity": "warning", "code": "mapping/none",
+                      "file": model_files[name],
+                      "message": f"model '{name}' has no mapping; each document is mapped or "
+                                 f"its description says why no concept reaches it"})
+    print(json.dumps(diags, indent=2))
+    errors = [d for d in diags if d["severity"] == "error"]
+    warnings = [d for d in diags if d["severity"] == "warning"]
+    typer.echo(f"{len(mappings)} mapping(s), {len(errors)} error(s), "
+               f"{len(warnings)} warning(s). Declaration-only: no expression is executed.",
+               err=True)
+    raise typer.Exit(1 if errors else 0)
+
+
 @app.command()
 def dimensionality(model: str):
     """Per metric: its facts and the dimensions a query may group or filter it by.
@@ -481,20 +711,62 @@ def dimensionality(model: str):
     print(json.dumps(out, indent=2))
 
 
+TERM_HEADING = re.compile(r"^\*\*([^*]+)\*\*:", re.MULTILINE)
+
+
+@app.command()
+def glossary(ontology: str, context: str):
+    """List the vocabulary drift both ways. A reporter: it judges nothing and exits 0."""
+    diags = []
+    text, read_diag = _read_text(Path(context))
+    if read_diag:
+        print(json.dumps([read_diag]))
+        raise typer.Exit(1)
+    terms = {name.strip().casefold(): name.strip()
+             for name in TERM_HEADING.findall(text)}
+    if not _require_dir(Path(ontology), "ontology", diags):
+        print(json.dumps(diags))
+        raise typer.Exit(1)
+    concepts = {}
+    for path, doc, diag in _load_kind_docs(Path(ontology), ONTOLOGY_SUFFIX):
+        if diag:
+            print(json.dumps([diag]))
+            raise typer.Exit(1)
+        for component in doc.get("ontology") or []:
+            if isinstance(component, dict) and component.get("concept"):
+                concepts[component["concept"]] = component.get("type")
+
+    represented = {name.casefold() for name in concepts}
+    entity = {name.casefold() for name, kind in concepts.items() if kind == "EntityType"}
+    out = {
+        "entity_types_without_term": sorted(n for n in concepts
+                                            if n.casefold() in entity
+                                            and n.casefold() not in terms),
+        "terms_without_concept": sorted(shown for key, shown in terms.items()
+                                        if key not in represented),
+        "value_types_without_term": sorted(n for n in concepts
+                                           if n.casefold() not in entity
+                                           and n.casefold() not in terms),
+    }
+    print(json.dumps(out, indent=2))
+    typer.echo(f"{len(concepts)} concept(s), {len(out['terms_without_concept'])} term(s) "
+               f"without a concept, {len(out['entity_types_without_term'])} entity type(s) "
+               f"without a term. Coverage is the skill's call, not this command's.",
+               err=True)
+
+
 @app.command()
 def validate(model: str):
-    """Validate canonical file(s): upstream core checks + VIBEDATA pass."""
-    targets = _resolve_targets(model)
+    """Validate canonical file(s): schema, then the pass that kind allows."""
+    targets = _canonical_targets(model)
     if not targets:
         print(json.dumps([{"severity": "error", "code": "cli/no-files",
-                           "message": f"No *.ossie.yaml under '{model}'"}]))
+                           "message": f"No {' / '.join('*' + s for s in SUFFIXES)} under "
+                                      f"'{model}'"}]))
         raise typer.Exit(1)
-    schema, schema_diag = _load_schema()
-    if schema_diag:
-        print(json.dumps([schema_diag]))
-        raise typer.Exit(2)
+    schemas = {}
     diags = []
-    parsed = []
+    parsed_models = []
     for target in targets:
         text, read_diag = _read_text(target)
         if read_diag:
@@ -507,32 +779,48 @@ def validate(model: str):
             diags.append({"severity": "error", "code": "cli/bad-yaml", "file": str(target),
                           "message": f"'{target}': invalid YAML: {e}"})
             continue
+        kind = _kind(data)
+        if kind not in schemas:
+            schemas[kind] = _load_schema(kind)
+        schema, schema_diag = schemas[kind]
+        if schema_diag:
+            schema_diag["file"] = str(target)
+            diags.append(schema_diag)
+            continue
         try:
             file_diags = [_as_diag(e) for e in _vendor.validate_document(data, schema)]
             if not any(d["severity"] == "error" for d in file_diags):
-                file_diags.extend(validate_vibedata(data))
+                if kind == "model":
+                    file_diags.extend(validate_vibedata(data))
+                elif kind == "ontology":
+                    file_diags.extend(ontology_checks(data))
+                else:
+                    file_diags.extend(_declaration_warnings(data))
         except Exception as e:  # noqa: BLE001 - a check bug must not kill JSON output
             file_diags = [{"severity": "error", "code": "cli/check-crashed",
                            "message": f"'{target}': validator crashed: {type(e).__name__}: {e}"}]
         for d in file_diags:
             d.setdefault("file", str(target))
         diags.extend(file_diags)
-        parsed.append((str(target), data))
-    if len(parsed) > 1:
-        diags.extend(cross_document_drift(parsed))
+        if kind == "model":
+            parsed_models.append((str(target), data))
+    if len(parsed_models) > 1:
+        diags.extend(cross_document_drift(parsed_models))
     if Path(model).is_dir():
         for path in sorted(Path(model).glob("*.y*ml")):
-            if not path.name.endswith(".ossie.yaml"):
+            if not path.name.endswith(SUFFIXES):
                 diags.append({"severity": "error", "code": "cli/unmatched-file",
                               "file": str(path),
-                              "message": f"'{path}' is not a *.ossie.yaml model file; "
-                                         f"rename it or move it out of the model directory"})
+                              "message": f"'{path}' is not one of "
+                                         f"{', '.join('*' + s for s in SUFFIXES)}; "
+                                         f"rename it or move it out of the directory"})
     print(json.dumps(diags, indent=2))
     errors = [d for d in diags if d["severity"] == "error"]
     warnings = [d for d in diags if d["severity"] == "warning"]
     typer.echo(f"{len(targets)} file(s), {len(errors)} error(s), "
-               f"{len(warnings)} warning(s). Structural check only — content review is the "
-               f"validating-semantic-model skill.", err=True)
+               f"{len(warnings)} warning(s). Structural check only — coverage and content "
+               f"are the validating-ontology and validating-semantic-model skills' call.",
+               err=True)
     raise typer.Exit(1 if errors else 0)
 
 

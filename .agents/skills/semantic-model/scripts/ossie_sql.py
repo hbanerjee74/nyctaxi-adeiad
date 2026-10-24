@@ -23,7 +23,8 @@ TARGET = "duckdb"
 OSSIE_DIALECT = "OSSIE_SQL_2026"
 
 _spec = importlib.util.spec_from_file_location(
-    "ossie_vendor_validate_sql", Path(__file__).parent / "ossie_vendor" / "validate.py")
+    "ossie_vendor_validate_sql",
+    Path(__file__).parent / "ossie_vendor" / "validation" / "validate.py")
 _vendor = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_vendor)
 

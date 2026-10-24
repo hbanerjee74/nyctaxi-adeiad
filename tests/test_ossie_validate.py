@@ -1303,3 +1303,192 @@ def test_dimensionality_follows_a_weighted_bridge_only(tmp_path):
     _set_payload(rel, payload)
     unweighted = _dimensionality(_write(tmp_path, doc))["nyc_taxi_trips"]
     assert "zone_poi" not in unweighted["billable_revenue"]["dimensions"]
+
+
+VENDOR = SKILL_SCRIPTS / "ossie_vendor"
+
+
+def test_vendor_mirrors_the_upstream_tree():
+    """The vendored registry resolves $refs inside ossie_vendor/, so the tree mirrors upstream."""
+    for rel in ("validation/validate.py", "core-spec/ossie-schema.json",
+                "ontology/ontology.json", "ontology/mapping.json"):
+        assert (VENDOR / rel).is_file(), rel
+
+
+def test_ontology_schema_resolves_offline():
+    """The ontology schema $refs the core schema by URL; it must resolve with no network."""
+    import ossie
+    schema, diag = ossie._load_schema("ontology")
+    assert diag is None, diag
+    doc = {"version": "0.2.0.dev0", "name": "X", "ontology": [
+        {"concept": "A", "type": "EntityType"}]}
+    assert ossie._vendor.validate_document(doc, schema) == []
+
+
+ONTOLOGY = {
+    "version": "0.2.0.dev0", "name": "taxi",
+    "ontology": [
+        {"concept": "Trip", "type": "EntityType", "identify_by": ["trip_id"],
+         "relationships": [
+             {"name": "trip_id", "verbalizes": ["a trip's identifier"],
+              "multiplicity": "OneToOne", "roles": [{"concept": "TripKey"}]},
+             {"name": "pickup_zone", "verbalizes": ["the zone a trip starts in"],
+              "multiplicity": "ManyToOne", "roles": [{"concept": "Zone"}]}]},
+        {"concept": "Zone", "type": "EntityType", "identify_by": ["zone_id"],
+         "relationships": [
+             {"name": "zone_id", "verbalizes": ["a zone's identifier"],
+              "multiplicity": "OneToOne", "roles": [{"concept": "ZoneId"}]}]},
+        {"concept": "TripKey", "type": "ValueType", "extends": ["String"]},
+        {"concept": "ZoneId", "type": "ValueType", "extends": ["Integer"]},
+    ],
+}
+
+MODEL = {"version": "0.2.0.dev0", "name": "nyc_taxi_analytics", "datasets": [
+    {"name": "trips", "fields": [{"name": "trip_key"}, {"name": "pickup_zone_key"}]}]}
+
+MAPPING = {
+    "version": "0.2.0.dev0", "name": "taxi_analytics",
+    "ontology_ref": {"name": "taxi"},
+    "semantic_model_ref": {"name": "nyc_taxi_analytics"},
+    "concept_mappings": [
+        {"concept": "Trip", "object_mappings": [{"expression": "trips.trip_key"}]},
+        {"concept": "Zone", "link_mappings": [
+            {"relationship": "pickup_zone",
+             "object_mapping": {"expression": "trips.pickup_zone_key"}}]},
+    ],
+}
+
+
+def _write_doc(directory, filename, doc):
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / filename).write_text(yaml.safe_dump(doc))
+
+
+def _refs(tmp_path, mapping=None, model=None, ontology=None):
+    ontology_dir = tmp_path / "ontology"
+    model_dir = tmp_path / "logical-model"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology or ONTOLOGY)
+    _write_doc(ontology_dir, "taxi.mapping.yaml", mapping or MAPPING)
+    _write_doc(model_dir, "nyc_taxi_analytics.ossie.yaml", model or MODEL)
+    return RUNNER.invoke(app, ["refs", str(ontology_dir), str(model_dir)])
+
+
+def test_validate_detects_ontology_and_mapping_kinds(tmp_path):
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    _write_doc(ontology_dir, "taxi.mapping.yaml", MAPPING)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert not [d for d in diags if d["severity"] == "error"]
+
+
+def test_refs_resolves_a_valid_mapping(tmp_path):
+    result = _refs(tmp_path)
+    assert result.exit_code == 0, result.stdout
+
+
+def test_refs_flags_unknown_semantic_model(tmp_path):
+    mapping = dict(MAPPING, semantic_model_ref={"name": "other"})
+    result = _refs(tmp_path, mapping=mapping)
+    assert result.exit_code == 1
+    assert "mapping/unresolved-ref" in result.stdout
+
+
+def test_refs_flags_a_field_the_model_does_not_expose(tmp_path):
+    mapping = dict(MAPPING, concept_mappings=[
+        {"concept": "Trip", "object_mappings": [{"expression": "trips.no_such_field"}]}])
+    result = _refs(tmp_path, mapping=mapping)
+    assert result.exit_code == 1
+    assert "mapping/unknown-field" in result.stdout
+
+
+def test_refs_reports_a_model_with_no_mapping(tmp_path):
+    result = _refs(tmp_path, mapping=dict(
+        MAPPING, semantic_model_ref={"name": "nyc_taxi_analytics"}))
+    other = tmp_path / "logical-model" / "other.ossie.yaml"
+    other.write_text(yaml.safe_dump(dict(MODEL, name="other_model")))
+    result = RUNNER.invoke(app, ["refs", str(tmp_path / "ontology"),
+                                 str(tmp_path / "logical-model")])
+    assert result.exit_code == 0, result.stdout
+    assert "mapping/none" in result.stdout
+
+
+def test_validate_flags_declaration_only_fields_as_warnings(tmp_path):
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0]["requires"] = ["trip_key is not null"]
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert ("declaration-only", "warning") in _codes(diags)
+
+
+def test_validate_flags_an_entity_without_identity(tmp_path):
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0].pop("identify_by")
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 1
+    assert ("ontology/no-identity", "error") in _codes(diags)
+
+
+def test_refs_fails_on_a_mistyped_directory(tmp_path):
+    """A gate on a missing path must fail, not report zero findings."""
+    result = RUNNER.invoke(app, ["refs", str(tmp_path / "nope"), str(tmp_path / "nope")])
+    assert result.exit_code == 1
+    assert "cli/no-files" in result.stdout
+
+
+def test_refs_reports_a_document_that_is_not_a_mapping(tmp_path):
+    """A list is valid YAML and not a document; it must not crash the checker."""
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    (ontology_dir / "bad.mapping.yaml").write_text("- a\n- list\n")
+    _write_doc(tmp_path / "logical-model", "nyc_taxi_analytics.ossie.yaml", MODEL)
+    result = RUNNER.invoke(app, ["refs", str(ontology_dir), str(tmp_path / "logical-model")])
+    assert result.exit_code == 1
+    assert "cli/not-a-document" in result.stdout
+
+
+def test_ontology_flags_an_iri_on_a_concept(tmp_path):
+    """An iri names a vocabulary nothing resolves, so it is refused on a concept."""
+    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
+    ontology["ontology"][0]["iri"] = "https://example.org/Trip"
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ontology)
+    code, diags = _run("validate", str(ontology_dir))
+    assert code == 0, diags
+    assert ("declaration-only", "warning") in _codes(diags)
+
+
+def test_notes_says_when_a_directory_is_missing(tmp_path):
+    """A clean notes run over a missing directory must not read as proof."""
+    model = tmp_path / "logical-model"
+    _write_doc(model, "m.ossie.yaml", MODEL)
+    result = RUNNER.invoke(app, ["notes", str(model), str(tmp_path / "no-tests"),
+                                 str(tmp_path / "no-adr")])
+    assert result.exit_code == 0, result.stdout
+    assert "notes/no-directory" in result.stdout
+
+
+def test_glossary_reports_both_directions_without_judging(tmp_path):
+    """A reporter: the lists are facts, and no drift is an error."""
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("# Context\n\n**Trip**:\nA journey.\n\n**Billable trip**:\nA rule.\n")
+    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
+    assert result.exit_code == 0, result.stdout
+    out = json.loads(result.stdout)
+    assert out["entity_types_without_term"] == ["Zone"]
+    assert out["terms_without_concept"] == ["Billable trip"]
+    assert out["value_types_without_term"]  # value types need no term
+
+
+def test_glossary_fails_only_on_a_mistyped_path(tmp_path):
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("**Trip**:\nA journey.\n")
+    result = RUNNER.invoke(app, ["glossary", str(tmp_path / "nope"), str(context)])
+    assert result.exit_code == 1
+    assert "cli/no-files" in result.stdout
