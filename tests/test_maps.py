@@ -62,6 +62,16 @@ def test_every_layer_has_a_test_map_module():
         assert expected in modules, f"layer {name} has no test-map module {expected}"
 
 
+def test_the_ontology_is_declared_and_gated():
+    """Every repo has an ontology beside its glossary, whatever its layers."""
+    assert REPO_MAP["artifact_paths"]["ontology"].startswith("ontology/")
+    assert REPO_MAP["artifact_paths"]["ontology_mapping"].startswith("ontology/")
+    assert "ontology" in REPO_MAP["modules"], "the ontology module has no path"
+    assert (ROOT / "CONTEXT.md").exists(), "an ontology without a glossary has no source"
+    gate = TEST_MAP["modules"].get("ontology", {}).get("commands", {}).get("structural", "")
+    assert "validate ontology" in gate and "glossary ontology" in gate, gate
+
+
 def test_source_artifact_patterns_resolve_for_every_source():
     for name in REPO_MAP["sources"]:
         for key in ("source_module", "source_tests", "pipeline", "resource_docs", "design_record_pipeline"):
