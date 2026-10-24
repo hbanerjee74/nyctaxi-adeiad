@@ -38,5 +38,6 @@ misread.
 - `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it.
 - `refs` also reports `mapping/partial-identity` when a mapped concept maps only some of the relationships its `identify_by` names. A partial natural key is a real gap on a versioned dimension, so the check reports it rather than calling the concept mapped.
 - Only a concept's own `iri`, or a relationship's, is refused: a mapping's document references carry the `iri` the schema defines for them.
+- `notes` warns with `notes/no-directory` when the tests or ADR directory is missing, so a clean run over an absent directory does not read as proof. Warnings never fail it; a dangling pointer does.
 - `glossary` reports a term with no concept as a `finding`, not an error: a term can name a rule, a measure or a decision, and those stay prose. It exits 1 only for an `EntityType` with no term.
 - `coverage` and `suppliers` read model documents only, so they never trip over `.ontology.yaml` or `.mapping.yaml`.

@@ -30,6 +30,17 @@ It sits at the language layer, beside the glossary, not above the gold marts. A 
 
 Adding a concept whose term is missing is one change: write the term or do not declare the concept. The ontology never invents vocabulary.
 
+## When the canonical model changes
+
+A mart change can leave a mapping true in form and false in meaning: the expression still names a declared `dataset.field` while the column now holds a version, a different grain or a narrower population. So the model change and the ontology change are one change:
+
+- Re-run `refs` after the model edit. It catches a renamed document, dataset or field, and a concept mapped on only some of its identity components.
+- Add the mapping entry for every dataset the change produced that carries a concept. A dataset no concept reaches gets no entry, and its document's description says why — never silence.
+- When the identity moves — a grain change, a Type 1 dimension becoming Type 2, a natural key replaced by a surrogate — change the concept, its `CONTEXT.md` sentence and every mapping of that concept in the same commit. A mapping that still resolves is not evidence that it still identifies the same thing.
+- A concept with no dataset anywhere is a declaration ahead of its data and its description says so; a dataset with a concept and no mapping is a gap.
+
+Nothing tests the meaning of that update: `refs` proves fields exist, and the review item on cross-document identity is the only thing that reads it.
+
 ## Red flags — stop and re-check
 
 - "The join column is the identity." A surrogate that changes per version is not identity; the natural key is. A join column is also not automatically a referent: map the relationship only when the column carries the target's identity.

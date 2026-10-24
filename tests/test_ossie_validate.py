@@ -1501,3 +1501,13 @@ def test_ontology_flags_an_iri_on_a_concept(tmp_path):
     code, diags = _run("validate", str(ontology_dir))
     assert code == 0, diags
     assert ("declaration-only", "warning") in _codes(diags)
+
+
+def test_notes_says_when_a_directory_is_missing(tmp_path):
+    """A clean notes run over a missing directory must not read as proof."""
+    model = tmp_path / "logical-model"
+    _write_doc(model, "m.ossie.yaml", MODEL)
+    result = RUNNER.invoke(app, ["notes", str(model), str(tmp_path / "no-tests"),
+                                 str(tmp_path / "no-adr")])
+    assert result.exit_code == 0, result.stdout
+    assert "notes/no-directory" in result.stdout

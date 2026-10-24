@@ -356,6 +356,11 @@ def notes(model: str, tests: str, adr: str):
     diags = []
     tests_dir = Path(tests)
     adr_dir = Path(adr)
+    for path, role in ((tests_dir, "tests"), (adr_dir, "adr")):
+        if not path.is_dir():
+            diags.append({"severity": "warning", "code": "notes/no-directory",
+                          "message": f"{role} directory '{path}' does not exist, so no pointer "
+                                     f"into it can be checked; a clean run here proves nothing"})
     for target in _resolve_targets(model):
         text, read_diag = _read_text(target)
         if read_diag:
@@ -387,8 +392,10 @@ def notes(model: str, tests: str, adr: str):
                                                  f"cites ADR {number}, which has no file in "
                                                  f"{adr_dir}"})
     print(json.dumps(diags, indent=2))
-    typer.echo(f"{len(diags)} dangling pointer(s).", err=True)
-    raise typer.Exit(1 if diags else 0)
+    errors = [d for d in diags if d["severity"] == "error"]
+    typer.echo(f"{len(errors)} dangling pointer(s), "
+               f"{len(diags) - len(errors)} unchecked director(ies).", err=True)
+    raise typer.Exit(1 if errors else 0)
 
 
 def _load_docs(model):
