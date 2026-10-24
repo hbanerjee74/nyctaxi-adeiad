@@ -61,14 +61,11 @@ _Not_: blended tip rate, because it falls in proportion to how much traffic pays
 **Unmeasured tip**:
 A tip the payment method does not record. It is not a zero tip.
 
-**Rate plan**:
-How a trip is priced: metered, flat fare or negotiated.
-
 **Fare regime**:
 A set of surcharge rates with the dates they apply between.
 
 **Daypart**:
-A named band of the day, defined by the business.
+A named band of the day, defined by the business. The lakehouse holds one row per hour, so the hour is its grain.
 
 **Trip band**:
 A range of distance, duration or fare used to profile trips.
@@ -122,17 +119,8 @@ The share of the 24-hour day a vehicle is in use. A vehicle idle in the depot is
 **Date**:
 A calendar day. Trips are reported on the day they started, and the same day means the same day in every document.
 
-**Daypart**:
-A named band of the day, defined by the business. The lakehouse holds one row per hour, so the hour is the grain and the band is the concept.
-
-**Service type**:
-Which fleet carried a trip: yellow or green. It is a licence condition as much as a fare class.
-
 **Rate plan**:
 How a trip is priced: metered, flat fare or negotiated.
-
-**Payment method**:
-How a passenger paid, such as by card or in cash. It decides whether a tip is recorded.
 
 **Maintenance event**:
 One visit that takes a vehicle out of service, with the days lost and the cost. Availability is derived from these events, so the event is the record and the downtime is a measure.
