@@ -1446,3 +1446,29 @@ def test_validate_flags_an_entity_without_identity(tmp_path):
     code, diags = _run("validate", str(ontology_dir))
     assert code == 1
     assert ("ontology/no-identity", "error") in _codes(diags)
+
+
+def test_refs_fails_on_a_mistyped_directory(tmp_path):
+    """A gate on a missing path must fail, not report zero findings."""
+    result = RUNNER.invoke(app, ["refs", str(tmp_path / "nope"), str(tmp_path / "nope")])
+    assert result.exit_code == 1
+    assert "cli/no-files" in result.stdout
+
+
+def test_refs_reports_a_document_that_is_not_a_mapping(tmp_path):
+    """A list is valid YAML and not a document; it must not crash the checker."""
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    (ontology_dir / "bad.mapping.yaml").write_text("- a\n- list\n")
+    _write_doc(tmp_path / "logical-model", "nyc_taxi_analytics.ossie.yaml", MODEL)
+    result = RUNNER.invoke(app, ["refs", str(ontology_dir), str(tmp_path / "logical-model")])
+    assert result.exit_code == 1
+    assert "cli/not-a-document" in result.stdout
+
+
+def test_glossary_fails_on_a_mistyped_directory(tmp_path):
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("# Context\n\n**Trip**:\nA journey.\n")
+    result = RUNNER.invoke(app, ["glossary", str(tmp_path / "nope"), str(context)])
+    assert result.exit_code == 1
+    assert "cli/no-files" in result.stdout

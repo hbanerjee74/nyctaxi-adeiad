@@ -550,11 +550,30 @@ def _load_docs(directory: Path, suffix: str):
             yield path, None, read_diag
             continue
         try:
-            yield path, _vendor.load_yaml_named(text, str(path)), None
+            doc = _vendor.load_yaml_named(text, str(path))
         except Exception as e:  # noqa: BLE001 - report, never traceback
             yield path, None, {"severity": "error", "code": "cli/bad-yaml",
                                "file": str(path),
                                "message": f"'{path}': invalid YAML: {e}"}
+            continue
+        if not isinstance(doc, dict):
+            yield path, None, {"severity": "error", "code": "cli/not-a-document",
+                               "file": str(path),
+                               "message": f"'{path}' is a {type(doc).__name__}, not a document; "
+                                          f"a canonical document is a mapping with a version, a "
+                                          f"name and its own content key"}
+            continue
+        yield path, doc, None
+
+
+def _require_dir(path: Path, role: str, diags: list) -> bool:
+    """A gate on a path that does not exist must fail, never report zero findings."""
+    if path.is_dir():
+        return True
+    diags.append({"severity": "error", "code": "cli/no-files",
+                  "message": f"{role} '{path}' is not a directory; a mistyped path is an "
+                             f"error, not an empty result"})
+    return False
 
 
 DATASET_FIELD = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*$")
@@ -565,6 +584,11 @@ def refs(ontology: str, model: str):
     """Every mapping ref resolves; every expression names a declared dataset.field."""
     ont_dir, model_dir = Path(ontology), Path(model)
     diags = []
+    if not (_require_dir(ont_dir, "ontology", diags)
+            and _require_dir(model_dir, "model", diags)):
+        print(json.dumps(diags, indent=2))
+        typer.echo(f"{len(diags)} error(s): a gate needs both directories.", err=True)
+        raise typer.Exit(1)
     ontologies, models, model_files, mappings = {}, {}, {}, []
     for path, doc, diag in _load_docs(ont_dir, ONTOLOGY_SUFFIX):
         if diag:
@@ -665,6 +689,7 @@ def glossary(ontology: str, context: str):
         terms = {name.strip().casefold(): name.strip()
                  for name in TERM_HEADING.findall(text)}
     concepts = {}
+    _require_dir(Path(ontology), "ontology", diags)
     for path, doc, diag in _load_docs(Path(ontology), ONTOLOGY_SUFFIX):
         if diag:
             diags.append(diag)
