@@ -28,6 +28,7 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | --- | --- |
 | [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
 | [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Canonical Ossie model shape and VIBEDATA rules |
+| [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: concepts, natural identity, relationships, declaration-only |
 | [`validating-semantic-model`](.agents/skills/validating-semantic-model/SKILL.md) | Structural gate plus the content review before commit |
 | [`sql-style`](.agents/skills/sql-style/SKILL.md) | SQL formatting |
 | [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md) | Generic, singular, unit and Python tests |
