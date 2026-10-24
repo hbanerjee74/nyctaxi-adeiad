@@ -180,14 +180,14 @@
       "sources": [
         "ontology/",
         ".agents/skills/ontology/",
-        "CONTEXT.md"
+        ".agents/skills/validating-ontology/"
       ],
       "unit": [
         "tests/test_ossie_validate.py"
       ],
       "commands": {
         "unit": "python3 -m pytest tests/test_ossie_validate.py -q",
-        "structural": "python3 .agents/skills/semantic-model/scripts/ossie.py validate ontology/ && python3 .agents/skills/semantic-model/scripts/ossie.py refs ontology/ logical-model/ && python3 .agents/skills/semantic-model/scripts/ossie.py glossary ontology/ CONTEXT.md"
+        "structural": "python3 .agents/skills/semantic-model/scripts/ossie.py validate ontology/ && python3 .agents/skills/semantic-model/scripts/ossie.py refs ontology/ logical-model/"
       }
     }
   }

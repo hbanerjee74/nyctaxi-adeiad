@@ -282,7 +282,7 @@
     },
     "ontology": {
       "path": "ontology/",
-      "description": "Business ontology, Apache Ossie 0.2.0.dev0: the CONTEXT.md vocabulary as entity and value types with their relationships, plus one mapping per canonical document that concepts reach. Authored under the ontology skill and gated by validating-semantic-model. Declarations only: nothing parses or executes a mapping."
+      "description": "Business ontology, Apache Ossie 0.2.0.dev0: the CONTEXT.md vocabulary as entity and value types with their relationships, plus one mapping per canonical document that concepts reach. Authored under the ontology skill and gated by validating-ontology (its own step: structure, then coverage, then content). Declarations only: nothing parses or executes a mapping."
     }
   },
   "key_directories": {

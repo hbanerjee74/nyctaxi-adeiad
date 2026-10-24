@@ -1413,21 +1413,6 @@ def test_refs_reports_a_model_with_no_mapping(tmp_path):
     assert "mapping/none" in result.stdout
 
 
-def test_glossary_flags_an_untraced_entity_concept(tmp_path):
-    ontology_dir = tmp_path / "ontology"
-    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
-    context = tmp_path / "CONTEXT.md"
-    context.write_text("# Context\n\n**Trip**:\nA journey.\n\n**Zone**:\nAn area.\n")
-    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
-    assert result.exit_code == 0, result.stdout
-    assert "glossary/concept-untraced" not in result.stdout
-
-    context.write_text("# Context\n\n**Trip**:\nA journey.\n")
-    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
-    assert result.exit_code == 1
-    assert "glossary/concept-untraced" in result.stdout
-
-
 def test_validate_flags_declaration_only_fields_as_warnings(tmp_path):
     ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
     ontology["ontology"][0]["requires"] = ["trip_key is not null"]
@@ -1464,32 +1449,6 @@ def test_refs_reports_a_document_that_is_not_a_mapping(tmp_path):
     result = RUNNER.invoke(app, ["refs", str(ontology_dir), str(tmp_path / "logical-model")])
     assert result.exit_code == 1
     assert "cli/not-a-document" in result.stdout
-
-
-def test_glossary_fails_on_a_mistyped_directory(tmp_path):
-    context = tmp_path / "CONTEXT.md"
-    context.write_text("# Context\n\n**Trip**:\nA journey.\n")
-    result = RUNNER.invoke(app, ["glossary", str(tmp_path / "nope"), str(context)])
-    assert result.exit_code == 1
-    assert "cli/no-files" in result.stdout
-
-
-def test_refs_flags_a_partial_identity(tmp_path):
-    """Mapping one identity component of several is a gap, not a complete mapping."""
-    mapping = yaml.safe_load(yaml.safe_dump(MAPPING))
-    mapping["concept_mappings"] = [
-        {"concept": "Trip", "object_mappings": [{"referent_mappings": [
-            {"relationship": "trip_id", "expression": "trips.trip_key"}]}]}]
-    result = _refs(tmp_path, mapping=mapping)
-    assert "mapping/partial-identity" not in result.stdout
-
-    ontology = yaml.safe_load(yaml.safe_dump(ONTOLOGY))
-    trip = next(c for c in ontology["ontology"] if c["concept"] == "Trip")
-    trip["identify_by"] = ["trip_id", "pickup_zone"]
-    _write_doc(tmp_path / "ontology", "taxi.ontology.yaml", ontology)
-    result = RUNNER.invoke(app, ["refs", str(tmp_path / "ontology"),
-                                 str(tmp_path / "logical-model")])
-    assert "mapping/partial-identity" in result.stdout
 
 
 def test_ontology_flags_an_iri_on_a_concept(tmp_path):

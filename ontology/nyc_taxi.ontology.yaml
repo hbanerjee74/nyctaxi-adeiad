@@ -30,6 +30,30 @@ ontology:
   description: The TLC's code for a meter vendor, which stays the same when the vendor is renamed or acquired.
   type: ValueType
   extends: [String]
+- concept: CalendarDate
+  description: A calendar day, the grain a trip is reported at.
+  type: ValueType
+  extends: [Date]
+- concept: DaypartCode
+  description: The code the business gives a band of the day.
+  type: ValueType
+  extends: [String]
+- concept: ServiceTypeName
+  description: "The name the business gives a fare class: yellow medallion or green boro taxi."
+  type: ValueType
+  extends: [String]
+- concept: RatePlanName
+  description: The name of a pricing scheme a trip can be sold under.
+  type: ValueType
+  extends: [String]
+- concept: PaymentMethodKey
+  description: The only identifier the lakehouse holds for a payment method; it is a key with no natural code beside it.
+  type: ValueType
+  extends: [String]
+- concept: MaintenanceId
+  description: The operator's identifier for one maintenance event.
+  type: ValueType
+  extends: [String]
 - concept: Trip
   description: One completed taxi journey as the TLC records it.
   type: EntityType
@@ -59,6 +83,31 @@ ontology:
     roles:
     - concept: Technology vendor
     verbalizes: ['{Trip} is recorded by {Technology vendor}']
+    multiplicity: ManyToOne
+  - name: occurred_on
+    roles:
+    - concept: Date
+    verbalizes: ['{Trip} occurred on {Date}']
+    multiplicity: ManyToOne
+  - name: part_of_day
+    roles:
+    - concept: Daypart
+    verbalizes: ['{Trip} started in {Daypart}']
+    multiplicity: ManyToOne
+  - name: served_by
+    roles:
+    - concept: Service type
+    verbalizes: ['{Trip} was carried by {Service type}']
+    multiplicity: ManyToOne
+  - name: priced_by
+    roles:
+    - concept: Rate plan
+    verbalizes: ['{Trip} was priced under {Rate plan}']
+    multiplicity: ManyToOne
+  - name: paid_by
+    roles:
+    - concept: Payment method
+    verbalizes: ['{Trip} was paid by {Payment method}']
     multiplicity: ManyToOne
 - concept: Shift
   description: A driver's working period on one vehicle, from sign-on to sign-off.
@@ -135,3 +184,73 @@ ontology:
     - concept: VendorNaturalKey
     verbalizes: ['{Technology vendor} is identified by {VendorNaturalKey}']
     multiplicity: OneToOne
+- concept: Date
+  description: "A calendar day, used to group a trip by the day it started. It is a conformed dimension: the same day means the same day in every document."
+  type: EntityType
+  identify_by: [date_id]
+  relationships:
+  - name: date_id
+    roles:
+    - concept: CalendarDate
+    verbalizes: ['{Date} is identified by {CalendarDate}']
+    multiplicity: OneToOne
+- concept: Daypart
+  description: A named band of the day, defined by the business. The lakehouse holds one row per hour, so the concept is the band and the hour is its grain.
+  type: EntityType
+  identify_by: [daypart_id]
+  relationships:
+  - name: daypart_id
+    roles:
+    - concept: DaypartCode
+    verbalizes: ['{Daypart} is identified by {DaypartCode}']
+    multiplicity: OneToOne
+- concept: Service type
+  description: Which fleet carried a trip, yellow or green. It is a licence condition as much as a fare class, because a green taxi may not pick up in the core or at the airports.
+  type: EntityType
+  identify_by: [service_type_id]
+  relationships:
+  - name: service_type_id
+    roles:
+    - concept: ServiceTypeName
+    verbalizes: ['{Service type} is identified by {ServiceTypeName}']
+    multiplicity: OneToOne
+- concept: Rate plan
+  description: "How a trip is priced: metered, flat fare or negotiated. The rules behind each plan live in the model and its ADR; the concept carries only the identity."
+  type: EntityType
+  identify_by: [rate_plan_id]
+  relationships:
+  - name: rate_plan_id
+    roles:
+    - concept: RatePlanName
+    verbalizes: ['{Rate plan} is identified by {RatePlanName}']
+    multiplicity: OneToOne
+- concept: Payment method
+  description: How a passenger paid, such as card or cash, which decides whether a tip is recorded. The lakehouse exposes only a key for it, so its identity is that key and the gap is recorded on the mapping.
+  type: EntityType
+  identify_by: [payment_method_id]
+  relationships:
+  - name: payment_method_id
+    roles:
+    - concept: PaymentMethodKey
+    verbalizes: ['{Payment method} is identified by {PaymentMethodKey}']
+    multiplicity: OneToOne
+- concept: Maintenance event
+  description: "One visit that takes a vehicle out of service, with the days lost and the cost. It is an event, not a state: the vehicle's availability rule is derived from these rows."
+  type: EntityType
+  identify_by: [maintenance_id]
+  relationships:
+  - name: maintenance_id
+    roles:
+    - concept: MaintenanceId
+    verbalizes: ['{Maintenance event} is identified by {MaintenanceId}']
+    multiplicity: OneToOne
+  - name: vehicle
+    roles:
+    - concept: Vehicle
+    verbalizes: ['{Maintenance event} keeps {Vehicle} off the road']
+    multiplicity: ManyToOne
+  - name: garage
+    roles:
+    - concept: Garage
+    verbalizes: ['{Maintenance event} happened at {Garage}']
+    multiplicity: ManyToOne

@@ -69,7 +69,9 @@ def test_the_ontology_is_declared_and_gated():
     assert "ontology" in REPO_MAP["modules"], "the ontology module has no path"
     assert (ROOT / "CONTEXT.md").exists(), "an ontology without a glossary has no source"
     gate = TEST_MAP["modules"].get("ontology", {}).get("commands", {}).get("structural", "")
-    assert "validate ontology" in gate and "glossary ontology" in gate, gate
+    assert "validate ontology" in gate and "refs ontology" in gate, gate
+    assert (ROOT / ".agents/skills/validating-ontology/SKILL.md").exists(), \
+        "the ontology has no validation skill of its own"
 
 
 def test_source_artifact_patterns_resolve_for_every_source():

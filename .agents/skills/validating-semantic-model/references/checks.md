@@ -20,8 +20,7 @@ misread.
 | `compile` | one semantic query: the source chosen, the rejected sources with reasons, the SQL | anything it reports as unsupported, which it refuses rather than guesses |
 | `notes` | `held by <test>` and `ADR NNNN` pointers in a source `note`, resolved against the tests and ADR directories, and whether those directories exist | whether the test still tests what the note claims |
 | ontology validation | the ontology schema, then unique concept names, `extends`/`identify_by`/`roles` resolving, declared QName prefixes | whether a concept is the right concept, whether identity is natural, whether an expression is executable |
-| `refs` | `ontology_ref` and `semantic_model_ref` names against document names, every `concept`/`relationship` against the ontology, every `expression` against `dataset.field` in the referenced model, and a mapped concept's identity components against the relationships it maps | whether two mappings of one concept agree, whether the model's data honours the join |
-| `glossary` | `**Term**:` headings in `CONTEXT.md` against `EntityType` concepts, in both directions | value types, which need no term; whether the term means what the concept says |
+| `refs` | `ontology_ref` and `semantic_model_ref` names against document names, every `concept`/`relationship` against the ontology, every `expression` against `dataset.field` in the referenced model | whether an expression means what the mapping says, whether two mappings of one concept agree, coverage of the vocabulary: `validating-ontology` reads those |
 | `notes` | `held by <test>` and `ADR NNNN` pointers in a source `note`, resolved against the tests and ADR directories | whether the test still tests what the note claims |
 
 ## Behaviours worth knowing
@@ -33,11 +32,9 @@ misread.
 - Unmatched files: a `*.y*ml` file in a validated directory that is not `*.ossie.yaml`, `*.ontology.yaml` or `*.mapping.yaml` is an error, so a mis-named document cannot be silently skipped.
 - `validate` reads all three kinds and picks the schema from the document's own shape (`concept_mappings` → mapping, `ontology` → ontology, otherwise model). A directory can hold all three.
 - The ontology checks are the ones the schema cannot make: an `EntityType` with no `identify_by` is an error, because identity is declared; `requires`, `derived_by`, `prefixes` or `custom_extensions` present is a warning, because nothing evaluates them.
-- `refs` and `glossary` take directories, not files: identity is a claim across documents, so one document alone cannot answer it.
+- `refs` takes directories, not files: identity is a claim across documents, so one document alone cannot answer it.
 - A path that is not a directory, or a file that parses to something other than a document, is an error. A gate on a mistyped path must never report zero findings.
-- `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it.
-- `refs` also reports `mapping/partial-identity` when a mapped concept maps only some of the relationships its `identify_by` names. A partial natural key is a real gap on a versioned dimension, so the check reports it rather than calling the concept mapped.
+- `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it. Coverage of the vocabulary — every table classified, every concept mapped, the glossary in both directions — is `validating-ontology`'s step 2, which no command here can see.
 - Only a concept's own `iri`, or a relationship's, is refused: a mapping's document references carry the `iri` the schema defines for them.
 - `notes` warns with `notes/no-directory` when the tests or ADR directory is missing, so a clean run over an absent directory does not read as proof. Warnings never fail it; a dangling pointer does.
-- `glossary` reports a term with no concept as a `finding`, not an error: a term can name a rule, a measure or a decision, and those stay prose. It exits 1 only for an `EntityType` with no term.
 - `coverage` and `suppliers` read model documents only, so they never trip over `.ontology.yaml` or `.mapping.yaml`.

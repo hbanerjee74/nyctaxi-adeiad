@@ -1,6 +1,6 @@
 version: 0.2.0.dev0
 name: nyc_taxi_trips_mapping
-description: "Maps the Trip concept onto the trips document. The zone and vendor links are declared in the ontology but not mapped here: the trips dataset exposes pickup_zone_key, dropoff_zone_key and vendor_key, which are surrogates over a natural key and valid-from date, while the ontology identifies Zone and Technology vendor by their natural keys across versions."
+description: "Maps the Trip concept onto the trips document. Where the fact keys a dimension by a version or dimension surrogate, the link stays unmapped: pickup_zone_key, dropoff_zone_key and vendor_key are surrogates over a natural key and valid-from date, and pickup_date_key, service_type_key and rate_plan_key are dimension keys whose natural values the ontology uses instead. Two links are mapped because the fact column carries the concept's own identity: the daypart code and the payment-method key."
 ontology_ref:
   name: nyc_taxi
 semantic_model_ref:
@@ -15,6 +15,14 @@ concept_mappings:
       referent_mappings:
       - relationship: shift_id
         expression: trips.shift_id
+    - relationship: part_of_day
+      referent_mappings:
+      - relationship: daypart_id
+        expression: trips.daypart_code
+    - relationship: paid_by
+      referent_mappings:
+      - relationship: payment_method_id
+        expression: trips.payment_method_key
 - concept: Shift
   object_mappings:
   - referent_mappings:
@@ -30,3 +38,28 @@ concept_mappings:
   - referent_mappings:
     - relationship: vendor_id
       expression: vendor.vendor_natural_key
+- concept: Date
+  object_mappings:
+  - referent_mappings:
+    - relationship: date_id
+      expression: date.calendar_date
+- concept: Daypart
+  object_mappings:
+  - referent_mappings:
+    - relationship: daypart_id
+      expression: daypart.daypart_code
+- concept: Service type
+  object_mappings:
+  - referent_mappings:
+    - relationship: service_type_id
+      expression: service_type.service_type_name
+- concept: Rate plan
+  object_mappings:
+  - referent_mappings:
+    - relationship: rate_plan_id
+      expression: rate_plan.rate_plan_name
+- concept: Payment method
+  object_mappings:
+  - referent_mappings:
+    - relationship: payment_method_id
+      expression: payment_method.payment_method_key

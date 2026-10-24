@@ -1,6 +1,6 @@
 ---
 name: ontology
-description: "Use when creating or changing a business ontology or an ontology mapping in a repo that has a glossary — declaring concepts and relationships, mapping them to a canonical model, and checking the result before commit. Not for authoring metrics or dbt models."
+description: "Use when creating or changing a business ontology or an ontology mapping in a repo that has a glossary — classifying the gold tables, declaring concepts and relationships, and mapping them to a canonical model. Not for authoring metrics or dbt models, and not for the review itself."
 ---
 
 # The business ontology
@@ -25,8 +25,8 @@ It sits at the language layer, beside the glossary, not above the gold marts. A 
 1. Read the glossary and the canonical documents the map names.
 2. Declare the value types, then the entity types with `identify_by`, then the relationships.
 3. Write one mapping per canonical document, for the concepts that reach it. A document none reach gets no mapping, and its own description says why.
-4. Run the gates from `validating-semantic-model` step 1: `validate`, then `refs`, then `glossary`.
-5. Report the concepts declared, the concepts mapped, each document left unmapped with its reason, each relationship left unmapped with its reason, and the declaration-only status.
+4. Validate with `validating-ontology`: its step 1 (`validate`, `refs`), then its coverage step — the classification below, in full.
+5. Report the concepts declared, the concepts mapped, each table's classification, each document left unmapped with its reason, each relationship left unmapped with its reason, and the declaration-only status.
 
 Adding a concept whose term is missing is one change: write the term or do not declare the concept. The ontology never invents vocabulary.
 
@@ -41,10 +41,36 @@ A mart change can leave a mapping true in form and false in meaning: the express
 
 Nothing tests the meaning of that update: `refs` proves fields exist, and the review item on cross-document identity is the only thing that reads it.
 
+
+## Which tables get a concept
+
+The ontology is not a mirror of the star schema, and it is not the glossary alone. Every gold `dim_*` and `fct_*` table is classified before any concept is declared: the classification decides whether it gets a concept, and the reason a table does not gets written where a reader will look for it — the table's own description, or the model document that carries it.
+
+| Table kind, read from the name and the SQL | Concept? | What it becomes instead |
+| --- | --- | --- |
+| Conformed dimension: same meaning and key in more than one document | Yes, an `EntityType` | — |
+| Reference dimension: one meaningful attribute, a name or a code | Yes, an `EntityType` | — |
+| Transactional fact: one row per event the business names | Yes, an `EntityType` | its numbers are metrics, not concepts |
+| Junk dimension: a bundle of unrelated low-cardinality flags | No | attributes of the concept that owns them |
+| Degenerate dimension: an identifier with no table, a key on the fact | No | an identity component or a relationship |
+| Accumulating or derived snapshot: rebuilt from events | No | the rule that derives it, in an ADR |
+| Effective-dated rule table: rates, thresholds, bands | No | the rule, in an ADR |
+| Bridge: two concepts many-to-many, with a weight | No | the relationship's `weight` in the model |
+| Aggregate or service mart: a rollup or a report shape | No | metrics on the concepts it rolls up |
+
+Two consequences worth stating:
+
+- **A classification is not a vocabulary.** A missing `CONTEXT.md` term blocks a concept whatever the table is; add the term in the same change.
+- **A classification is not an identity.** A reference dimension whose only key is a surrogate still gets a concept when the business names it, but its identity is that key and the mapping says the natural code is absent. Do not invent a code to satisfy the rule.
+
+Every table in the layer appears in the report's classification table, including the ones that get nothing.
+
 ## Red flags — stop and re-check
 
 - "The join column is the identity." A surrogate that changes per version is not identity; the natural key is. A join column is also not automatically a referent: map the relationship only when the column carries the target's identity.
 - "It validates, so it works." Validation proves shape. No evaluator reads an expression.
 - "The concept is obvious, the term is implied." Add the term in the same change, or drop the concept.
 - "This document has no concepts, so no mapping is needed." Report it unmapped with the reason; silence reads as covered.
+- "Every table needs a concept." Junk dimensions, bridges, snapshots and rule tables exist to make queries cheap, not to name a thing.
+- "The glossary is the coverage list." It names what the business says, not what the lakehouse holds; classify the tables, then check the terms.
 - "The schema allows `requires`." Allowed is not readable: nothing evaluates it, so the rule belongs in an ADR.

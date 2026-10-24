@@ -1,9 +1,11 @@
 """Ossie canonical-model tooling for this repo.
 
-Commands: `validate` (core + VIBEDATA + ontology), `coverage` (models on disk
-vs `dbt_model` names), `refs` (mapping references), `glossary` (ontology vs
-`CONTEXT.md`), `version`. `export` (dbt/Tableau/PowerBI) is an explicit
-follow-up (VD-7126); nothing here writes consumer files.
+Commands: `validate` (schema and structure), `coverage` (models on disk vs
+`dbt_model` names), `refs` (mapping reference integrity), `version`. Coverage of
+the vocabulary and the meaning of a mapping are review steps in the
+`validating-semantic-model` skill: this script proves shape, never meaning.
+`export` (dbt/Tableau/PowerBI) is an explicit follow-up (VD-7126); nothing here
+writes consumer files.
 
 Usage:
   python3 scripts/ossie.py validate <file-or-dir>
@@ -15,7 +17,6 @@ Usage:
   python3 scripts/ossie.py compile <model-file> <query-file>
   python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
   python3 scripts/ossie.py refs <ontology-dir> <model-dir>
-  python3 scripts/ossie.py glossary <ontology-dir> <context-md>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -622,7 +623,6 @@ def refs(ontology: str, model: str):
         else:
             mappings.append((path, doc))
 
-    mapped_refs = {}
     mapped = set()
     for path, doc in mappings:
         file = str(path)
@@ -651,12 +651,6 @@ def refs(ontology: str, model: str):
                     for dataset in (referenced_model or {}).get("datasets") or []
                     if isinstance(dataset, dict)
                     for field in dataset.get("fields") or [] if isinstance(field, dict)}
-        for block in doc.get("concept_mappings") or []:
-            if not isinstance(block, dict) or not block.get("concept"):
-                continue
-            seen = mapped_refs.setdefault((ontology_name, block["concept"]), set())
-            seen.update(node.get("relationship") for node in _walk(block)
-                        if node.get("relationship"))
         for node in _walk(doc.get("concept_mappings") or []):
             concept = node.get("concept")
             if concept and concept not in concepts:
@@ -682,20 +676,6 @@ def refs(ontology: str, model: str):
                                                         f"dataset.field that '{model_name}' "
                                                         f"declares"})
 
-    for (ontology_name, concept), seen in sorted(mapped_refs.items()):
-        ontology_doc = ontologies.get(ontology_name) or {}
-        component = next((c for c in ontology_doc.get("ontology") or []
-                          if isinstance(c, dict) and c.get("concept") == concept), None)
-        if component is None:
-            continue
-        missing = sorted(set(component.get("identify_by") or []) - seen)
-        if missing:
-            diags.append({"severity": "warning", "code": "mapping/partial-identity",
-                          "file": f"ontology/{concept}",
-                          "message": f"concept '{concept}' is mapped but its identity "
-                                     f"components {missing} are not; a partial identity is a "
-                                     f"gap to report, not a complete mapping"})
-
     for name in sorted(set(models) - mapped):
         diags.append({"severity": "warning", "code": "mapping/none",
                       "file": model_files[name],
@@ -707,49 +687,6 @@ def refs(ontology: str, model: str):
     typer.echo(f"{len(mappings)} mapping(s), {len(errors)} error(s), "
                f"{len(warnings)} warning(s). Declaration-only: no expression is executed.",
                err=True)
-    raise typer.Exit(1 if errors else 0)
-
-
-TERM_HEADING = re.compile(r"^\*\*([^*]+)\*\*:", re.MULTILINE)
-
-
-@app.command()
-def glossary(ontology: str, context: str):
-    """Every EntityType names a glossary term; terms with no concept are listed."""
-    diags = []
-    text, read_diag = _read_text(Path(context))
-    if read_diag:
-        diags.append(read_diag)
-        terms = {}
-    else:
-        terms = {name.strip().casefold(): name.strip()
-                 for name in TERM_HEADING.findall(text)}
-    concepts = {}
-    _require_dir(Path(ontology), "ontology", diags)
-    for path, doc, diag in _load_kind_docs(Path(ontology), ONTOLOGY_SUFFIX):
-        if diag:
-            diags.append(diag)
-            continue
-        for component in doc.get("ontology") or []:
-            if isinstance(component, dict) and component.get("concept"):
-                concepts[component["concept"]] = component.get("type")
-
-    for name, kind in sorted(concepts.items()):
-        if kind == "EntityType" and name.casefold() not in terms:
-            diags.append({"severity": "error", "code": "glossary/concept-untraced",
-                          "message": f"concept '{name}' has no '**{name}**:' term in {context}"})
-    represented = {name.casefold() for name in concepts}
-    for key, shown in sorted(terms.items()):
-        if key not in represented:
-            diags.append({"severity": "finding", "code": "glossary/term-unrepresented",
-                          "message": f"term '{shown}' has no concept; add one if it denotes a "
-                                     f"thing with identity, otherwise it is a rule or measure "
-                                     f"and stays prose"})
-    print(json.dumps(diags, indent=2))
-    errors = [d for d in diags if d["severity"] == "error"]
-    findings = [d for d in diags if d["severity"] == "finding"]
-    typer.echo(f"{len(concepts)} concept(s), {len(errors)} error(s), "
-               f"{len(findings)} term(s) with no concept.", err=True)
     raise typer.Exit(1 if errors else 0)
 
 

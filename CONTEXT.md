@@ -119,6 +119,24 @@ An hour a driver is signed on. Driver performance is ranked on revenue per onlin
 **Asset utilisation**:
 The share of the 24-hour day a vehicle is in use. A vehicle idle in the depot is an asset question; a driver idle on the road is a labour question.
 
+**Date**:
+A calendar day. Trips are reported on the day they started, and the same day means the same day in every document.
+
+**Daypart**:
+A named band of the day, defined by the business. The lakehouse holds one row per hour, so the hour is the grain and the band is the concept.
+
+**Service type**:
+Which fleet carried a trip: yellow or green. It is a licence condition as much as a fare class.
+
+**Rate plan**:
+How a trip is priced: metered, flat fare or negotiated.
+
+**Payment method**:
+How a passenger paid, such as by card or in cash. It decides whether a tip is recorded.
+
+**Maintenance event**:
+One visit that takes a vehicle out of service, with the days lost and the cost. Availability is derived from these events, so the event is the record and the downtime is a measure.
+
 **Maintenance downtime**:
 Days a vehicle is out of service. They are removed from its availability, so a vehicle in the shop does not look idle.
 
