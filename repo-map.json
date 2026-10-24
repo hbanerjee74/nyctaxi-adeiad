@@ -312,7 +312,8 @@
     "python_tests": "python3 -m pytest tests -q",
     "python_lint": "ruff check .",
     "sqlfluff_lint": "sqlfluff lint transformation/models",
-    "adr_lint": "python3 .github/scripts/adr_lint.py"
+    "adr_lint": "python3 .github/scripts/adr_lint.py",
+    "ossie_lint": "python3 tools/ossie_lint.py"
   },
   "key_references": {
     "agents": "AGENTS.md",

@@ -21,3 +21,6 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Run python_tests
         run: python3 -m pytest tests -q
+      # The same script the pre-commit hook runs, so local and CI cannot drift.
+      - name: Lint the canonical artifacts
+        run: python3 tools/ossie_lint.py
