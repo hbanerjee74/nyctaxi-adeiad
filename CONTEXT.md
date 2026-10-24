@@ -92,6 +92,14 @@ A depot where the operator keeps its vehicles.
 **Shift**:
 A driver's working period on one vehicle, from sign-on to sign-off. When no sign-off is recorded the shift is unclosed and ends at the operator's derived end, shortly after its last trip.
 
+**Driver**:
+A person who signs on to work a shift for the fleet operator. A driver is identified by the operator's own driver id, not by name or licence number.
+_Not_: medallion holder, because a medallion is a licence to operate a taxi and its holder may drive none of the operator's shifts.
+
+**Vehicle**:
+A taxi the fleet operator runs. It is identified by the operator's own vehicle id, which stays with the vehicle across shifts and across a change of medallion.
+_Not_: medallion, because the licence can move to another vehicle and one vehicle can be covered by more than one licence over its life.
+
 **Lease type**:
 How a driver pays for a vehicle: owner-operators share revenue, lease drivers pay a fixed rate.
 
