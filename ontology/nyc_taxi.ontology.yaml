@@ -1,6 +1,6 @@
 version: 0.2.0.dev0
 name: nyc_taxi
-description: The business vocabulary of the NYC taxi data product — a trip, the fleet shift it may be attributed to, the driver and vehicle that shift used, and the zone it started and ended in.
+description: The business vocabulary of the NYC taxi data product — a trip, the fleet shift it may be attributed to, the driver and vehicle that shift used, the depot it signed on at, the meter vendor that recorded the trip, and the zone it started and ended in.
 ontology:
 - concept: TripKey
   description: The natural identifier of a trip, derived from the columns the TLC records a trip with.
