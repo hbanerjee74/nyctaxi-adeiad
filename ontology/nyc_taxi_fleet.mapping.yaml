@@ -1,6 +1,6 @@
 version: 0.2.0.dev0
 name: nyc_taxi_fleet_mapping
-description: Maps the fleet's Shift, Driver, Vehicle, Garage, Maintenance event, Zone, Date and Daypart concepts onto the shift document. Date and Daypart are conformed dimensions, so this document restates the same identity expression the trips document uses. Shift appears in this document and in the trips document; the ontology holds it once and both mappings identify the same concept.
+description: "Maps the fleet's Shift, Driver, Vehicle, Garage, Maintenance event, Medallion, Zone, Date and Daypart concepts onto the shift document. Medallion is a transferable licence granted to a driver: the lakehouse records its plate number on the vehicle row, so identity is mapped there, while who holds it and when it moved are not in the data and stay a gap. Date and Daypart are conformed dimensions, so this document restates the identity expression the trips document uses. Shift appears in this document and in the trips document; the ontology holds it once and both mappings identify the same concept."
 ontology_ref:
   name: nyc_taxi
 semantic_model_ref:
@@ -66,3 +66,8 @@ concept_mappings:
   - referent_mappings:
     - relationship: daypart_id
       expression: daypart.daypart_code
+- concept: Medallion
+  object_mappings:
+  - referent_mappings:
+    - relationship: medallion_id
+      expression: vehicle.medallion_number

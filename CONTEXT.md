@@ -80,7 +80,7 @@ The trips between one pickup zone and one dropoff zone.
 An origin-destination pair with at least 25 billable trips in the reporting window, the population the origin-destination matrix reports (ADR 0017). Narrower than a flow: a pair below the floor exists in the trips but is not published.
 
 **Medallion**:
-The licence to operate a taxi, and by extension the vehicle it covers.
+The licence to operate a taxi. It is transferable: the licence outlives the vehicle it currently covers and the driver who currently holds it, so it is neither of them.
 _Not_: the bronze, silver and gold layering, which is a platform term defined elsewhere.
 
 **Fleet attribution**:

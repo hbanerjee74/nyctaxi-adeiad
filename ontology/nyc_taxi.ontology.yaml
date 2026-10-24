@@ -50,6 +50,10 @@ ontology:
   description: The only identifier the lakehouse holds for a payment method; it is a key with no natural code beside it.
   type: ValueType
   extends: [String]
+- concept: MedallionNumber
+  description: The plate number the TLC issues for a medallion; it stays with the licence when the licence is transferred.
+  type: ValueType
+  extends: [String]
 - concept: MaintenanceId
   description: The operator's identifier for one maintenance event.
   type: ValueType
@@ -144,6 +148,11 @@ ontology:
     - concept: DriverId
     verbalizes: ['{Driver} is identified by {DriverId}']
     multiplicity: OneToOne
+  - name: holds_medallion
+    roles:
+    - concept: Medallion
+    verbalizes: ['{Driver} currently holds {Medallion}']
+    multiplicity: ManyToOne
 - concept: Vehicle
   description: A taxi the fleet operator runs, identified by the operator rather than by its medallion.
   type: EntityType
@@ -254,3 +263,13 @@ ontology:
     - concept: Garage
     verbalizes: ['{Maintenance event} happened at {Garage}']
     multiplicity: ManyToOne
+- concept: Medallion
+  description: "The licence to operate a taxi, identified by its plate number. It is granted to a driver and transferable, so the holder changes while the licence stays: the transfer is time-varying and the ontology has no validity window, so this concept states the licence and the model's history carries the transfers."
+  type: EntityType
+  identify_by: [medallion_id]
+  relationships:
+  - name: medallion_id
+    roles:
+    - concept: MedallionNumber
+    verbalizes: ['{Medallion} is identified by {MedallionNumber}']
+    multiplicity: OneToOne
