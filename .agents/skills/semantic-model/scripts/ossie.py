@@ -45,7 +45,7 @@ TOOLS_DIR = Path(__file__).parent
 VENDOR_DIR = TOOLS_DIR / "ossie_vendor"
 
 _spec = importlib.util.spec_from_file_location(
-    "ossie_vendor_validate", VENDOR_DIR / "validate.py")
+    "ossie_vendor_validate", VENDOR_DIR / "validation" / "validate.py")
 _vendor = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_vendor)
 
@@ -103,9 +103,16 @@ def _read_text(target: Path):
                       "message": f"'{target}' is not valid UTF-8 text: {e}"}
 
 
-def _load_schema():
-    """Load and metaschema-check the vendored schema; (schema, diag)."""
-    path = VENDOR_DIR / "ossie-schema.json"
+SCHEMA_PATHS = {
+    "model": "core-spec/ossie-schema.json",
+    "ontology": "ontology/ontology.json",
+    "mapping": "ontology/mapping.json",
+}
+
+
+def _load_schema(kind: str = "model"):
+    """Load and metaschema-check a vendored schema; (schema, diag)."""
+    path = VENDOR_DIR / SCHEMA_PATHS[kind]
     text, diag = _read_text(path)
     if diag:
         return None, diag

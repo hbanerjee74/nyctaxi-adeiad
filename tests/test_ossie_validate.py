@@ -1303,3 +1303,23 @@ def test_dimensionality_follows_a_weighted_bridge_only(tmp_path):
     _set_payload(rel, payload)
     unweighted = _dimensionality(_write(tmp_path, doc))["nyc_taxi_trips"]
     assert "zone_poi" not in unweighted["billable_revenue"]["dimensions"]
+
+
+VENDOR = SKILL_SCRIPTS / "ossie_vendor"
+
+
+def test_vendor_mirrors_the_upstream_tree():
+    """The vendored registry resolves $refs inside ossie_vendor/, so the tree mirrors upstream."""
+    for rel in ("validation/validate.py", "core-spec/ossie-schema.json",
+                "ontology/ontology.json", "ontology/mapping.json"):
+        assert (VENDOR / rel).is_file(), rel
+
+
+def test_ontology_schema_resolves_offline():
+    """The ontology schema $refs the core schema by URL; it must resolve with no network."""
+    import ossie
+    schema, diag = ossie._load_schema("ontology")
+    assert diag is None, diag
+    doc = {"version": "0.2.0.dev0", "name": "X", "ontology": [
+        {"concept": "A", "type": "EntityType"}]}
+    assert ossie._vendor.validate_document(doc, schema) == []
