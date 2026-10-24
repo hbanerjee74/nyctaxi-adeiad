@@ -1,9 +1,11 @@
 """Ossie canonical-model tooling for this repo.
 
 Commands: `validate` (schema and structure), `coverage` (models on disk vs
-`dbt_model` names), `refs` (mapping reference integrity), `version`. Coverage of
-the vocabulary and the meaning of a mapping are review steps in the
-`validating-semantic-model` skill: this script proves shape, never meaning.
+`dbt_model` names), `refs` (mapping reference integrity), `glossary` (lists the
+vocabulary drift both ways and judges nothing), `version`. Coverage and the
+meaning of a mapping are review steps in the `validating-ontology` and
+`validating-semantic-model` skills: this script proves shape and reports facts,
+never meaning.
 `export` (dbt/Tableau/PowerBI) is an explicit follow-up (VD-7126); nothing here
 writes consumer files.
 
@@ -17,6 +19,7 @@ Usage:
   python3 scripts/ossie.py compile <model-file> <query-file>
   python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
   python3 scripts/ossie.py refs <ontology-dir> <model-dir>
+  python3 scripts/ossie.py glossary <ontology-dir> <context-md>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -708,6 +711,50 @@ def dimensionality(model: str):
     print(json.dumps(out, indent=2))
 
 
+TERM_HEADING = re.compile(r"^\*\*([^*]+)\*\*:", re.MULTILINE)
+
+
+@app.command()
+def glossary(ontology: str, context: str):
+    """List the vocabulary drift both ways. A reporter: it judges nothing and exits 0."""
+    diags = []
+    text, read_diag = _read_text(Path(context))
+    if read_diag:
+        print(json.dumps([read_diag]))
+        raise typer.Exit(1)
+    terms = {name.strip().casefold(): name.strip()
+             for name in TERM_HEADING.findall(text)}
+    if not _require_dir(Path(ontology), "ontology", diags):
+        print(json.dumps(diags))
+        raise typer.Exit(1)
+    concepts = {}
+    for path, doc, diag in _load_kind_docs(Path(ontology), ONTOLOGY_SUFFIX):
+        if diag:
+            print(json.dumps([diag]))
+            raise typer.Exit(1)
+        for component in doc.get("ontology") or []:
+            if isinstance(component, dict) and component.get("concept"):
+                concepts[component["concept"]] = component.get("type")
+
+    represented = {name.casefold() for name in concepts}
+    entity = {name.casefold() for name, kind in concepts.items() if kind == "EntityType"}
+    out = {
+        "entity_types_without_term": sorted(n for n in concepts
+                                            if n.casefold() in entity
+                                            and n.casefold() not in terms),
+        "terms_without_concept": sorted(shown for key, shown in terms.items()
+                                        if key not in represented),
+        "value_types_without_term": sorted(n for n in concepts
+                                           if n.casefold() not in entity
+                                           and n.casefold() not in terms),
+    }
+    print(json.dumps(out, indent=2))
+    typer.echo(f"{len(concepts)} concept(s), {len(out['terms_without_concept'])} term(s) "
+               f"without a concept, {len(out['entity_types_without_term'])} entity type(s) "
+               f"without a term. Coverage is the skill's call, not this command's.",
+               err=True)
+
+
 @app.command()
 def validate(model: str):
     """Validate canonical file(s): schema, then the pass that kind allows."""
@@ -771,8 +818,9 @@ def validate(model: str):
     errors = [d for d in diags if d["severity"] == "error"]
     warnings = [d for d in diags if d["severity"] == "warning"]
     typer.echo(f"{len(targets)} file(s), {len(errors)} error(s), "
-               f"{len(warnings)} warning(s). Structural check only — content review is the "
-               f"validating-semantic-model skill.", err=True)
+               f"{len(warnings)} warning(s). Structural check only — coverage and content "
+               f"are the validating-ontology and validating-semantic-model skills' call.",
+               err=True)
     raise typer.Exit(1 if errors else 0)
 
 

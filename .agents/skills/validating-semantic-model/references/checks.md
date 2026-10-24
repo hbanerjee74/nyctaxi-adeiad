@@ -20,6 +20,7 @@ misread.
 | `compile` | one semantic query: the source chosen, the rejected sources with reasons, the SQL | anything it reports as unsupported, which it refuses rather than guesses |
 | `notes` | `held by <test>` and `ADR NNNN` pointers in a source `note`, resolved against the tests and ADR directories, and whether those directories exist | whether the test still tests what the note claims |
 | ontology validation | the ontology schema, then unique concept names, `extends`/`identify_by`/`roles` resolving, declared QName prefixes | whether a concept is the right concept, whether identity is natural, whether an expression is executable |
+| `glossary` | `**Term**:` headings in `CONTEXT.md` against concept names, both directions, split into entity types, value types and terms without a concept; it reports and exits 0 | whether a term denotes something with identity: the coverage step in `validating-ontology` makes that call |
 | `refs` | `ontology_ref` and `semantic_model_ref` names against document names, every `concept`/`relationship` against the ontology, every `expression` against `dataset.field` in the referenced model | whether an expression means what the mapping says, whether two mappings of one concept agree, coverage of the vocabulary: `validating-ontology` reads those |
 | `notes` | `held by <test>` and `ADR NNNN` pointers in a source `note`, resolved against the tests and ADR directories | whether the test still tests what the note claims |
 
@@ -33,6 +34,7 @@ misread.
 - `validate` reads all three kinds and picks the schema from the document's own shape (`concept_mappings` → mapping, `ontology` → ontology, otherwise model). A directory can hold all three.
 - The ontology checks are the ones the schema cannot make: an `EntityType` with no `identify_by` is an error, because identity is declared; `requires`, `derived_by`, `prefixes` or `custom_extensions` present is a warning, because nothing evaluates them.
 - `refs` takes directories, not files: identity is a claim across documents, so one document alone cannot answer it.
+- `glossary` is a reporter. It never fails on drift, so a green exit means the lists were produced, not that the vocabulary is complete.
 - A path that is not a directory, or a file that parses to something other than a document, is an error. A gate on a mistyped path must never report zero findings.
 - `refs` reports `mapping/none` per model with no mapping, pointing at that model's file. It is a warning, and the reason goes in the model's own description, where a reader finds it. Coverage of the vocabulary — every table classified, every concept mapped, the glossary in both directions — is `validating-ontology`'s step 2, which no command here can see.
 - Only a concept's own `iri`, or a relationship's, is refused: a mapping's document references carry the `iri` the schema defines for them.

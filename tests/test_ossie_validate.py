@@ -1470,3 +1470,25 @@ def test_notes_says_when_a_directory_is_missing(tmp_path):
                                  str(tmp_path / "no-adr")])
     assert result.exit_code == 0, result.stdout
     assert "notes/no-directory" in result.stdout
+
+
+def test_glossary_reports_both_directions_without_judging(tmp_path):
+    """A reporter: the lists are facts, and no drift is an error."""
+    ontology_dir = tmp_path / "ontology"
+    _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("# Context\n\n**Trip**:\nA journey.\n\n**Billable trip**:\nA rule.\n")
+    result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
+    assert result.exit_code == 0, result.stdout
+    out = json.loads(result.stdout)
+    assert out["entity_types_without_term"] == ["Zone"]
+    assert out["terms_without_concept"] == ["Billable trip"]
+    assert out["value_types_without_term"]  # value types need no term
+
+
+def test_glossary_fails_only_on_a_mistyped_path(tmp_path):
+    context = tmp_path / "CONTEXT.md"
+    context.write_text("**Trip**:\nA journey.\n")
+    result = RUNNER.invoke(app, ["glossary", str(tmp_path / "nope"), str(context)])
+    assert result.exit_code == 1
+    assert "cli/no-files" in result.stdout

@@ -27,7 +27,11 @@ The tool cannot count what is absent, so this step is a read, not a command. Enu
 3. **Every identity component is mapped.** A concept mapped on only some of the relationships its `identify_by` names is a partial identity — a gap to report, never a complete mapping.
 4. **Every document is accounted for.** Each canonical document is mapped, or its own description says why no concept reaches it.
 5. **Every dataset carrying a concept's identity is mapped.** A dataset whose key is a concept's identity and has no object mapping understates the model even when another dataset states the same concept.
-6. **The glossary holds both ways.** Every `EntityType` names a `**Term**:` in `CONTEXT.md`, and every term that denotes a thing with identity has a concept. A term that names a rule, a measure, a population, a period, a classification or a version gets no concept, and the report says which it is. Value types need no term.
+6. **The glossary holds both ways.** Run `... ossie.py glossary <ontology-dir> <CONTEXT.md>` and read the three lists as signals, not a verdict: the command reports drift and always exits 0.
+   - `entity_types_without_term` — always a finding. An entity type must have a word in the business's vocabulary; add the term or drop the concept.
+   - `terms_without_concept` — adjudicate every entry. A rule, measure, population, period, classification or version stays prose; a term naming a thing with identity is a missing concept, added in the same change.
+   - `value_types_without_term` — expected. A value type carries identity and needs no glossary word.
+   The report carries the three lists and the category given to each term, so a reviewer can disagree with the call rather than having to re-derive it.
 
 ## Step 3 — content
 
