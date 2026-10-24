@@ -1,6 +1,6 @@
 version: 0.2.0.dev0
 name: nyc_taxi_trips_mapping
-description: "Maps the Trip concept onto the trips document. The two zone links are declared in the ontology but not mapped here: the trips dataset exposes pickup_zone_key and dropoff_zone_key, which are surrogates over a zone's natural key and valid-from date, while the ontology identifies Zone by its natural key across versions."
+description: "Maps the Trip concept onto the trips document. The zone and vendor links are declared in the ontology but not mapped here: the trips dataset exposes pickup_zone_key, dropoff_zone_key and vendor_key, which are surrogates over a natural key and valid-from date, while the ontology identifies Zone and Technology vendor by their natural keys across versions."
 ontology_ref:
   name: nyc_taxi
 semantic_model_ref:
@@ -25,3 +25,8 @@ concept_mappings:
   - referent_mappings:
     - relationship: zone_id
       expression: zone.zone_natural_key
+- concept: Technology vendor
+  object_mappings:
+  - referent_mappings:
+    - relationship: vendor_id
+      expression: vendor.vendor_natural_key

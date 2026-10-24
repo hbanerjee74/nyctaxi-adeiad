@@ -19,6 +19,10 @@ concept_mappings:
       referent_mappings:
       - relationship: vehicle_id
         expression: shift.vehicle_key
+    - relationship: garage
+      referent_mappings:
+      - relationship: garage_id
+        expression: shift.garage_key
 - concept: Driver
   object_mappings:
   - referent_mappings:
@@ -34,3 +38,8 @@ concept_mappings:
   - referent_mappings:
     - relationship: zone_id
       expression: zone.zone_natural_key
+- concept: Garage
+  object_mappings:
+  - referent_mappings:
+    - relationship: garage_id
+      expression: garage.garage_key

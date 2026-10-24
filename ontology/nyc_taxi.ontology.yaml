@@ -22,6 +22,14 @@ ontology:
   description: The TLC location id of a taxi zone, which stays the same across the zone's versions.
   type: ValueType
   extends: [Integer]
+- concept: GarageId
+  description: The operator's identifier for one depot.
+  type: ValueType
+  extends: [String]
+- concept: VendorNaturalKey
+  description: The TLC's code for a meter vendor, which stays the same when the vendor is renamed or acquired.
+  type: ValueType
+  extends: [String]
 - concept: Trip
   description: One completed taxi journey as the TLC records it.
   type: EntityType
@@ -47,6 +55,11 @@ ontology:
     - concept: Zone
     verbalizes: ['{Trip} ends in {Zone}']
     multiplicity: ManyToOne
+  - name: vendor
+    roles:
+    - concept: Technology vendor
+    verbalizes: ['{Trip} is recorded by {Technology vendor}']
+    multiplicity: ManyToOne
 - concept: Shift
   description: A driver's working period on one vehicle, from sign-on to sign-off.
   type: EntityType
@@ -66,6 +79,11 @@ ontology:
     roles:
     - concept: Vehicle
     verbalizes: ['{Shift} uses {Vehicle}']
+    multiplicity: ManyToOne
+  - name: garage
+    roles:
+    - concept: Garage
+    verbalizes: ['{Shift} signs on at {Garage}']
     multiplicity: ManyToOne
 - concept: Driver
   description: A person who signs on to work a shift for the fleet operator.
@@ -96,4 +114,24 @@ ontology:
     roles:
     - concept: ZoneNaturalKey
     verbalizes: ['{Zone} is identified by {ZoneNaturalKey}']
+    multiplicity: OneToOne
+- concept: Garage
+  description: A depot where the fleet operator keeps its vehicles. Unlike a zone, a garage is not re-designated, so its operator id is its identity and there is no version to resolve.
+  type: EntityType
+  identify_by: [garage_id]
+  relationships:
+  - name: garage_id
+    roles:
+    - concept: GarageId
+    verbalizes: ['{Garage} is identified by {GarageId}']
+    multiplicity: OneToOne
+- concept: Technology vendor
+  description: The provider that supplies a taxi's meter and sends its trip records. It is identified by the TLC's vendor code across its renamings and acquisitions, so a vendor's history is one identity, not several.
+  type: EntityType
+  identify_by: [vendor_id]
+  relationships:
+  - name: vendor_id
+    roles:
+    - concept: VendorNaturalKey
+    verbalizes: ['{Technology vendor} is identified by {VendorNaturalKey}']
     multiplicity: OneToOne
