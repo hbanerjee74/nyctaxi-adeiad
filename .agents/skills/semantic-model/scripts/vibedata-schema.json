@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://accelerate-data/sample-nyctaxi-comp/logical-model/vibedata-schema.json",
   "title": "VIBEDATA extensions for Apache Ossie (frozen key set)",
-  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these four shapes, chosen by the level it sits at. Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
+  "description": "The closed VIBEDATA payload vocabulary. Each custom_extensions entry with vendor_name VIBEDATA carries a JSON-encoded object of one of these four shapes, chosen by the document component it sits on (model, dataset, relationship, metric). Unknown keys are rejected by tools/ossie.py; new keys arrive by intent with a validator change and tests.",
   "type": "object",
   "$defs": {
     "modelPayload": {
@@ -21,12 +21,6 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/physicalJoin"
-          }
-        },
-        "variables": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/variable"
           }
         }
       },
@@ -70,6 +64,14 @@
         "note": {
           "type": "string",
           "description": "Why-not or partial-mapping rationale, recorded where it cannot drift from the entry"
+        },
+        "partitioned_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Storage partition columns of this physical table, only when it is truly partitioned"
         }
       },
       "additionalProperties": false
@@ -102,18 +104,6 @@
       "properties": {
         "vibedata_version": {
           "type": "string"
-        },
-        "alias_of": {
-          "type": "string"
-        },
-        "physical": {
-          "type": "object"
-        },
-        "partitioned_by": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         },
         "scd": {
           "$ref": "#/$defs/scd"
@@ -223,7 +213,7 @@
         "content_filter": {
           "type": "string",
           "minLength": 1,
-          "description": "Row predicate over the dataset's fields and :variables that every row of this source satisfies; held by a test named in note"
+          "description": "Row predicate over the dataset's fields that every row of this source satisfies, values written as literals; held by a test named in note"
         },
         "navigable": {
           "type": "boolean",
@@ -288,7 +278,9 @@
           "type": "number"
         },
         "join_expression": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "description": "The join predicate when it is not the core from/to equi-join, in Ossie FieldExpr grammar: every column is <from or to dataset>.<declared field>"
         },
         "note": {
           "type": "string",
@@ -301,31 +293,6 @@
         "weight": {
           "type": "string",
           "description": "Field of the from dataset that allocates a measure entering this relationship from its one side (a weighted bridge); the weights of one member sum to 1"
-        }
-      },
-      "additionalProperties": false
-    },
-    "variable": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "description": "A named value predicates reference as :name, bound to where the repo defines it (OBIEE repository variable)",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "datatype": {
-          "type": "string",
-          "description": "Ossie DataType of the value"
-        },
-        "dbt_var": {
-          "type": "string",
-          "description": "dbt project var that supplies the value"
-        },
-        "note": {
-          "type": "string"
         }
       },
       "additionalProperties": false

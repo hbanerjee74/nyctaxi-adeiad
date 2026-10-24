@@ -10,6 +10,9 @@ Usage:
   python3 scripts/ossie.py suppliers <model-file-or-dir>
   python3 scripts/ossie.py notes <model-file-or-dir> <tests-dir> [adr-dir]
   python3 scripts/ossie.py level-tests <model-dir> <test-file> [--check]
+  python3 scripts/ossie.py content-tests <model-dir> <test-file> [--check]
+  python3 scripts/ossie.py compile <model-file> <query-file>
+  python3 scripts/ossie.py columns <model-file-or-dir> <dbt-catalog.json>
   python3 scripts/ossie.py version
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -26,6 +29,10 @@ import typer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from ossie_columns import check as check_columns  # noqa: E402
+from ossie_columns import relations as catalog_relations  # noqa: E402
+from ossie_compile import CompileError, Model, Query, compile_query  # noqa: E402
+from ossie_content import generate as generate_content_tests  # noqa: E402
 from ossie_levels import generate as generate_level_tests  # noqa: E402
 from ossie_vibedata import (  # noqa: E402
     _names_in,
@@ -181,7 +188,10 @@ def _supplied_through_inputs(metric, supplied):
             return payload[key].get("of") in supplied
     formula = payload.get("derived_expression")
     if isinstance(formula, str):
-        names, _ = _names_in(formula)
+        try:
+            names, _ = _names_in(formula)
+        except ValueError:
+            return False
         return bool(names) and names <= supplied
     return False
 
@@ -347,11 +357,7 @@ def notes(model: str, tests: str, adr: str):
     raise typer.Exit(1 if diags else 0)
 
 
-@app.command("level-tests")
-def level_tests(model: str, test_file: str,
-                check: bool = typer.Option(False, "--check",
-                                           help="Exit 1 when TEST_FILE is not what MODEL generates")):
-    """Write the dbt test that reports data departing from the declared levels."""
+def _load_docs(model):
     docs = []
     for target in _resolve_targets(model):
         text, read_diag = _read_text(target)
@@ -359,18 +365,85 @@ def level_tests(model: str, test_file: str,
             print(json.dumps([read_diag]))
             raise typer.Exit(1)
         docs.append(_vendor.load_yaml_named(text, str(target)))
-    sql = generate_level_tests(docs)
+    return docs
+
+
+def _write_generated(sql, test_file, check, command):
     path = Path(test_file)
     if check:
         current = path.read_text() if path.exists() else None
         stale = current != sql
-        print(json.dumps([{"severity": "error", "code": "level-tests/stale", "file": str(path),
+        print(json.dumps([{"severity": "error", "code": f"{command}/stale", "file": str(path),
                            "message": f"'{path}' is not what the model generates; run "
-                                      "level-tests without --check"}] if stale else []))
+                                      f"{command} without --check"}] if stale else []))
         raise typer.Exit(1 if stale else 0)
     path.write_text(sql)
     print(json.dumps([]))
     typer.echo(f"wrote {path}", err=True)
+
+
+@app.command("content-tests")
+def content_tests(model: str, test_file: str,
+                  check: bool = typer.Option(False, "--check",
+                                             help="Exit 1 when TEST_FILE is not what MODEL generates")):
+    """Write the dbt test that holds every aggregate binding to the detail (compiled SQL)."""
+    try:
+        sql = generate_content_tests(_load_docs(model))
+    except CompileError as e:
+        print(json.dumps([{"severity": "error", "code": "content-tests/compile",
+                           "message": str(e)}]))
+        raise typer.Exit(1) from e
+    _write_generated(sql, test_file, check, "content-tests")
+
+
+@app.command("columns")
+def columns(model: str, catalog: str):
+    """Every physical column the model names must exist in dbt's catalog.json."""
+    path = Path(catalog)
+    if not path.exists():
+        print(json.dumps([{"severity": "error", "code": "columns/no-catalog",
+                           "message": f"'{catalog}' does not exist; run `dbt docs generate` "
+                                      "against a built warehouse first"}]))
+        raise typer.Exit(1)
+    known = catalog_relations(json.loads(path.read_text()))
+    diags = []
+    for target in _resolve_targets(model):
+        text, read_diag = _read_text(target)
+        if read_diag:
+            diags.append(read_diag)
+            continue
+        diags.extend(check_columns(_vendor.load_yaml_named(text, str(target)), known, str(target)))
+    print(json.dumps(diags, indent=2))
+    typer.echo(f"{len(known)} relation(s) in the catalog, {len(diags)} unknown column(s).",
+               err=True)
+    raise typer.Exit(1 if diags else 0)
+
+
+@app.command("compile")
+def compile_command(model: str, query_file: str):
+    """Compile a semantic query (YAML or JSON) against one model document; print JSON."""
+    docs = _load_docs(model)
+    if len(docs) != 1:
+        print(json.dumps([{"severity": "error", "code": "compile/one-document",
+                           "message": "compile reads exactly one model document"}]))
+        raise typer.Exit(1)
+    query = Query.from_dict(_vendor.load_yaml_named(Path(query_file).read_text(), query_file))
+    try:
+        result = compile_query(Model(docs[0], lambda t: t["source"]), query)
+    except CompileError as e:
+        print(json.dumps([{"severity": "error", "code": "compile/error", "message": str(e)}]))
+        raise typer.Exit(1) from e
+    print(json.dumps({"source": result.source, "columns": result.columns,
+                      "rejected": result.rejected, "sql": result.sql}, indent=2))
+
+
+@app.command("level-tests")
+def level_tests(model: str, test_file: str,
+                check: bool = typer.Option(False, "--check",
+                                           help="Exit 1 when TEST_FILE is not what MODEL generates")):
+    """Write the dbt test that reports data departing from the declared levels."""
+    sql = generate_level_tests(_load_docs(model))
+    _write_generated(sql, test_file, check, "level-tests")
 
 
 def _sources_of(dataset):

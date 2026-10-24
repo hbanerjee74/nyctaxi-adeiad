@@ -16,6 +16,9 @@ Pure functions: input is the parsed YAML dict, output is a list of diagnostics.
 import json
 import re
 
+import ossie_sql
+from ossie_sql import ExpressionError
+
 VENDOR = "VIBEDATA"
 
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
@@ -27,15 +30,15 @@ SCD_ROLLUPS = {"as_of", "current"}
 # A metric computed from another metric rather than from rows: at most one per metric.
 COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "based_on_dimensions")
 
-MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins", "variables"}
-DATASET_KEYS = {"vibedata_version", "alias_of", "physical", "partitioned_by",
-                "scd", "logical_sources", "levels", "row_level", "hierarchies"}
+MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins"}
+DATASET_KEYS = {"vibedata_version", "scd", "logical_sources", "levels", "row_level",
+                "hierarchies"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
                      "join_type", "join_cost", "join_expression", "note", "to_level",
                      "weight"}
-PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role", "note"}
+PHYSICAL_TABLE_KEYS = {"name", "source", "dbt_model", "table_type", "alias_of", "role",
+                       "partitioned_by", "note"}
 PHYSICAL_JOIN_KEYS = {"name", "from", "to"}
-VARIABLE_KEYS = {"name", "datatype", "dbt_var", "note"}
 LTS_KEYS = {"name", "physical_table", "priority_group", "content_grain",
             "content_levels", "content_filter", "navigable",
             "join_cost", "note", "column_map"}
@@ -52,10 +55,6 @@ SCD_KEYS = {"type", "natural_key", "valid_from", "valid_to", "is_current",
             "open_ended_value"}
 
 
-# Words a predicate or post-aggregation formula may use that are not names.
-SQL_WORDS = {"AND", "OR", "NOT", "IS", "NULL", "TRUE", "FALSE", "IN", "BETWEEN", "LIKE",
-             "DATE", "TIMESTAMP", "CAST", "AS", "CASE", "WHEN", "THEN", "ELSE", "END",
-             "NULLIF", "COALESCE"}
 HELD_BY = re.compile(r"held by\s+[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -64,24 +63,33 @@ def _error(code, message):
 
 
 def _names_in(expression):
-    """Bare identifiers and `:variable` references in a SQL snippet, literals removed."""
-    text = re.sub(r"'(?:[^']|'')*'", " ", expression)
-    variables = set(re.findall(r":([A-Za-z_][A-Za-z0-9_]*)", text))
-    text = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", " ", text)
-    names = {n for n in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text)
-             if n.upper() not in SQL_WORDS}
-    return names, variables
+    """(names, :placeholders) a predicate or formula reads, parsed by the shared SQL layer.
 
-
-QUALIFIED = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b")
+    Raises ExpressionError when the text does not parse.
+    """
+    return ossie_sql.names(expression)
 
 
 def _qualified_in(expression):
-    """`dataset.field` references in a SQL snippet, and the bare names left over."""
-    text = re.sub(r"'(?:[^']|'')*'", " ", expression)
-    pairs = set(QUALIFIED.findall(text))
-    bare, _ = _names_in(QUALIFIED.sub(" ", text))
-    return pairs, bare
+    """`(dataset, field)` references in an expression, and the bare names left over.
+
+    Parsed by the shared Ossie/sqlglot layer; raises ExpressionError when it does not parse.
+    """
+    columns, _ = ossie_sql.names(expression)
+    pairs = {tuple(c.split(".", 1)) for c in columns if "." in c}
+    return pairs, {c for c in columns if "." not in c}
+
+
+def _metric_columns(metric):
+    """`(dataset, field)` pairs a metric's ANSI/Ossie expressions read; unparsable ones add none."""
+    pairs = set()
+    for dialect in ((metric.get("expression") or {}).get("dialects") or []):
+        if dialect.get("dialect") in ("ANSI_SQL", "OSSIE_SQL_2026"):
+            try:
+                pairs |= _qualified_in(dialect.get("expression"))[0]
+            except ExpressionError:
+                continue
+    return pairs
 
 
 def _dimension_sources(doc):
@@ -358,6 +366,13 @@ def validate_vibedata(doc):
             diags.append(_error("vibedata/alias-dangling",
                                 f"model '{model_name}': physical table '{t['name']}' is an "
                                 f"alias of unknown table '{alias_of}'"))
+        partitioned_by = t.get("partitioned_by")
+        if partitioned_by is not None and (
+                not isinstance(partitioned_by, list)
+                or not all(isinstance(c, str) and c for c in partitioned_by)):
+            diags.append(_error("vibedata/bad-partitioned-by",
+                                f"physical table '{t['name']}': partitioned_by must be a list "
+                                "of column names"))
 
     physical_join_names = set()
     for j in model_payload.get("physical_joins", []):
@@ -385,15 +400,6 @@ def validate_vibedata(doc):
                           "message": f"model '{model_name}': physical table '{name}' appears "
                                      "in no physical join"})
 
-    variables = set()
-    for var in model_payload.get("variables", []):
-        if not isinstance(var, dict) or not var.get("name"):
-            diags.append(_error("vibedata/variable-nameless",
-                                f"model '{model_name}': variables entry without a name"))
-            continue
-        diags.extend(_unknown_keys(var, VARIABLE_KEYS, f"variable '{var['name']}'"))
-        variables.add(var["name"])
-
     dataset_names = {d.get("name") for d in doc.get("datasets", []) if d.get("name")}
     metric_names = {m.get("name") for m in doc.get("metrics", [])
                     if isinstance(m, dict) and m.get("name")}
@@ -412,7 +418,7 @@ def validate_vibedata(doc):
     context = {"physical_tables": physical_tables, "metric_names": metric_names,
                "fields": _fields_by_dataset(doc),
                "dimension_sources": _dimension_sources(doc),
-               "variables": variables, "dimensions": _dimension_index(doc),
+               "dimensions": _dimension_index(doc),
                "join_targets": join_targets,
                "join_pairs": {(j.get("from"), j.get("to")) for j in joins.values()},
                "relationships": {r.get("name"): r for r in doc.get("relationships", [])
@@ -421,7 +427,7 @@ def validate_vibedata(doc):
         diags.extend(_validate_dataset(dataset, context))
     diags.extend(_validate_metrics(doc, context))
     for rel in doc.get("relationships", []):
-        diags.extend(_validate_relationship(rel, dataset_names, physical_join_names))
+        diags.extend(_validate_relationship(rel, dataset_names, physical_join_names, doc))
         diags.extend(_validate_level_join(rel, doc, context))
         diags.extend(_validate_from_columns(rel, doc))
         diags.extend(_validate_to_columns(rel, doc))
@@ -462,11 +468,6 @@ def _validate_dataset(dataset, context):
     for p in payloads:
         payload.update(p)
     diags.extend(_unknown_keys(payload, DATASET_KEYS, where))
-
-    alias_of = payload.get("alias_of")
-    if alias_of and alias_of not in physical_tables:
-        diags.append(_error("vibedata/alias-dangling",
-                            f"{where}: alias_of unknown physical table '{alias_of}'"))
 
     level_names = []
     for level in payload.get("levels", []) or []:
@@ -526,13 +527,6 @@ def _validate_dataset(dataset, context):
                 diags.append(_error("vibedata/scd-unknown-field",
                                     f"{where}: scd.{key} '{col}' is not a declared field"))
 
-    partitioned_by = payload.get("partitioned_by")
-    if partitioned_by is not None and (
-            not isinstance(partitioned_by, list)
-            or not all(isinstance(c, str) for c in partitioned_by)):
-        diags.append(_error("vibedata/bad-partitioned-by",
-                            f"{where}: partitioned_by must be a list of column names"))
-
     sources = payload.get("logical_sources", [])
     if not isinstance(sources, list):
         diags.append(_error("vibedata/lts-not-list",
@@ -572,10 +566,18 @@ def _validate_dataset(dataset, context):
             diags.append(_error("vibedata/bad-navigable",
                                 f"{where}: logical source '{src_name}' navigable must be "
                                 "true or false"))
+        bound_metrics = sorted(set(src.get("column_map") or {}) & metric_names)
+        if (src.get("priority_group", 1) == 0 and bound_metrics
+                and not HELD_BY.search(src.get("note") or "")):
+            diags.append(_error("vibedata/aggregate-binding-unheld",
+                                f"{where}: logical source '{src_name}' binds metrics "
+                                f"({', '.join(bound_metrics)}) from an aggregate, so its note "
+                                "names the test that proves they equal the detail ('held by "
+                                "<test>')"))
         content_filter = src.get("content_filter")
         if content_filter is not None:
             diags.extend(_check_content_filter(content_filter, src, f"{where} logical source "
-                                               f"'{src_name}'", fields, context["variables"]))
+                                               f"'{src_name}'", fields))
         if src.get("physical_table") not in physical_tables:
             diags.append(_error("vibedata/lts-dangling-table",
                                 f"{where}: logical source '{src_name}' references unknown "
@@ -722,7 +724,7 @@ def _check_own_level(ref, where, payload, aggregate, column_map):
     return diags
 
 
-def _check_content_filter(content_filter, src, where, fields, variables):
+def _check_content_filter(content_filter, src, where, fields):
     """A content filter is a predicate in the dataset's own fields, held by a test.
 
     A withdrawn source (empty column_map) binds nothing, so its filter needs no test.
@@ -731,15 +733,19 @@ def _check_content_filter(content_filter, src, where, fields, variables):
         return [_error("vibedata/bad-content-filter",
                        f"{where}: content_filter must be a non-empty SQL predicate")]
     diags = []
-    names, refs = _names_in(content_filter)
+    try:
+        names, refs = _names_in(content_filter)
+    except ExpressionError as e:
+        return [_error("vibedata/content-filter-unparsable",
+                       f"{where}: content_filter does not parse: {e}")]
     for name in sorted(names - fields):
         diags.append(_error("vibedata/content-filter-unknown-field",
                             f"{where}: content_filter names '{name}', which is not a "
                             "declared field of the dataset"))
-    for ref in sorted(refs - variables):
-        diags.append(_error("vibedata/content-filter-unknown-variable",
-                            f"{where}: content_filter names ':{ref}', which is not a "
-                            "declared model variable"))
+    for ref in sorted(refs):
+        diags.append(_error("vibedata/content-filter-variable",
+                            f"{where}: content_filter reads ':{ref}'; model variables are not "
+                            "supported yet, so write the value as a literal"))
     if src.get("column_map") and not HELD_BY.search(src.get("note") or ""):
         diags.append(_error("vibedata/content-filter-unheld",
                             f"{where}: a content_filter needs a note naming the test that "
@@ -803,7 +809,10 @@ def _validate_metrics(doc, context):
                                 f"{sorted(AGGREGATIONS)}"))
         derived = payload.get("derived_expression")
         if derived is not None:
-            names, _ = _names_in(derived) if isinstance(derived, str) else (set(), set())
+            try:
+                names, _ = _names_in(derived) if isinstance(derived, str) else (set(), set())
+            except ExpressionError:
+                names = set()
             if not isinstance(derived, str) or not names:
                 diags.append(_error("vibedata/bad-derived-expression",
                                     f"{where}: derived_expression must be a formula over "
@@ -848,18 +857,22 @@ def _check_metric_filter(metric_filter, metric, kinds, where, context):
         diags.append(_error("vibedata/filter-on-computed-metric",
                             f"{where}: a computed metric inherits the filters of the metrics "
                             "it reads; declare the filter on them"))
-    pairs, bare = _qualified_in(metric_filter)
+    try:
+        pairs, bare = _qualified_in(metric_filter)
+    except ExpressionError as e:
+        return diags + [_error("vibedata/filter-unparsable",
+                               f"{where}: filter does not parse: {e}")]
     for name in sorted(bare):
         diags.append(_error("vibedata/filter-unqualified",
                             f"{where}: filter names '{name}'; write it as dataset.field"))
     fields = context["fields"]
-    expression = json.dumps(metric.get("expression"))
+    read = _metric_columns(metric)
     for dataset, field_name in sorted(pairs):
         if field_name not in fields.get(dataset, set()):
             diags.append(_error("vibedata/filter-unknown-field",
                                 f"{where}: filter names '{dataset}.{field_name}', which is not "
                                 "a declared field"))
-        elif f"{dataset}.{field_name}" not in expression:
+        elif (dataset, field_name) not in read:
             diags.append(_error("vibedata/filter-not-in-expression",
                                 f"{where}: filter reads '{dataset}.{field_name}' but the core "
                                 "expression does not, so the two populations can part"))
@@ -870,7 +883,10 @@ def _metric_inputs(payload):
     """The other metrics a computed metric reads."""
     out = set()
     if isinstance(payload.get("derived_expression"), str):
-        out |= _names_in(payload["derived_expression"])[0]
+        try:
+            out |= _names_in(payload["derived_expression"])[0]
+        except ExpressionError:
+            pass
     for key in ("time_series", "based_on_dimensions"):
         if isinstance(payload.get(key), dict) and payload[key].get("of"):
             out.add(payload[key]["of"])
@@ -983,6 +999,43 @@ def _check_time_series(series, name, metrics, where, context):
     return diags
 
 
+def _check_join_expression(text, rel, where, doc):
+    """A join predicate in Ossie's FieldExpr grammar: every column is `dataset.field`,
+    the dataset is one of the two the relationship joins, the field is declared there."""
+    try:
+        names, variables = _names_in(text) if isinstance(text, str) else (set(), set())
+    except ExpressionError as e:
+        return [_error("vibedata/join-expression-unparsable",
+                       f"{where}: join_expression does not parse: {e}")]
+    if not isinstance(text, str) or not names:
+        return [_error("vibedata/bad-join-expression",
+                       f"{where}: join_expression must be a predicate over the two datasets' "
+                       "fields")]
+    sides = (rel.get("from"), rel.get("to"))
+    if sides[0] == sides[1]:
+        return [_error("vibedata/join-expression-self",
+                       f"{where}: a relationship from a dataset to itself cannot name its two "
+                       "sides by dataset; declare it on the core from/to columns")]
+    fields = {d.get("name"): {f.get("name") for f in d.get("fields") or [] if isinstance(f, dict)}
+              for d in doc.get("datasets", []) if isinstance(d, dict)}
+    diags = []
+    for ref in sorted(variables):
+        diags.append(_error("vibedata/join-expression-variable",
+                            f"{where}: join_expression reads ':{ref}'; a join predicate reads "
+                            "only the two datasets' fields"))
+    for name in sorted(names):
+        table, _, column = name.rpartition(".")
+        if table not in sides:
+            diags.append(_error("vibedata/join-expression-unqualified",
+                                f"{where}: '{name}' must be qualified with '{sides[0]}' or "
+                                f"'{sides[1]}' (Ossie dataset.field)"))
+        elif column not in fields.get(table, set()):
+            diags.append(_error("vibedata/join-expression-unknown-field",
+                                f"{where}: '{name}' is not a declared field of dataset "
+                                f"'{table}'"))
+    return diags
+
+
 def _validate_level_join(rel, doc, context):
     """`to_level` joins a member of a versioned dimension, not a row; `weight` allocates."""
     diags = []
@@ -1078,7 +1131,7 @@ def metric_dimensionality(doc):
                         if part["unrelated_dimensions"] != "total"]
             dims = set.intersection(*answered) if answered else set(dimensions)
         else:
-            pairs, _ = _qualified_in(json.dumps(metric.get("expression")))
+            pairs = _metric_columns(metric)
             facts = sorted({d for d, _ in pairs if d in all_datasets})
             reached = [reach(f) for f in facts]
             dims = set.intersection(*reached) if reached else set()
@@ -1094,7 +1147,7 @@ def metric_dimensionality(doc):
     return out
 
 
-def _validate_relationship(rel, dataset_names, physical_join_names):
+def _validate_relationship(rel, dataset_names, physical_join_names, doc):
     diags = []
     rel_name = rel.get("name", "<unnamed>")
     where = f"relationship '{rel_name}'"
@@ -1114,6 +1167,8 @@ def _validate_relationship(rel, dataset_names, physical_join_names):
             diags.append(_error("vibedata/join-dangling",
                                 f"{where}: physical_join '{join}' names no model-level "
                                 "physical join"))
+        if payload.get("join_expression") is not None:
+            diags.extend(_check_join_expression(payload["join_expression"], rel, where, doc))
         cardinality = payload.get("cardinality")
         if cardinality and cardinality not in CARDINALITIES:
             diags.append(_error("vibedata/bad-cardinality",
