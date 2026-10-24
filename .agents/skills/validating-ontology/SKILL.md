@@ -7,7 +7,7 @@ description: "Use when checking a business ontology or its mappings before commi
 
 Its own step, not a corner of the semantic-model review: the ontology makes claims the model cannot state, and the model makes claims the ontology cannot check. This skill validates the ontology and its mappings against the canonical model, and the `validating-semantic-model` skill validates the model against the ontology's terms.
 
-Python proves shape only: the schema, the names, and whether an expression names a field that exists. Coverage — is every table classified, does every concept reach a dataset — and meaning have no tool. Read `../validating-semantic-model/references/checks.md` for what the commands can and cannot see.
+Python proves shape only: the schema, the names, and whether an expression names a field that exists. The schema it loads is the vendored spec beside the validator — `semantic-model/scripts/ossie_vendor/ontology/ontology.json` and `.../mapping.json` — so a construct rejected here is rejected by the pinned spec, not by local taste; read the `$defs` rather than arguing with the error. Coverage — is every table classified, does every concept reach a dataset — and meaning have no tool. Read `../validating-semantic-model/references/checks.md` for what the commands can and cannot see.
 
 ## Step 1 — structure
 

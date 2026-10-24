@@ -38,12 +38,12 @@ ontology:
   description: The code the business gives a band of the day.
   type: ValueType
   extends: [String]
-- concept: ServiceTypeName
-  description: "The name the business gives a fare class: yellow medallion or green boro taxi."
+- concept: ServiceTypeCode
+  description: "The TLC's code for a service class, yellow or green, which the fact carries as service_type_key."
   type: ValueType
   extends: [String]
-- concept: RatePlanName
-  description: The name of a pricing scheme a trip can be sold under.
+- concept: RatePlanCode
+  description: "The TLC's rate code, which the fact carries as rate_plan_key."
   type: ValueType
   extends: [String]
 - concept: PaymentMethodKey
@@ -211,8 +211,8 @@ ontology:
   relationships:
   - name: service_type_id
     roles:
-    - concept: ServiceTypeName
-    verbalizes: ['{Service type} is identified by {ServiceTypeName}']
+    - concept: ServiceTypeCode
+    verbalizes: ['{Service type} is identified by {ServiceTypeCode}']
     multiplicity: OneToOne
 - concept: Rate plan
   description: "How a trip is priced: metered, flat fare or negotiated. The rules behind each plan live in the model and its ADR; the concept carries only the identity."
@@ -221,8 +221,8 @@ ontology:
   relationships:
   - name: rate_plan_id
     roles:
-    - concept: RatePlanName
-    verbalizes: ['{Rate plan} is identified by {RatePlanName}']
+    - concept: RatePlanCode
+    verbalizes: ['{Rate plan} is identified by {RatePlanCode}']
     multiplicity: OneToOne
 - concept: Payment method
   description: How a passenger paid, such as card or cash, which decides whether a tip is recorded. The lakehouse exposes only a key for it, so its identity is that key and the gap is recorded on the mapping.

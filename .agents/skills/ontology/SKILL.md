@@ -9,6 +9,8 @@ The ontology renders the repo's glossary as concepts and relationships at the pi
 
 It sits at the language layer, beside the glossary, not above the gold marts. A concept can be declared before any dataset carries it, and a dataset at any layer can populate one. Read the artifact paths from `repo-map.json`; never assume a directory.
 
+**The schema is a file, not a memory.** The allowed fields are the vendored specs: `semantic-model/scripts/ossie_vendor/ontology/ontology.json` for a concept document and `.../ontology/mapping.json` for a mapping. Both are pinned to the same upstream commit as the validator, and `validate` loads exactly these files. Read the relevant `$defs` before writing a construct — a field you half-remember is not in the spec, and a field that is in the spec but unused here is still a declaration nothing reads.
+
 ## Rules
 
 1. **The glossary is the source.** Every concept names a glossary term. A term that denotes a rule, decision or derived measure gets no concept and stays prose. A term that denotes a thing with identity gets one. Check both directions.
