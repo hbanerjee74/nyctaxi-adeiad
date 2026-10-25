@@ -490,6 +490,93 @@ def test_generate_writes_data_tests_for_a_seed_and_no_contract(tmp_path):
     assert columns["band_label"] == {"name": "band_label", "data_tests": ["not_null"]}
 
 
+MODEL_WITHOUT_TESTS = """version: 2
+
+models:
+  - name: a_model
+    columns:
+      - name: trip_key
+"""
+
+
+def test_generate_writes_a_model_column_data_tests_from_its_quality(tmp_path):
+    """A model's rules live in the contract; the properties file only carries them out."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITHOUT_TESTS})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR",
+                         quality=[_rule("nullValues"), _rule("duplicateValues")])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column == {"name": "trip_key", "data_type": "VARCHAR",
+                      "data_tests": ["not_null", "unique"]}
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_generate_writes_accepted_values_with_its_arguments(tmp_path):
+    """A constrained column keeps the set it is constrained to, not just the test's name."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITHOUT_TESTS})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("invalidValues", arguments={"valid_values": ["yellow", "green"]})])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column["data_tests"] == [
+        {"accepted_values": {"arguments": {"values": ["yellow", "green"]}}}
+    ]
+
+
+def test_generate_writes_a_relationships_test_from_the_property(tmp_path):
+    """A declared foreign key becomes the test dbt enforces it with, naming its target."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITHOUT_TESTS})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR",
+                         relationships=[{"to": "core.dim_zone.zone_key"}])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column["data_tests"] == [
+        {"relationships": {"arguments": {"to": "ref('dim_zone')", "field": "zone_key"}}}
+    ]
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_generate_refuses_a_relationship_that_names_no_column(tmp_path):
+    """A foreign key with no column to check would be dropped silently, which is worse."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITHOUT_TESTS})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR",
+                         relationships=[{"to": "dim_zone"}])))
+
+    code, diags = _run("generate", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["contract/unmapped-relationship"])
+    assert "core.a_model.trip_key" in diags[0]["message"]
+    assert (tmp_path / "models" / "core" / "_core.yml").read_text() == MODEL_WITHOUT_TESTS
+
+
+def test_generate_renames_a_model_tests_list_it_restates_exactly(tmp_path):
+    """The migration: the contract carries the rules the hand-written list already stated."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("duplicateValues"), _rule("nullValues")]),
+        _prop("total_amount", "number", physicalType="DECIMAL(10,2)")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    columns = {column["name"]: column
+               for column in _entries(tmp_path / "models" / "core" / "_core.yml")[1][
+                   "a_model"]["columns"]}
+    assert "tests" not in columns["trip_key"]
+    assert columns["trip_key"]["data_tests"] == ["unique", "not_null"]
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
 def test_generate_writes_the_dlt_column_hints(tmp_path):
     """One hints module for every dlt-loaded table, typed from the contract's `physicalType`."""
     _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
@@ -519,7 +606,9 @@ def test_generate_twice_changes_nothing(tmp_path):
     _repo(tmp_path, models=["a_model"], sources={"tlc": ("bronze", ["tripdata"])},
           files={"models/core/_core.yml": CORE_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
-        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("duplicateValues"), _rule("nullValues")],
+            relationships=[{"to": "core.dim_zone.zone_key"}])))
     _contract(tmp_path, "bronze", "tripdata", schema=_element(
         "tripdata", _prop("vendor_id", "integer", physicalType="BIGINT")))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
@@ -663,18 +752,21 @@ def test_check_reports_a_data_type_on_a_column_the_contract_never_declares(tmp_p
     assert "a_model.columns.total_amount.data_type" in diags[0]["message"]
 
 
-def test_hand_written_data_tests_on_a_model_column_are_not_stale(tmp_path):
-    """`data_tests` is dbt's own spelling; `generate` never writes it on a model, so it is not ours."""
+def test_check_reports_a_model_data_tests_the_contract_does_not_declare(tmp_path):
+    """`generate` owns a model column's `data_tests`; a list it does not produce is drift."""
     _repo(tmp_path, models=["a_model"],
           files={"models/core/_core.yml": MODEL_WITH_DATA_TESTS})
     _contract(tmp_path, "core", "a_model", schema=_element(
-        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+        "a_model",
+        _prop("trip_key", "string", physicalType="VARCHAR"),
+        _prop("fare", "number", physicalType="DOUBLE", quality=[_rule("nullValues")])))
     _generated(tmp_path)
 
-    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "a_model.columns.trip_key.data_tests" in diags[0]["message"]
     column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
     assert column["data_tests"] == ["unique", "not_null"]
-    assert column["data_type"] == "VARCHAR"
 
 
 def test_hand_written_data_type_on_a_seed_column_is_not_stale(tmp_path):

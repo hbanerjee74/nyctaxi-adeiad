@@ -10,11 +10,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: driver_key
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: is_below_ranking_floor
-        tests: [not_null]
         data_type: BOOLEAN
+        data_tests: [not_null]
       - name: occupancy_rate
         description: '{{ doc("occupancy_rate") }}'
         data_type: DOUBLE
@@ -67,8 +67,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: vehicle_key
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: medallion_number
         data_type: VARCHAR
       - name: make_model

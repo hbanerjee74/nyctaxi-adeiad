@@ -514,8 +514,22 @@ def _dlt_type(physical: str) -> str | None:
     return DLT_TYPES.get(physical.split("(", 1)[0].strip().upper())
 
 
-def _data_tests(prop: dict) -> list:
-    """The generic dbt tests the contract's quality rules reduce to."""
+def _relationship_test(where: str, to: str) -> dict:
+    """One declared property relationship as the dbt test that enforces it.
+
+    dbt resolves a target by `ref()`, which names a model rather than a schema-qualified
+    relation, so `core.dim_zone.zone_key` and `dim_zone.zone_key` both name `dim_zone`.
+    """
+    relation, _, field = str(to).rpartition(".")
+    table = relation.rpartition(".")[2]
+    if not table or not field:
+        raise _Refused(_diag("error", "contract/unmapped-relationship",
+                             f"{where}: `to: {to}` names no `<relation>.<column>`"))
+    return {"relationships": {"arguments": {"to": f"ref('{table}')", "field": field}}}
+
+
+def _data_tests(prop: dict, where: str) -> list:
+    """The generic dbt tests a property's quality rules and relationships reduce to."""
     tests: list = []
     for rule in prop.get("quality") or []:
         if not isinstance(rule, dict) or rule.get("type") != "library":
@@ -530,15 +544,19 @@ def _data_tests(prop: dict) -> list:
             values = (rule.get("arguments") or {}).get("valid_values")
             if values and not any(isinstance(test, dict) for test in tests):
                 tests.append({"accepted_values": {"arguments": {"values": values}}})
+    for relationship in prop.get("relationships") or []:
+        declared = relationship if isinstance(relationship, dict) else {}
+        tests.append(_relationship_test(where, declared.get("to")))
     return tests
 
 
 def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
     """The keys `generate` owns for one contract, and nothing else.
 
-    A model carries the enforced contract and a `data_type` per property; a seed carries only
-    the generated tests, since dbt's contract is model-only; a dlt table carries its hints.
-    A key the contract cannot ground is a refusal, never a guess.
+    A model carries the enforced contract, a `data_type` per property and the `data_tests` its
+    rules reduce to; a seed carries only the generated tests, since dbt's contract is
+    model-only; a dlt table carries its hints. A key the contract cannot ground is a refusal,
+    never a guess.
     """
     for server in contract.get("servers") or []:
         stated = (server or {}).get("schema") if isinstance(server, dict) else None
@@ -553,7 +571,7 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
         where = f"{relation[0]}.{relation[1]}.{name}"
         keys: dict = {}
         if kind == "seed":
-            tests = _data_tests(prop)
+            tests = _data_tests(prop, where)
             if not tests:
                 continue
             keys["data_tests"] = tests
@@ -572,6 +590,10 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
             else:
                 raise _Refused(_diag("error", "contract/unmapped-type",
                                      f"{where}: no `physicalType`, so no dbt `data_type`"))
+            if kind == "model":
+                tests = _data_tests(prop, where)
+                if tests:
+                    keys["data_tests"] = tests
         owned["columns"][name] = keys
     return owned
 
@@ -722,7 +744,8 @@ def _entry_lines(table: str, owned: dict, indent: int) -> list[str]:
 
 def _flow(value) -> str:
     """One line of YAML: a scalar, or a collection in flow style."""
-    return yaml.safe_dump(value, default_flow_style=True).removesuffix("\n...\n").strip()
+    return yaml.safe_dump(value, default_flow_style=True, width=1000).removesuffix(
+        "\n...\n").strip()
 
 
 def _drop_renamed_tests(lines: list[str], start: int, end: int, column: str,
@@ -731,6 +754,7 @@ def _drop_renamed_tests(lines: list[str], start: int, end: int, column: str,
 
     dbt refuses both keys on one column, so writing the same list again is a rename rather than
     a second declaration. A list that differs is left alone: the refusal is then dbt's to make.
+    The whole block is parsed, so a block sequence and a flow list compare as the rules they are.
     """
     if "data_tests" not in keys:
         return lines
@@ -741,9 +765,13 @@ def _drop_renamed_tests(lines: list[str], start: int, end: int, column: str,
     if item is None:
         return lines
     span = _key_span(lines, item[0], item[1], "tests")
-    if span is None or _scalar(lines[span[0]].split(":", 1)[1]) != keys["data_tests"]:
+    if span is None:
         return lines
-    return [*lines[:span[0]], *lines[_content_end(lines, *span):]]
+    block_end = _content_end(lines, *span)
+    declared = yaml.safe_load("\n".join(lines[span[0]:block_end]))
+    if not isinstance(declared, dict) or declared.get("tests") != keys["data_tests"]:
+        return lines
+    return [*lines[:span[0]], *lines[block_end:]]
 
 
 def _apply(text: str, section: str, table: str, owned: dict) -> str:
@@ -835,7 +863,7 @@ def _stale(path: Path, root: Path, key: str) -> dict:
 
 
 # The column keys `_owned` produces per kind, used only when a contract yields none of its own.
-FALLBACK_KEYS = {"model": ("data_type",), "seed": ("data_tests",)}
+FALLBACK_KEYS = {"model": ("data_type", "data_tests"), "seed": ("data_tests",)}
 
 
 def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:

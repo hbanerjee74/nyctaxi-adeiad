@@ -8,15 +8,14 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_date
-        tests: [not_null]
         data_type: DATE
+        data_tests: [not_null]
       - name: total_revenue
-        tests: [not_null]
         data_type: DOUBLE
+        data_tests: [not_null]
       - name: pickup_location_id
-        tests:
-          - relationships: {arguments: {to: ref('dim_zone'), field: zone_natural_key}}
         data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: zone_natural_key, to: ref('dim_zone')}}}]
       - name: borough
         data_type: VARCHAR
       - name: zone_name
@@ -38,12 +37,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_month
-        tests: [not_null]
         data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: service_type
-        tests:
-          - accepted_values: {arguments: {values: ['yellow', 'green']}}
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [yellow, green]}}}]
       - name: payment_method_name
         data_type: VARCHAR
       - name: settlement_class
@@ -68,8 +66,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: component_name
-        tests: [not_null]
         data_type: VARCHAR
+        data_tests: [not_null]
       - name: trip_month
         data_type: TIMESTAMP
       - name: service_type_key

@@ -9,8 +9,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: location_id
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: is_unresolved_zone
         description: >
           True for TLC codes 264 and 265. These join the lookup cleanly, which is
@@ -64,12 +64,11 @@ models:
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: service_type
-        tests:
-          - accepted_values: {arguments: {values: ['yellow', 'green']}}
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [yellow, green]}}}]
       - name: pickup_location_id
         description: Joins the zone dimension.
         data_type: INTEGER
@@ -127,16 +126,15 @@ models:
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: airport_fee_status
         description: >
           Distinguishes 'not_applicable' (green, no such column) from 'missing'
           (yellow, column present but null) from 'present'. Collapsing the first
           two is how a fleet-blind average goes wrong.
-        tests:
-          - accepted_values: {arguments: {values: ['present', 'missing', 'not_applicable']}}
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [present, missing, not_applicable]}}}]
       - name: service_type
         data_type: VARCHAR
       - name: vendor_id
@@ -196,8 +194,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: fare_residual
         description: '{{ doc("fare_residual") }}'
         data_type: DOUBLE
@@ -245,8 +243,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: is_billable
         data_type: BOOLEAN
       - name: is_refund
@@ -281,8 +279,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: interval_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: interval_seconds
         description: Floored at zero; `is_negative_interval` records where that floor bit.
         data_type: BIGINT
@@ -315,11 +313,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: shift_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: online_seconds
-        tests: [not_null]
         data_type: BIGINT
+        data_tests: [not_null]
       - name: driver_id
         data_type: BIGINT
       - name: vehicle_id
@@ -364,8 +362,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: shift_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: driver_id
         data_type: BIGINT
       - name: vehicle_id

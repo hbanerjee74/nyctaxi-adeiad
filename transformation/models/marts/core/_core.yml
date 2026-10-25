@@ -6,11 +6,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: date_key
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: calendar_date
-        tests: [unique, not_null]
         data_type: DATE
+        data_tests: [unique, not_null]
       - name: calendar_year
         data_type: BIGINT
       - name: calendar_quarter
@@ -46,8 +46,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: hour_of_day
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: daypart_code
         data_type: VARCHAR
       - name: daypart_name
@@ -62,20 +62,17 @@ models:
     columns:
       - name: zone_key
         description: Surrogate key over natural key plus valid-from date.
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: zone_natural_key
-        tests: [not_null]
         data_type: BIGINT
+        data_tests: [not_null]
       - name: is_current_version
-        tests: [not_null]
         data_type: BOOLEAN
+        data_tests: [not_null]
       - name: borough_name
-        tests:
-          - accepted_values:
-              arguments:
-                values: ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR','Unknown','N/A']
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [Manhattan, Brooklyn, Queens, Bronx, Staten Island, EWR, Unknown, N/A]}}}]
       - name: zone_version
         data_type: INTEGER
       - name: valid_from_date
@@ -124,11 +121,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: vendor_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: vendor_natural_key
-        tests: [not_null]
         data_type: INTEGER
+        data_tests: [not_null]
       - name: vendor_version
         data_type: INTEGER
       - name: valid_from_date
@@ -150,12 +147,12 @@ models:
     contract: {enforced: true}
     columns:
       - name: payment_method_key
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: tip_is_captured
         description: '{{ doc("measurable_tip_rate") }}'
-        tests: [not_null]
         data_type: BOOLEAN
+        data_tests: [not_null]
       - name: payment_method_name
         data_type: VARCHAR
       - name: settlement_class
@@ -171,8 +168,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: rate_plan_key
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: rate_plan_name
         data_type: VARCHAR
       - name: pricing_model
@@ -190,8 +187,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: service_type_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: service_type_name
         data_type: VARCHAR
       - name: may_serve_airports
@@ -205,8 +202,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: fare_regime_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: fare_component
         data_type: VARCHAR
       - name: rate_amount
@@ -226,12 +223,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: driver_key
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: garage_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_garage'), field: garage_key}}
         data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: garage_key, to: ref('dim_garage')}}}]
       - name: hack_licence_no
         data_type: VARCHAR
       - name: driver_ref
@@ -265,11 +261,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: vehicle_key
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: medallion_number
-        tests: [not_null]
         data_type: VARCHAR
+        data_tests: [not_null]
       - name: vin
         data_type: VARCHAR
       - name: make
@@ -309,8 +305,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: garage_key
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: garage_name
         data_type: VARCHAR
       - name: borough_name
@@ -329,8 +325,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_quality_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: is_billable
         data_type: BOOLEAN
       - name: is_refund
@@ -365,8 +361,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: poi_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: zone_natural_key
         data_type: BIGINT
       - name: poi_category
@@ -388,34 +384,29 @@ models:
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: pickup_zone_key
         description: Role-playing zone key, resolved as of the trip's own date.
-        tests:
-          - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
         data_type: VARCHAR
+        data_tests: [{relationships: {arguments: {field: zone_key, to: ref('dim_zone')}}}]
       - name: dropoff_zone_key
         description: The same dimension in its destination role.
-        tests:
-          - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
         data_type: VARCHAR
+        data_tests: [{relationships: {arguments: {field: zone_key, to: ref('dim_zone')}}}]
       - name: vendor_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_vendor'), field: vendor_key}}
         data_type: VARCHAR
+        data_tests: [{relationships: {arguments: {field: vendor_key, to: ref('dim_vendor')}}}]
       - name: trip_quality_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_trip_quality'), field: trip_quality_key}}
         data_type: VARCHAR
+        data_tests: [{relationships: {arguments: {field: trip_quality_key, to: ref('dim_trip_quality')}}}]
       - name: payment_method_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_payment_method'), field: payment_method_key}}
         data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: payment_method_key, to: ref('dim_payment_method')}}}]
       - name: is_fleet_attributed
         description: '{{ doc("fleet_attribution") }}'
-        tests: [not_null]
         data_type: BOOLEAN
+        data_tests: [not_null]
       - name: fare_residual
         description: '{{ doc("fare_residual") }}'
         data_type: DOUBLE
@@ -495,16 +486,14 @@ models:
     contract: {enforced: true}
     columns:
       - name: shift_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: driver_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_driver'), field: driver_key}}
         data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: driver_key, to: ref('dim_driver')}}}]
       - name: vehicle_key
-        tests:
-          - relationships: {arguments: {to: ref('dim_vehicle'), field: vehicle_key}}
         data_type: INTEGER
+        data_tests: [{relationships: {arguments: {field: vehicle_key, to: ref('dim_vehicle')}}}]
       - name: occupancy_rate
         description: '{{ doc("occupancy_rate") }}'
         data_type: DOUBLE
@@ -577,14 +566,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: interval_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: status_code
-        tests:
-          - accepted_values:
-              arguments:
-                values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]}}}]
       - name: shift_id
         data_type: VARCHAR
       - name: driver_key
@@ -623,8 +609,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: maintenance_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: vehicle_key
         data_type: BIGINT
       - name: garage_key

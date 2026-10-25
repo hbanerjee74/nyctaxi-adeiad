@@ -16,8 +16,8 @@ models:
         description: '{{ doc("measurable_tip_rate") }}'
         data_type: DOUBLE
       - name: trip_count
-        tests: [not_null]
         data_type: BIGINT
+        data_tests: [not_null]
       - name: pickup_location_id
         data_type: BIGINT
       - name: zone_name

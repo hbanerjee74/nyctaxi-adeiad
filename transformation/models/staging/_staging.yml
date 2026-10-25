@@ -8,8 +8,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: pickup_datetime
-        tests: [not_null]
         data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: vendor_id
         data_type: INTEGER
       - name: dropoff_datetime
@@ -55,8 +55,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: pickup_datetime
-        tests: [not_null]
         data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: vendor_id
         data_type: INTEGER
       - name: dropoff_datetime
@@ -105,8 +105,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: airport_fee
         description: >
           Airport access fee as published. Dirty by nature: 1.75 current, zero on
@@ -122,8 +122,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: trip_key
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: ehail_fee
         data_type: DOUBLE
       - name: trip_type
@@ -191,8 +191,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: payment_type
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: payment_method_name
         data_type: VARCHAR
       - name: settlement_class
@@ -210,8 +210,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: rate_code_id
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: rate_plan_name
         data_type: VARCHAR
       - name: pricing_model
@@ -245,8 +245,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: borough_name
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: borough_code
         data_type: VARCHAR
       - name: reporting_region
@@ -264,8 +264,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: poi_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: location_id
         data_type: BIGINT
       - name: poi_category
@@ -281,8 +281,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: calendar_date
-        tests: [unique, not_null]
         data_type: DATE
+        data_tests: [unique, not_null]
       - name: holiday_name
         data_type: VARCHAR
       - name: holiday_class
@@ -298,8 +298,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: observation_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: obs_date
         data_type: DATE
       - name: borough_name
@@ -321,8 +321,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: garage_id
-        tests: [unique, not_null]
         data_type: INTEGER
+        data_tests: [unique, not_null]
       - name: garage_name
         data_type: VARCHAR
       - name: borough_name
@@ -336,12 +336,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: vehicle_id
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: garage_id
-        tests:
-          - relationships: {arguments: {to: ref('stg_ops__garages'), field: garage_id}}
         data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: garage_id, to: ref('stg_ops__garages')}}}]
       - name: medallion_number
         data_type: VARCHAR
       - name: vin
@@ -367,8 +366,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: driver_id
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: hack_licence_no
         data_type: VARCHAR
       - name: driver_ref
@@ -390,8 +389,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: lease_id
-        tests: [unique, not_null]
         data_type: BIGINT
+        data_tests: [unique, not_null]
       - name: driver_id
         data_type: BIGINT
       - name: primary_vehicle_id
@@ -414,14 +413,14 @@ models:
     contract: {enforced: true}
     columns:
       - name: shift_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: shift_start_ts
-        tests: [not_null]
         data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: effective_end_ts
-        tests: [not_null]
         data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: vehicle_id
         data_type: INTEGER
       - name: driver_id
@@ -451,15 +450,14 @@ models:
     contract: {enforced: true}
     columns:
       - name: assignment_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: trip_key
-        tests: [not_null]
         data_type: VARCHAR
+        data_tests: [not_null]
       - name: shift_id
-        tests:
-          - relationships: {arguments: {to: ref('stg_ops__shifts'), field: shift_id}}
         data_type: VARCHAR
+        data_tests: [{relationships: {arguments: {field: shift_id, to: ref('stg_ops__shifts')}}}]
       - name: driver_id
         data_type: BIGINT
       - name: vehicle_id
@@ -476,14 +474,11 @@ models:
     contract: {enforced: true}
     columns:
       - name: event_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: status_code
-        tests:
-          - accepted_values:
-              arguments:
-                values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
         data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]}}}]
       - name: shift_id
         data_type: VARCHAR
       - name: driver_id
@@ -509,8 +504,8 @@ models:
     contract: {enforced: true}
     columns:
       - name: maintenance_id
-        tests: [unique, not_null]
         data_type: VARCHAR
+        data_tests: [unique, not_null]
       - name: vehicle_id
         data_type: BIGINT
       - name: started_date
