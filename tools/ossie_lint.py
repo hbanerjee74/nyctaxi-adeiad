@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""One lint for the Ossie canonical artifacts: shape, coverage and agreement.
+"""One lint for the Domain's canonical artifacts: shape, coverage and agreement.
 
-Runs the structural commands from `repo-map.json`, then the mechanical checks
-those commands cannot see: a mapping that identifies a version surrogate, a
-concept mapped on part of its identity, and a declaration the standard allows
-but nothing reads. `glossary` is printed and never fails the run.
+Runs the structural commands from `repo-map.json` — the Ossie model and ontology,
+and the ODCS data contracts — then the mechanical checks those commands cannot
+see: a mapping that identifies a version surrogate, a concept mapped on part of
+its identity, and a declaration the standard allows but nothing reads.
+`glossary` is printed and never fails the run. A tree with no `contracts/` has
+no contracts to check and skips that gate: not adopting contracts is not broken.
 
 Every check compares two declarations. Nothing here judges meaning — whether a
 term denotes identity, or whether a mapping's population is honest, is a review.
@@ -16,6 +18,7 @@ Exit 0 when every blocking check passes, 1 otherwise.
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -36,25 +39,46 @@ MODEL = _declared("logical_model")
 ONTOLOGY = _declared("ontology")
 ADRS = _declared("adr")
 CONTEXT = _declared("context")
+CONTRACTS = _declared("data_contract")
 MARTS = ROOT / REPO_MAP["layers"]["core"]["path"].rsplit("/", 2)[0]
 TESTS = ROOT / REPO_MAP["artifact_paths"]["singular_tests"]
 DECLARATION_KEYS = ("requires", "derived_by", "prefixes")
 
 
-def run(name: str, args: list[str], blocking: bool = True) -> list[dict]:
-    """Run one ossie.py command; return its JSON diagnostics, failing the lint."""
-    result = subprocess.run([sys.executable, str(OSSIE), *args],
+def run(name: str, args: list[str], blocking: bool = True,
+        script: Path = OSSIE) -> list[dict]:
+    """Run one gate script; return its JSON diagnostics, failing the lint."""
+    result = subprocess.run([sys.executable, str(script), *args],
                             cwd=ROOT, capture_output=True, text=True)
     try:
         diags = json.loads(result.stdout or "[]")
     except json.JSONDecodeError:
         diags = [{"severity": "error", "code": "lint/bad-output",
                   "message": f"{name}: stdout was not JSON: {result.stdout[:200]}"}]
-    print(f"  {name:<28} exit {result.returncode}", file=sys.stderr)
+    diags = diags if isinstance(diags, list) else []  # `glossary` prints an object
+    warnings = [d for d in diags if isinstance(d, dict) and d.get("severity") == "warning"]
+    print(f"  {name:<28} exit {result.returncode}"
+          + (f", {len(warnings)} warning(s)" if warnings else ""), file=sys.stderr)
     if blocking and result.returncode != 0:
         return diags or [{"severity": "error", "code": "lint/failed",
                           "message": f"{name} failed"}]
     return []
+
+
+def contracts() -> list[dict]:
+    """The data-contract gate, from the command the map declares.
+
+    Errors block and warnings do not, as `odcs.py` itself decides. A tree with no
+    `contracts/` has not adopted contracts: there is nothing to check, and the
+    absence is not a finding against the relations the layers declare.
+    """
+    if not CONTRACTS.is_dir():
+        print(f"  {'contracts':<28} skipped: no {CONTRACTS.name}/", file=sys.stderr)
+        return []
+    command = shlex.split(REPO_MAP["commands"]["odcs_check"])
+    script = next(word for word in command if word.endswith(".py"))
+    return run("contracts", [*command[command.index(script) + 1:], "--root", str(ROOT)],
+               script=ROOT / script)
 
 
 def walk(node):
@@ -177,6 +201,7 @@ def main() -> int:
     diags += run("coverage", ["coverage", str(MODEL), str(MARTS)])
     diags += run("suppliers", ["suppliers", str(MODEL)])
     diags += run("notes", ["notes", str(MODEL), str(TESTS), str(ADRS)])
+    diags += contracts()
     run("glossary", ["glossary", str(ONTOLOGY), str(CONTEXT)], blocking=False)
 
     print("Lints", file=sys.stderr)
