@@ -78,19 +78,22 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 **Files:** Create `.agents/skills/data-contract/scripts/odcs.py`; Test `tests/test_odcs.py`
 
-**Interfaces:** `check [--relations]` prints `[{severity, code, message}]` and exits 1 on any error. Codes: `schema/invalid`, `contract/missing`, `contract/orphan`, `contract/empty-section`, `contract/unknown-key`, `contract/no-grain` (warning, exit 0), `contract/unconfigured`, `servers/mismatch`, `gold/divergent`, `gold/omits-declared`, `gold/undeclared`, `generated/stale`, `relations/mismatch`, `relations/no-catalog`.
+**Interfaces:** `check` prints `[{severity, code, message}]` and exits 1 on any error, with `--root` to point it at another tree. Codes owned here: `schema/invalid`, `contract/missing`, `contract/orphan`, `contract/empty-section`, `contract/no-grain` (warning, exit 0), `contract/unconfigured`, `gold/divergent`, `gold/omits-declared`, `gold/undeclared`.
+
+**Scope split, ruled during pre-flight.** The codes that need another task's output move to the task that produces it, so no task's tests wait on three others: `generated/stale` joins Task 3 (one computation, one owner), and `relations/mismatch`, `relations/no-catalog` and `servers/mismatch` become Task 2b, after Tasks 3, 4 and 11. `contract/unknown-key` and `options/undocumented` are dropped: the vendored schema is closed on root keys and constrains `logicalTypeOptions` per logical type, so both would duplicate `schema/invalid`.
 
 - [ ] **Step 1: Write the failing tests, one per code** — including a gold contract that omits a field its document declares (the empty-promise case), a repo whose map declares no `artifact_paths.data_contract`, a gold contract whose table no document declares, a gold contract whose declared field's logical type diverges, a `DateTimeTz` field missing its timezone option, `--relations` with no catalog, and a contract with no `dataGranularityDescription` that must warn and still exit 0.
-- [ ] **Step 2: Run them — fourteen failures and one warning case.**
+- [ ] **Step 2: Run them — the failures and the warning case.**
 - [ ] **Step 3: Implement.** Resolve every location from `repo-map.json` (`artifact_paths.data_contract`, `layers`, `logical_model`, the `_dlt_` exclusion). Identify a contract's relation from its path — `contracts/{schema}/{table}.odcs.yaml` — and confirm it matches `schema[].name`. Read the relation set from the contracts for the file-only mode and from the catalog for `--relations`. Resolve a gold contract's document through `dataset.source = <schema>.<table>`, compare **only declared fields**, and require every one of them to be present. Do not re-implement the schema's option rules: the vendored v3.2.0 schema already constrains `logicalTypeOptions` per logical type (verified: `timeZone` is rejected, `timezone` accepted), so an allow-list here would be a second copy that drifts on a re-pin.
-- [ ] **Step 4: Run the fourteen tests and the warning case — pass.**
+- [ ] **Step 4: Run the tests and the warning case — pass.**
 - [ ] **Step 5: Commit** `feat: gate the data contracts — schema, coverage, gold agreement`.
+- [x] Done: 14 tests, suite 218.
 
 ### Task 3: `odcs.py generate` — dbt keys and dlt hints
 
 **Files:** Modify `.agents/skills/data-contract/scripts/odcs.py`; Create `ingestion/contracts.py` (generated); Modify the six model properties files (owned keys only); Test `tests/test_odcs.py`
 
-**Interfaces:** For each contracted dbt model: `contract: {enforced: true}` at model level, `data_type` on every column entry, adding an entry where one is missing, never touching `description`, `unit_tests` or any key it does not own. For a seed: generated `data_tests` in its `columns[]` and nothing else. For dlt: `COLUMNS: dict[table, dict[column, dict]]`.
+**Interfaces:** Also owns `check`'s `generated/stale`: `generate` computes the owned keys and `check` diffs them against the files, one computation with no second copy. For each contracted dbt model: `contract: {enforced: true}` at model level, `data_type` on every column entry, adding an entry where one is missing, never touching `description`, `unit_tests` or any key it does not own. For a seed: generated `data_tests` in its `columns[]` and nothing else. For dlt: `COLUMNS: dict[table, dict[column, dict]]`.
 
 - [ ] **Step 1: Write the failing test** — generate over a two-model fixture: `contract` and a `data_type` per column appear, an undeclared column gains an entry, and the fixture's hand-written `description` is byte-identical afterwards.
 - [ ] **Step 2: Run it — fails.**
@@ -195,6 +198,20 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 - [ ] **Step 4: Run `tests/test_maps.py` — passes.**
 - [ ] **Step 5: Commit** `chore: register the contracts and their gate`.
 
+### Task 2b: the checks that need a catalog and a platform
+
+**Files:** Modify `.agents/skills/data-contract/scripts/odcs.py`; Test `tests/test_odcs.py`
+
+**Depends on:** Task 3 (`generate`), Task 4 (`contracts/`), Task 11 (the map's artifact paths and its gold layers).
+
+**Interfaces:** Adds `relations/mismatch` (a contract disagrees with the built relation), `relations/no-catalog` (`--relations` asked for and no catalog resolves — a failure, never a skip), and `servers/mismatch` (the declared `servers.type` disagrees with the platform the map declares). The six library audit relations are visible only here.
+
+- [ ] **Step 1: Write the failing tests** — a catalog column the contract dropped, a contract property the catalog does not have, `--relations` with no catalog, and a `servers.type` that disagrees with the map.
+- [ ] **Step 2: Run them — four failures.**
+- [ ] **Step 3: Implement.** Resolve the catalog from `VD_EPHM_DUCKDB_LOCAL_PATH` first and `domain.duckdb` at the repo root second, never a literal; compare `information_schema` to the contract; resolve the platform from the map's declaration.
+- [ ] **Step 4: Run them — pass, then `check` and `check --relations` on the real repo.**
+- [ ] **Step 5: Commit** `feat: check contracts against the built relation and the platform`.
+
 ### Task 12: Put the gate in the hook and in CI
 
 **Files:** Modify `tools/ossie_lint.py`; Test `tests/test_ossie_lint.py`
@@ -249,13 +266,13 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 | R-01 vendored offline schema | 1 |
 | R-02 one contract per relation, no orphans | 2, 4, 11 |
 | R-03 the four sections, and only those | 2, 4 |
-| R-04 `servers` platform rule | 2, 4 |
+| R-04 `servers` platform rule | 2b, 4 |
 | R-05 absence, not blanks; no unknown keys | 2 |
 | R-06 forward path is the authoring path | 3, 8 |
 | R-07 enforcement generated, never hand-written | 3, 5, 6 |
 | R-08 gold agreement, declared fields only | 2 |
 | R-08a `logicalType` from the model; timezone option; `physicalType` | 2, 4 |
-| R-09 `check` and `check --relations` | 2, 11 |
+| R-09 `check` and `check --relations` | 2, 2b, 11 |
 | R-10 one lint for hook and CI; `--relations` at verify | 9, 12 |
 | R-11 generic skills | 8, 9 |
 | R-12 forward path demonstrated | 13 |
@@ -287,9 +304,9 @@ None of this is optional, and none of it may be skipped because the work "looks 
 
 ## Order and gates
 
-1–3 build the tool; 4–6 land the artifacts and the enforcement; 7–10 are the review artifact, the two skills and onboarding; 11–12 wire the gates; 13–15 close the loop.
+1–3 and 2b build the tool; 4–6 land the artifacts and the enforcement; 7–10 are the review artifact, the two skills and onboarding; 11–12 wire the gates; 13–15 close the loop.
 
-Task 4 needs a green `dbt build`; Task 5 cannot land before 4; Task 12 cannot land before 2; Task 13 cannot land before 5 and 6. Tasks 8 and 9 are sequential — each needs its baseline recorded before any text and both must pass their scenario twice before the next task starts. Task 10 needs both skills present. **Task 15 is last by construction**: VD-7139 is written from the skills and the `skill-changes` rows, so it cannot precede them.
+Task 4 needs a green `dbt build`; Task 5 cannot land before 4; Task 12 cannot land before 2; Task 2b runs after 3, 4 and 11; Task 13 cannot land before 5 and 6. Tasks 8 and 9 are sequential — each needs its baseline recorded before any text and both must pass their scenario twice before the next task starts. Task 10 needs both skills present. **Task 15 is last by construction**: VD-7139 is written from the skills and the `skill-changes` rows, so it cannot precede them.
 
 ## Settled decisions
 
