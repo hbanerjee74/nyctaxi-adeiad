@@ -881,8 +881,13 @@ def _display(path: Path, root: Path) -> str:
 
 
 def _stale(path: Path, root: Path, key: str) -> dict:
-    return _diag("error", "generated/stale",
-                 f"{_display(path, root)}: {key} is stale; run generate")
+    return _diag(
+        "error", "generated/stale",
+        f"{_display(path, root)}: {key} is stale; run generate. If the contract no longer "
+        f"produces this key at all, remove the key instead — generate only writes the keys a "
+        f"contract yields and never deletes one, so a withdrawn rule or a dropped property is "
+        f"the one case it cannot clear",
+    )
 
 
 # The column keys `generate` owns per kind: what it writes, plus `tests`, the legacy spelling it
@@ -1012,6 +1017,11 @@ def _server_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
                         repo_map: dict, root: Path) -> list[dict]:
     """A contract's `servers` against the platform the map declares."""
     expected = _server(root, repo_map, relation)
+    if "servers" not in doc:
+        # An empty list is the empty-section check's finding, not a second one here.
+        return [_diag("error", "servers/mismatch",
+                      f"{path}: no `servers`, and the map declares `{_platform(repo_map)}`; a "
+                      f"contract states the platform that serves it")]
     for server in doc.get("servers") or []:
         if not isinstance(server, dict):
             continue
@@ -1021,9 +1031,40 @@ def _server_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
             for field in ("type", "database")
             if (want := expected.get(field)) is not None and server.get(field) != want
         ]
+        want_platform = next(
+            (p.get("value") for p in expected.get("customProperties") or []
+             if p.get("property") == "platform"), None)
+        if want_platform is not None:
+            got_platform = next(
+                (p.get("value") for p in server.get("customProperties") or []
+                 if p.get("property") == "platform"), None)
+            if got_platform != want_platform:
+                wrong.append(
+                    f"`customProperties.platform` is {got_platform!r} and the map's platform "
+                    f"makes it {want_platform!r}")
         if wrong:
             return [_diag("error", "servers/mismatch", f"{path}: " + "; ".join(wrong))]
     return []
+
+
+def _declared_name(relation: tuple[str, str], path: Path, doc: dict) -> list[dict]:
+    """The contract's own `schema[].name` against the relation its path names.
+
+    The path places the file; the name is what a consumer reads. A rename of one without the
+    other leaves a contract describing a relation that does not exist.
+    """
+    names = [
+        element.get("name")
+        for element in doc.get("schema") or []
+        if isinstance(element, dict) and element.get("name")
+    ]
+    if not names:
+        return []
+    if relation[1] in names:
+        return []
+    return [_diag("error", "contract/misnamed",
+                  f"{path}: `schema[].name` is {names[0]!r} and the path names "
+                  f"`{relation[1]}`; a contract states the relation it governs")]
 
 
 def _relation_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
@@ -1044,8 +1085,10 @@ def _relation_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
         con.close()
     # A loader column is not the relation's shape, the same rule the contract side applies.
     landed = {row[0] for row in rows if not _is_loader_column(relation, row[0], repo_map)}
-    if not landed:
-        return []
+    if not rows:
+        return [_diag("error", "relations/mismatch",
+                      f"{relation[0]}.{relation[1]}: the catalog holds no such relation, so the "
+                      f"contract describes nothing; build it before comparing")]
     declared = {
         prop.get("name")
         for element in doc.get("schema") or []
@@ -1072,11 +1115,11 @@ def _server(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict:
     server = {
         "server": repo_map.get("repo_root") or root.name,
         "type": kind,
-        "schema": relation[0],
     }
-    if kind == "duckdb":
+    if platform == "duckdb_local":
         server["database"] = WAREHOUSE_FILE
-    else:
+    server["schema"] = relation[0]
+    if kind == "custom":
         server["customProperties"] = [{"property": "platform", "value": platform or "unknown"}]
     return server
 
@@ -1627,6 +1670,7 @@ def check(root: str = "", relations: bool = False):
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
         diags.extend(_grain(doc, path))
+        diags.extend(_declared_name(relation, path, doc))
         diags.extend(_loader_columns(relation, doc, repo_map))
         if documents:
             diags.extend(_gold_agreement(relation, path, doc, documents, modelled))

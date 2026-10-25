@@ -65,3 +65,14 @@ def test_a_tree_with_no_contracts_skips_cleanly(tmp_path):
     assert result.returncode == 0, result.stderr
     assert _errors(result) == []
     assert "contracts" in result.stderr
+
+
+def test_a_repo_that_declares_no_contracts_skips_that_gate(tmp_path):
+    """Not adopting contracts is not broken — and the map may not name the artifact at all."""
+    root = _fixture(tmp_path)
+    repo_map = root / "repo-map.json"
+    data = json.loads(repo_map.read_text())
+    data["artifact_paths"].pop("data_contract", None)
+    repo_map.write_text(json.dumps(data))
+    result = _lint(root)
+    assert result.returncode == 0, result.stderr[-800:]

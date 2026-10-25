@@ -160,6 +160,10 @@ def _prop(name, logical_type, **overrides):
 
 
 def _contract(tmp_path, schema_name, table_name, **overrides):
+    overrides.setdefault(
+        "servers",
+        [{"server": "a_model", "type": "duckdb", "database": "domain.duckdb", "schema": schema_name}],
+    )
     target = tmp_path / "contracts" / schema_name / f"{table_name}.odcs.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(yaml.safe_dump(_doc(table_name, **overrides)))
@@ -1650,3 +1654,35 @@ def test_a_loader_column_in_the_catalog_is_not_a_mismatch(tmp_path, monkeypatch)
     monkeypatch.setenv("VD_EPHM_DUCKDB_LOCAL_PATH", str(catalog))
     code, diags = _run("check", "--root", str(tmp_path), "--relations")
     assert [d["code"] for d in diags if d["code"].startswith(("relations/", "servers/"))] == []
+
+
+def test_a_relation_the_catalog_does_not_hold_is_a_mismatch(tmp_path, monkeypatch):
+    """A partial build must fail the comparison, not pass it by having nothing to compare."""
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x"])
+    empty = tmp_path / "warehouse.duckdb"
+    import duckdb
+
+    con = duckdb.connect(str(empty))
+    try:
+        con.execute("create schema core")
+    finally:
+        con.close()
+    code, diags = _relations_run(tmp_path, monkeypatch, empty)
+    assert code == 1
+    assert [d["code"] for d in diags] == ["relations/mismatch"]
+    assert "no such relation" in diags[0]["message"]
+
+
+def test_a_contract_whose_name_is_not_its_relation_is_misnamed(tmp_path):
+    """The path places the file; the name is what a consumer reads."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(
+        tmp_path,
+        "core",
+        "a_model",
+        schema=[{"name": "dim_something_else", "dataGranularityDescription": "One row."}],
+    )
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 1
+    assert "contract/misnamed" in [d["code"] for d in diags]

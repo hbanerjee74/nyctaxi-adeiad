@@ -78,7 +78,7 @@ A new relation, in a repo that already has contracts, is the same path from a si
 
 ## `quality` is the rule; the dbt test is its rendering
 
-A rule is `{type: library, metric, mustBe}`. `generate` renders exactly three: `nullValues` with `mustBe: 0` to `not_null`, `duplicateValues` with `mustBe: 0` to `unique`, and `invalidValues` with `mustBe: 0` and `arguments.valid_values` to `accepted_values`. Any other metric or operator, and any `text`, `sql` or `custom` rule, states a promise the build does not enforce: keep it when it is the honest statement of the rule, and say so in the rule's own `description`. Never write the dbt test beside it, and never let a rule live only as a hand-written test.
+A rule is `{type: library, metric, mustBe}`. `generate` renders three library metrics as dbt tests, and a property's `relationships` entry as a `relationships` test: `nullValues` with `mustBe: 0` to `not_null`, `duplicateValues` with `mustBe: 0` to `unique`, and `invalidValues` with `mustBe: 0` and `arguments.valid_values` to `accepted_values`. Any other metric or operator, and any `text`, `sql` or `custom` rule, states a promise the build does not enforce: keep it when it is the honest statement of the rule, and say so in the rule's own `description`. Never write the dbt test beside it, and never let a rule live only as a hand-written test.
 
 `primaryKey` and `required` are declarations too, and neither renders a test. A key that must be unique and never null carries both rules. Both are promises, so either one moves the version.
 

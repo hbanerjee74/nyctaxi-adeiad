@@ -40,7 +40,7 @@ derived from building and running it. Every row is tracked in VD-7139.
 | --- | --- | --- |
 | `generating-dbt-model` | gold-mart completion | A model change updates its contract and regenerates the generated keys in the same intent. A breaking shape change moves the contract's version. Today the reference Domain's `workarounds` holds the rule. |
 | `generating-dlt-pipeline`, `add-or-update-source` | resource completion | A resource change updates its contract; the generated column hints are what keep the loader's column freeze meaningful. A dropped or retyped source column is a contract change, never schema evolution. |
-| `verifying` | the contract gate | Run the contract check as part of verification and record the command and result with the landed-table figures; when the relation comparison exists, name it too. |
+| `verifying` | the contract gate | Run the contract check as part of verification, with `--relations` against the ephemeral warehouse, and record both results with the landed-table figures. |
 | `install-ci` | the canonical-artifact lint | The bundle runs the contract check beside the canonical lint and skips cleanly in a repo with no contracts directory. The reference Domain's single lint already does both. |
 | `onboarding` | the contracts step | Seed both contract skills with their scripts and the vendored schema, declare the contracts directory in both maps, rebuild in full, reverse once without the force flag, write the review artifact, and carry the three contract rows in the `workarounds` template so a freshly onboarded repo inherits them. |
 

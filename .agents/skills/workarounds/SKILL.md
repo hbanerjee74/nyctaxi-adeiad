@@ -92,8 +92,8 @@ Remove when: the plugin's `onboarding` seeds both skills and performs the revers
 
 The contract check runs with the canonical lint in the pre-commit hook and in CI, and it proves the files only:
 schema, coverage, gold agreement and that the generated keys are current. Record its command and exit code in
-`verify.md`, beside the figures read from the landed table. The comparison against a landed relation is not
-implemented yet; when it lands it belongs in the same place.
+`verify.md`, beside the figures read from the landed table. The comparison against a landed relation runs as
+`--relations` and belongs in the same place.
 
 Remove when: the plugin's `verifying` reads the contract gate from `test-map.json` and names the relation
 comparison (`skill-changes.md`).

@@ -39,7 +39,7 @@ MODEL = _declared("logical_model")
 ONTOLOGY = _declared("ontology")
 ADRS = _declared("adr")
 CONTEXT = _declared("context")
-CONTRACTS = _declared("data_contract")
+CONTRACTS = _declared("data_contract") if "data_contract" in REPO_MAP.get("artifact_paths", {}) else None
 MARTS = ROOT / REPO_MAP["layers"]["core"]["path"].rsplit("/", 2)[0]
 TESTS = ROOT / REPO_MAP["artifact_paths"]["singular_tests"]
 DECLARATION_KEYS = ("requires", "derived_by", "prefixes")
@@ -69,9 +69,13 @@ def contracts() -> list[dict]:
     """The data-contract gate, from the command the map declares.
 
     Errors block and warnings do not, as `odcs.py` itself decides. A tree with no
-    `contracts/` has not adopted contracts: there is nothing to check, and the
-    absence is not a finding against the relations the layers declare.
+    `contracts/`, or a map that declares no contract artifact at all, has not adopted
+    contracts: there is nothing to check, and the absence is not a finding against the
+    relations the layers declare.
     """
+    if CONTRACTS is None:
+        print(f"  {'contracts':<28} skipped: the map declares no contracts", file=sys.stderr)
+        return []
     if not CONTRACTS.is_dir():
         print(f"  {'contracts':<28} skipped: no {CONTRACTS.name}/", file=sys.stderr)
         return []
