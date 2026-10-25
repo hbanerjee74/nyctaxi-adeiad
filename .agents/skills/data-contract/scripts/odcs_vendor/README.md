@@ -14,6 +14,6 @@ Never edit a file here. A re-pin replaces the file and updates this README in th
 `odcs.py check` loads this file and nothing else: it never fetches, so a validation run is offline by construction.
 
 The published standard takes precedence over this schema where the two disagree. `logicalTypeOptions` is
-the case that proves it — the schema leaves it an open object, while the standard documents `timezone` and
-`defaultTimezone` for it. `check` enforces the documented keys with its own allow-list rather than
-trusting the schema to.
+the case that matters: the schema already constrains its keys per logical type — `timeZone` is rejected and
+`timezone`, `defaultTimezone` and `format` are accepted — so `check` keeps no allow-list of its own and trusts
+the schema to reject an undocumented key.
