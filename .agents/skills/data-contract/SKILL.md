@@ -30,7 +30,7 @@ Two orders, and never the other way round:
 | The only description is `{{ doc(...) }}`? | Omit it. A pointer is not prose |
 | Which type string? | `physicalType` on every property: the built relation's own type, or the profiled expression's before the column exists. Never a normalized type |
 | A type the mapper does not know? | A refusal, not a guess. Report it |
-| Nothing to say in a section? | Omit the key. An empty one claims a promise nobody made, and `check` fails it |
+| Nothing to say in a section? | Omit the key. The gate catches an empty root section and a relation's `quality`, never a property's |
 | Where does an unsettled doubt go? | The review artifact at `artifact_paths.review`, as a question |
 | May I run `reverse` to refresh the contracts? | Not on a repo that has contracts. Plain `reverse` skips them; `--force` replaces them |
 | What comes before `reverse`? | A full refresh of the warehouse |
@@ -102,7 +102,7 @@ A relation dlt creates owns its own bookkeeping. A `_dlt_*` column is added by t
 
 ## Absence is the only honest no promise
 
-An empty `quality`, `servers`, `tags` or `authoritativeDefinitions` claims a promise nobody made, and `check` fails `contract/empty-section`. Omit the key. The same holds for a rule you cannot state: leaving `quality` off says "no rule", while an empty list says "a rule I did not write".
+An empty `servers`, `tags` or `authoritativeDefinitions`, or an empty `quality` on a relation entry, claims a promise nobody made, and `check` fails `contract/empty-section`. A property-level `quality: []` passes both the schema and `check`: nothing catches it, so it is the author's own omission to avoid. Omit the key in every case. The same holds for a rule you cannot state: leaving `quality` off says "no rule", while an empty list says "a rule I did not write".
 
 ## Adopting an existing repo
 
