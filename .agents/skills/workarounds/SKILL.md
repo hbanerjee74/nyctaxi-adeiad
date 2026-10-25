@@ -63,3 +63,37 @@ Then the ontology, in the same change: run `scripts/ossie.py refs`, map the conc
 Run `scripts/ossie.py validate` on the canonical file(s) and on `ontology/`, and record each command with its exit code. Never commit a mart change with a red validate.
 
 Remove when: the plugin `generating-ossie-model` skill generates both artifacts, and `generating-dbt-model` carries the update in the same intent (`skill-changes.md`).
+
+## Write the contract before the code, and update it in the same intent
+
+A new or changed relation starts from its contract: profile it, write its document, run the generated-key
+step, then write the SQL or pipeline to satisfy what it declares. The contract is the only hand-written
+artifact in that loop — `data_type`, `data_tests` and the dlt column hints are generated, and a hand edit
+there is lost on the next run and caught by the check. A change that breaks a published shape (a rename, a
+dropped column, a narrower grain, a new required) moves the contract's version in the same commit. Where a
+canonical model exists, the contract and the document that declares those fields move together. Never make a
+build pass by deleting a quality rule, an enforced-contract line or a dlt column hint: a violation is a shape
+change to declare.
+
+Remove when: the plugin ships `data-contract` and `validating-data-contract`, and `generating-dbt-model`,
+`generating-dlt-pipeline` and `add-or-update-source` carry the obligation (`skill-changes.md`).
+
+## Reverse the contracts when you adopt a repo, and queue what you cannot settle
+
+Adopting an existing repo is one reverse pass, never a refresh: a plain pass leaves every contract that exists
+alone, and the force flag rewrites authored versions and descriptions. Rebuild the warehouse in full first, or
+the draft records a shape the models no longer produce. Declare only what the catalog, the existing tests and
+the existing descriptions establish; a doubt it cannot settle is a finding in the review artifact, never an
+invented sentence.
+
+Remove when: the plugin's `onboarding` seeds both skills and performs the reverse pass (`skill-changes.md`).
+
+## Run the contract gate before you write verify.md
+
+The contract check runs with the canonical lint in the pre-commit hook and in CI, and it proves the files only:
+schema, coverage, gold agreement and that the generated keys are current. Record its command and exit code in
+`verify.md`, beside the figures read from the landed table. The comparison against a landed relation is not
+implemented yet; when it lands it belongs in the same place.
+
+Remove when: the plugin's `verifying` reads the contract gate from `test-map.json` and names the relation
+comparison (`skill-changes.md`).
