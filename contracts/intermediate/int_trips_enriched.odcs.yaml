@@ -16,7 +16,6 @@ schema:
       - name: trip_key
         logicalType: string
         physicalType: VARCHAR
-        description: '{{ doc("trip_key") }}'
         quality:
           - type: library
             metric: duplicateValues

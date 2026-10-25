@@ -40,11 +40,3 @@ schema:
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
-      - name: _dlt_load_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
-      - name: _dlt_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true

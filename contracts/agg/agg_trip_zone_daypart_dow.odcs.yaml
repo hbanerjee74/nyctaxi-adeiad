@@ -16,7 +16,6 @@ schema:
       - name: avg_measurable_tip_rate
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("measurable_tip_rate") }}'
       - name: trip_count
         logicalType: integer
         physicalType: BIGINT

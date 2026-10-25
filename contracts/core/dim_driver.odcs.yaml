@@ -29,6 +29,8 @@ schema:
         logicalType: string
         physicalType: BIGINT
         description: Driver's home garage.
+        relationships:
+          - to: dim_garage.garage_key
       - name: hack_licence_no
         logicalType: string
         physicalType: VARCHAR

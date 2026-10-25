@@ -33,7 +33,6 @@ schema:
       - name: occupancy_rate
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("occupancy_rate") }}'
       - name: driver_ref
         logicalType: string
         physicalType: VARCHAR

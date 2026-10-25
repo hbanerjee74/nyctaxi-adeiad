@@ -28,7 +28,7 @@ schema:
       - name: tip_is_captured
         logicalType: boolean
         physicalType: BOOLEAN
-        description: '{{ doc("measurable_tip_rate") }}'
+        description: Whether trips paid this way record tips.
         quality:
           - type: library
             metric: nullValues

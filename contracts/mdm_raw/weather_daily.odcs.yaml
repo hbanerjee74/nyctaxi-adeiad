@@ -33,11 +33,3 @@ schema:
       - name: wind_mph
         logicalType: number
         physicalType: DOUBLE
-      - name: _dlt_load_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
-      - name: _dlt_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true

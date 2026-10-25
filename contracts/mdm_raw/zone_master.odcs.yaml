@@ -57,11 +57,3 @@ schema:
       - name: source_version
         logicalType: integer
         physicalType: INTEGER
-      - name: _dlt_load_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
-      - name: _dlt_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true

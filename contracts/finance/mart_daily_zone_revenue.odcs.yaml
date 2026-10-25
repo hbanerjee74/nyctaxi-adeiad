@@ -30,6 +30,8 @@ schema:
       - name: pickup_location_id
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_zone.zone_natural_key
       - name: borough
         logicalType: string
         physicalType: VARCHAR

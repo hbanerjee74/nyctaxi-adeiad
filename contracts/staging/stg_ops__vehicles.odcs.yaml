@@ -47,6 +47,8 @@ schema:
       - name: garage_id
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: stg_ops__garages.garage_id
       - name: in_service_date
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE

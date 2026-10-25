@@ -27,11 +27,3 @@ schema:
       - name: opened_date
         logicalType: date
         physicalType: DATE
-      - name: _dlt_load_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
-      - name: _dlt_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true

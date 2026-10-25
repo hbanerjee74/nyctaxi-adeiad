@@ -16,7 +16,6 @@ schema:
       - name: occupancy_rate
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("occupancy_rate") }}'
       - name: shift_date
         logicalType: date
         physicalType: DATE

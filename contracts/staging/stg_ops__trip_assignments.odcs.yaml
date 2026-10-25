@@ -33,6 +33,8 @@ schema:
       - name: shift_id
         logicalType: string
         physicalType: VARCHAR
+        relationships:
+          - to: stg_ops__shifts.shift_id
       - name: driver_id
         logicalType: integer
         physicalType: BIGINT

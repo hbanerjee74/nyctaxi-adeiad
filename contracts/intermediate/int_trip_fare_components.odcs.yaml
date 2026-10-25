@@ -62,7 +62,6 @@ schema:
       - name: fare_residual
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("fare_residual") }}'
       - name: has_unexplained_residual
         logicalType: boolean
         physicalType: BOOLEAN
@@ -72,7 +71,6 @@ schema:
       - name: measurable_tip_rate
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("measurable_tip_rate") }}'
       - name: tip_is_captured
         logicalType: boolean
         physicalType: BOOLEAN

@@ -12,8 +12,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "area_sq_mi": {"data_type": "decimal", "nullable": True},
         "is_nyc": {"data_type": "bool", "nullable": True},
         "is_core_market": {"data_type": "bool", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "calendar_master": {
         "calendar_date": {"data_type": "date", "nullable": True},
@@ -22,8 +20,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "is_holiday": {"data_type": "bool", "nullable": True},
         "is_weekend": {"data_type": "bool", "nullable": True},
         "is_school_term": {"data_type": "bool", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "driver": {
         "driver_id": {"data_type": "bigint", "nullable": True},
@@ -35,8 +31,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "termination_date": {"data_type": "timestamp", "nullable": True},
         "is_wav_certified": {"data_type": "bool", "nullable": True},
         "driver_status": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "driver_status_event": {
         "event_id": {"data_type": "text", "nullable": True},
@@ -48,8 +42,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "zone_id": {"data_type": "bigint", "nullable": True},
         "received_ts": {"data_type": "timestamp", "nullable": True},
         "source_system": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "fare_regime_master": {
         "regime_code": {"data_type": "text", "nullable": True},
@@ -58,8 +50,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "applies_to_fleet": {"data_type": "text", "nullable": True},
         "valid_from_date": {"data_type": "date", "nullable": True},
         "valid_to_date": {"data_type": "date", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "garage": {
         "garage_id": {"data_type": "bigint", "nullable": True},
@@ -67,8 +57,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "borough": {"data_type": "text", "nullable": True},
         "bay_capacity": {"data_type": "bigint", "nullable": True},
         "opened_date": {"data_type": "date", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "green_tripdata": {
         "VendorID": {"data_type": "bigint", "nullable": True},
@@ -91,8 +79,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "payment_type": {"data_type": "bigint", "nullable": True},
         "trip_type": {"data_type": "bigint", "nullable": True},
         "congestion_surcharge": {"data_type": "double", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "lease_agreement": {
         "lease_id": {"data_type": "bigint", "nullable": True},
@@ -103,8 +89,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "revenue_share_pct": {"data_type": "decimal", "nullable": True},
         "lease_start_date": {"data_type": "timestamp", "nullable": True},
         "lease_end_date": {"data_type": "timestamp", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "maintenance_event": {
         "maintenance_id": {"data_type": "text", "nullable": True},
@@ -113,8 +97,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "down_days": {"data_type": "bigint", "nullable": True},
         "maintenance_type": {"data_type": "text", "nullable": True},
         "cost_usd": {"data_type": "bigint", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "payment_method_master": {
         "payment_type_code": {"data_type": "bigint", "nullable": True},
@@ -124,8 +106,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "settlement_days": {"data_type": "bigint", "nullable": True},
         "processor_fee_pct": {"data_type": "decimal", "nullable": True},
         "counts_as_revenue": {"data_type": "bool", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "rate_plan_master": {
         "rate_code": {"data_type": "bigint", "nullable": True},
@@ -135,8 +115,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "is_airport_plan": {"data_type": "bool", "nullable": True},
         "is_metered_baseline": {"data_type": "bool", "nullable": True},
         "pricing_model": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "shift": {
         "shift_id": {"data_type": "text", "nullable": True},
@@ -149,16 +127,12 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "odometer_start": {"data_type": "double", "nullable": True},
         "odometer_end": {"data_type": "double", "nullable": True},
         "telematics_source": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "taxi_zone_lookup": {
         "LocationID": {"data_type": "bigint", "nullable": True},
         "Borough": {"data_type": "text", "nullable": True},
         "Zone": {"data_type": "text", "nullable": True},
         "service_zone": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "trip_assignment": {
         "assignment_id": {"data_type": "text", "nullable": True},
@@ -175,8 +149,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "vehicle_id": {"data_type": "bigint", "nullable": True},
         "assigned_ts": {"data_type": "timestamp", "nullable": True},
         "assignment_method": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "vehicle": {
         "vehicle_id": {"data_type": "bigint", "nullable": True},
@@ -190,8 +162,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "garage_id": {"data_type": "bigint", "nullable": True},
         "in_service_date": {"data_type": "timestamp", "nullable": True},
         "retired_date": {"data_type": "timestamp", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "vendor_master": {
         "vendor_id": {"data_type": "bigint", "nullable": True},
@@ -202,8 +172,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "valid_to_date": {"data_type": "date", "nullable": True},
         "source_version": {"data_type": "bigint", "nullable": True},
         "is_approved": {"data_type": "bool", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "weather_daily": {
         "observation_id": {"data_type": "text", "nullable": True},
@@ -213,8 +181,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "precip_inches": {"data_type": "double", "nullable": True},
         "snow_inches": {"data_type": "double", "nullable": True},
         "wind_mph": {"data_type": "double", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "yellow_tripdata": {
         "VendorID": {"data_type": "bigint", "nullable": True},
@@ -236,8 +202,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "total_amount": {"data_type": "double", "nullable": True},
         "congestion_surcharge": {"data_type": "double", "nullable": True},
         "Airport_fee": {"data_type": "double", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "zone_master": {
         "location_id": {"data_type": "bigint", "nullable": True},
@@ -255,8 +219,6 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "valid_from_date": {"data_type": "date", "nullable": True},
         "valid_to_date": {"data_type": "date", "nullable": True},
         "source_version": {"data_type": "bigint", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
     "zone_poi": {
         "poi_id": {"data_type": "text", "nullable": True},
@@ -265,7 +227,5 @@ COLUMNS: dict[str, dict[str, dict]] = {
         "poi_category_name": {"data_type": "text", "nullable": True},
         "demand_weight": {"data_type": "bigint", "nullable": True},
         "poi_name": {"data_type": "text", "nullable": True},
-        "_dlt_load_id": {"data_type": "text", "nullable": False},
-        "_dlt_id": {"data_type": "text", "nullable": False},
     },
 }

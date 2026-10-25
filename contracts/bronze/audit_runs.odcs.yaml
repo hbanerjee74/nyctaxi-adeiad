@@ -73,13 +73,5 @@ schema:
       - name: total_rows_extracted
         logicalType: integer
         physicalType: BIGINT
-      - name: _dlt_load_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
-      - name: _dlt_id
-        logicalType: string
-        physicalType: VARCHAR
-        required: true
 description:
   purpose: Load audit relation, owned by the installed vibedata library. The loader writes its columns, so a change here follows a loader upgrade rather than a change in this repository's sources.

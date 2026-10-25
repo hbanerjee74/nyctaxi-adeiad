@@ -101,10 +101,14 @@ PHYSICAL_LOGICAL = {
     "TIMESTAMP_S": "timestamp",
 }
 
-# A dbt generic test as the ODCS library rule it asserts. `relationships` is absent on purpose:
-# it becomes a declared relationship, which a later task maps.
+# A dbt generic test as the ODCS library rule it asserts. A `relationships` test is not a rule:
+# it becomes the property's `relationships[]` entry instead.
 RULE_METRICS = {"not_null": "nullValues", "unique": "duplicateValues",
                 "accepted_values": "invalidValues"}
+
+# A dbt `relationships` test names its target as a rendered reference.
+REF_REFERENCE = re.compile(r"ref\(\s*['\"]([^'\"]+)['\"]\s*\)")
+SOURCE_REFERENCE = re.compile(r"source\(\s*['\"][^'\"]+['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)")
 
 # Authored once, for the relations no declared resource in this repo builds.
 AUDIT_PURPOSE = (
@@ -277,10 +281,22 @@ def _empty_sections(doc: dict, path: Path) -> list[dict]:
     return diags
 
 
+def _prose(text: object) -> str | None:
+    """One flowing line, or nothing when there is no prose to state.
+
+    `{{ doc("...") }}` is a pointer dbt resolves at parse time, not a description; a contract
+    that copied it would carry syntax no reader or tool outside dbt can turn into an answer.
+    """
+    value = " ".join(str(text).split()) if text is not None else ""
+    if not value or "{{" in value:
+        return None
+    return value
+
+
 def _grain(doc: dict, path: Path) -> list[dict]:
     """A warning, not an error: an onboarding run may leave the grain to review."""
     elements = [e for e in (doc.get("schema") or []) if isinstance(e, dict)]
-    stated = [e for e in elements if str(e.get("dataGranularityDescription") or "").strip()]
+    stated = [e for e in elements if _prose(e.get("dataGranularityDescription"))]
     if stated:
         return []
     return [_diag("warning", "contract/no-grain",
@@ -365,6 +381,23 @@ def _property_diagnostics(where: str, prop: dict, field: dict, primary: bool) ->
     return diags
 
 
+def _loader_columns(relation: tuple[str, str], contract: dict, repo_map: dict) -> list[dict]:
+    """A raw relation's contract declares no `_dlt_*` column: dlt adds those to the table.
+
+    A dbt model is the exception and the reason for the distinction: its enforced contract must
+    declare every output column, so a model that selects the loader's column keeps it.
+    """
+    if _is_dbt(relation, repo_map):
+        return []
+    return [
+        _diag("error", "contract/loader-column",
+              f"{relation[0]}.{relation[1]}: `{name}` is a column the loader adds to a "
+              f"dlt-loaded relation, not one the relation yields")
+        for name in sorted(_properties(contract))
+        if name.startswith("_dlt")
+    ]
+
+
 def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
                     documents: dict[tuple[str, str], tuple[dict, Path]],
                     gold: set[str]) -> list[dict]:
@@ -402,6 +435,21 @@ def _layer_for(repo_map: dict, schema: str) -> dict | None:
         if layer.get("schema") == schema:
             return layer
     return None
+
+
+def _is_dbt(relation: tuple[str, str], repo_map: dict) -> bool:
+    """Whether a dbt layer builds the relation, as opposed to a dlt pipeline or the loader."""
+    layer = _layer_for(repo_map, relation[0])
+    return layer is not None and layer.get("built_by") == "dbt"
+
+
+def _is_loader_column(relation: tuple[str, str], name: str, repo_map: dict) -> bool:
+    """A `_dlt_*` column dlt adds to a relation it loaded.
+
+    A dbt model that selects the column propagates it deliberately, and its enforced contract
+    must declare every output column, so only a raw relation excludes the loader's own.
+    """
+    return name.startswith("_dlt") and not _is_dbt(relation, repo_map)
 
 
 def _is_audit(relation: tuple[str, str], repo_map: dict) -> bool:
@@ -618,7 +666,7 @@ def _put(lines: list[str], start: int, end: int, key: str, value: str,
     span = _key_span(lines, start, end, key)
     rendered = f"{' ' * _key_indent(lines, start, end)}{key}: {value}"
     if span is not None:
-        return [*lines[:span[0]], rendered, *lines[span[1]:]]
+        return [*lines[:span[0]], rendered, *lines[_content_end(lines, *span):]]
     at = _content_end(lines, start, end)
     anchor = _key_span(lines, start, end, before) if before else None
     at = anchor[0] if anchor else at
@@ -878,11 +926,6 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
     return diags
 
 
-def _sentence(text: object) -> str:
-    """One flowing line: a block scalar's line breaks and trailing newline are not content."""
-    return " ".join(str(text).split())
-
-
 def _server(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict:
     """Where the relation lives. The map declares no platform yet, so it is the local duckdb file."""
     return {
@@ -932,18 +975,21 @@ def _logical_types(relation: tuple[str, str], column: str, physical: str,
     return logical, "WITH TIME ZONE" in base
 
 
-def _quality_rules(column: dict | None) -> list[dict]:
-    """The rules an existing dbt generic test already asserts, in the shape `generate` reads."""
+def _declared_tests(column: dict | None):
+    """The generic tests a dbt column entry declares, as (name, arguments) pairs."""
     declared = (column or {}).get("tests") or (column or {}).get("data_tests") or []
-    rules = []
     for test in declared:
         if isinstance(test, str):
-            name, arguments = test, {}
+            yield test, {}
         elif isinstance(test, dict) and len(test) == 1:
             name, arguments = next(iter(test.items()))
-            arguments = arguments if isinstance(arguments, dict) else {}
-        else:
-            continue
+            yield name, arguments if isinstance(arguments, dict) else {}
+
+
+def _quality_rules(column: dict | None) -> list[dict]:
+    """The rules an existing dbt generic test already asserts, in the shape `generate` reads."""
+    rules = []
+    for name, arguments in _declared_tests(column):
         if name not in RULE_METRICS:
             continue
         rule: dict = {"type": "library", "metric": RULE_METRICS[name]}
@@ -955,6 +1001,22 @@ def _quality_rules(column: dict | None) -> list[dict]:
         rule["mustBe"] = 0
         rules.append(rule)
     return rules
+
+
+def _relationships(column: dict | None) -> list[dict]:
+    """Every `relationships` test as the property-level foreign key it asserts."""
+    found = []
+    for name, arguments in _declared_tests(column):
+        if name != "relationships":
+            continue
+        # dbt nests a generic test's parameters under `arguments`; the flat form predates it.
+        arguments = arguments.get("arguments") or arguments
+        field = arguments.get("field")
+        target = str(arguments.get("to") or "")
+        match = REF_REFERENCE.search(target) or SOURCE_REFERENCE.search(target)
+        if match and field:
+            found.append({"to": f"{match.group(1)}.{field}"})
+    return found
 
 
 def _catalog_relations(catalog: Path, repo_map: dict,
@@ -989,6 +1051,8 @@ def _catalog_relations(catalog: Path, repo_map: dict,
             continue
         if relation not in expected and not _is_audit(relation, repo_map):
             continue
+        if _is_loader_column(relation, column, repo_map):
+            continue
         relations.setdefault(relation, []).append({
             "name": column, "physicalType": physical, "nullable": nullable != "NO",
         })
@@ -1009,9 +1073,9 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
     keys = set(dataset.get("primary_key") or [])
 
     element: dict = {"name": table}
-    grain = dataset.get("description") or entry.get("description")
+    grain = _prose(dataset.get("description")) or _prose(entry.get("description"))
     if grain:
-        element["dataGranularityDescription"] = _sentence(grain)
+        element["dataGranularityDescription"] = grain
 
     properties = []
     for column in columns:
@@ -1028,12 +1092,16 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
             prop["required"] = True
         if column["name"] in keys:
             prop["primaryKey"] = True
-        description = (declared or {}).get("description") or (field or {}).get("description")
+        description = (_prose((declared or {}).get("description"))
+                       or _prose((field or {}).get("description")))
         if description:
-            prop["description"] = _sentence(description)
+            prop["description"] = description
         rules = _quality_rules(declared)
         if rules:
             prop["quality"] = rules
+        relationships = _relationships(declared)
+        if relationships:
+            prop["relationships"] = relationships
         properties.append(prop)
     if properties:
         element["properties"] = properties
@@ -1075,14 +1143,18 @@ def version():
 
 
 @app.command()
-def reverse(root: str = "", catalog: str = ""):
+def reverse(root: str = "", catalog: str = "", force: bool = False):
     """Draft one contract per relation, grounded only in the catalog, the model and dbt.
 
     The warehouse is the physical truth: every property and its type comes from
     `information_schema`. A field the canonical model declares overrides the physical type, and
-    an existing dbt generic test becomes a quality rule. Nothing is invented: a relation no
-    description reaches, or a gold relation no document names, is left for the review rather
-    than filled in. The id is derived from the relation, so a re-run reproduces every file.
+    an existing dbt generic test becomes a quality rule or a declared relationship. Nothing is
+    invented: a relation no description reaches, or a gold relation no document names, is left
+    for the review rather than filled in. The id is derived from the relation, so a forced
+    rewrite reproduces every file.
+
+    An existing contract is a draft the review already worked on, so this leaves it alone and
+    reports how many it skipped; `--force` rewrites them all.
     """
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
@@ -1116,10 +1188,20 @@ def reverse(root: str = "", catalog: str = ""):
         raise typer.Exit(1)
 
     base = _declared(repo_root, raw)
+    skipped = 0
     for relation, doc in drafts:
         target = base / relation[0] / f"{relation[1]}.odcs.yaml"
+        if target.exists() and not force:
+            skipped += 1
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_dump(doc), encoding="utf-8")
+    if skipped:
+        print(json.dumps([_diag(
+            "warning", "contract/exists",
+            f"{skipped} contract(s) already exist and were left alone; pass --force to rewrite "
+            f"them")]))
+        return
     print(json.dumps([]))
 
 
@@ -1183,10 +1265,10 @@ def check(root: str = "", relations: bool = False):
 
     Where the repo has adopted a canonical model, a gold contract must also agree with the
     document that names its relation. A schema that model documents no relation in is not yet
-    modelled, so its gold relations are the review's to ask about and not this gate's to fail.
-    `--relations` adds the comparison against the built relation and fails when no catalog
-    resolves, rather than skipping: asking for the check and getting silence is the false pass
-    it exists to prevent.
+    modelled: its gold relations warn (`contract/no-document`) instead of failing, because the
+    review asks for those documents and the gate has nothing to agree with. `--relations` adds
+    the comparison against the built relation and fails when no catalog resolves, rather than
+    skipping: asking for the check and getting silence is the false pass it exists to prevent.
     """
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
@@ -1202,7 +1284,7 @@ def check(root: str = "", relations: bool = False):
     gold = _gold_schemas(repo_map, expected) if documents else set()
     # A schema the canonical model documents no relation in is not yet modelled: the review
     # asks for a document, the gate does not fail a relation that never had one to agree with.
-    gold &= {schema for schema, _ in documents}
+    modelled = gold & {schema for schema, _ in documents}
     diags: list[dict] = []
     parsed: dict[tuple[str, str], dict] = {}
 
@@ -1215,6 +1297,11 @@ def check(root: str = "", relations: bool = False):
             continue
         diags.append(_diag("error", "contract/orphan",
                            f"{path}: names no relation the map declares"))
+    for relation, _path in sorted(contracts.items()):
+        if relation[0] in gold and relation not in documents:
+            diags.append(_diag("warning", "contract/no-document",
+                               f"{relation[0]}.{relation[1]}: no canonical document names this "
+                               f"gold relation; the review asks for one"))
 
     for relation, path in sorted(contracts.items()):
         try:
@@ -1229,8 +1316,9 @@ def check(root: str = "", relations: bool = False):
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
         diags.extend(_grain(doc, path))
+        diags.extend(_loader_columns(relation, doc, repo_map))
         if documents:
-            diags.extend(_gold_agreement(relation, path, doc, documents, gold))
+            diags.extend(_gold_agreement(relation, path, doc, documents, modelled))
 
     diags.extend(_stale_diagnostics(repo_root, repo_map, contracts, parsed))
 

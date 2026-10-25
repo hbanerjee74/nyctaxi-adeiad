@@ -306,8 +306,8 @@ def test_gold_contract_with_no_document_fails(tmp_path):
     _contract(tmp_path, "core", "b_model")
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/undeclared"])
-    assert "core.b_model" in diags[0]["message"]
+    assert (code, _codes(diags)) == (1, ["contract/no-document", "gold/undeclared"])
+    assert "core.b_model" in diags[1]["message"]
 
 
 def test_gold_ignores_a_property_the_model_does_not_declare(tmp_path):
@@ -862,7 +862,7 @@ def test_reverse_grounds_a_gold_contract_in_its_canonical_document(tmp_path):
 
 
 def test_reverse_reproduces_its_files_byte_for_byte(tmp_path):
-    """The id is derived from the relation, so a second run is the same file, not a new one."""
+    """The id is derived from the relation, so a forced rewrite is the same file, not a new one."""
     _repo(tmp_path, models=["a_model"], logical_model=_model((
         "a_model", {"trip_key": "String", "total_amount": "Decimal"}, ["trip_key"])))
     _warehouse(tmp_path, {("core", "a_model"): [
@@ -871,7 +871,7 @@ def test_reverse_reproduces_its_files_byte_for_byte(tmp_path):
     assert _run("reverse", "--root", str(tmp_path)) == (0, [])
     path = tmp_path / "contracts" / "core" / "a_model.odcs.yaml"
     first = path.read_bytes()
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    assert _run("reverse", "--root", str(tmp_path), "--force") == (0, [])
     assert path.read_bytes() == first
 
 
@@ -934,7 +934,7 @@ def test_generate_renames_a_seed_tests_list_it_restates_exactly(tmp_path):
 
 
 def test_gold_relation_in_a_schema_the_model_never_covers_is_not_a_gap(tmp_path):
-    """The model partitions the Domain by star: a schema it names nothing in is not yet modelled."""
+    """The model partitions the Domain by star: a schema it names nothing in warns, never fails."""
     _trips(tmp_path)
     map_path = tmp_path / "repo-map.json"
     repo_map = json.loads(map_path.read_text())
@@ -945,7 +945,136 @@ def test_gold_relation_in_a_schema_the_model_never_covers_is_not_a_gap(tmp_path)
     _contract(tmp_path, "agg", "agg_mart")
     _generated(tmp_path)
 
-    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (0, ["contract/no-document"])
+    assert "agg.agg_mart" in diags[0]["message"]
+
+
+def test_reverse_drops_the_loader_columns_from_a_dlt_relation(tmp_path):
+    """dlt adds `_dlt_*` itself: a raw contract declares what the resource yields, not the loader's."""
+    _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
+    _warehouse(tmp_path, {("bronze", "tripdata"): [
+        ("vendor_id", "BIGINT", True),
+        ("_dlt_load_id", "VARCHAR", False),
+        ("_dlt_id", "VARCHAR", False)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    properties = _written(tmp_path, "bronze", "tripdata")["schema"][0]["properties"]
+    assert [prop["name"] for prop in properties] == ["vendor_id"]
+
+    _generated(tmp_path)
+    assert "_dlt" not in (tmp_path / "ingestion" / "contracts.py").read_text(encoding="utf-8")
+
+
+def test_check_allows_a_loader_column_only_where_a_dbt_model_propagates_it(tmp_path):
+    """An enforced dbt contract rejects an undeclared output column, so a model keeps it."""
+    _repo(tmp_path, models=["a_model"], sources={"tlc": ("bronze", ["tripdata"])})
+    loader = {"name": "_dlt_load_id", "logicalType": "string", "physicalType": "VARCHAR"}
+    _contract(tmp_path, "bronze", "tripdata",
+              schema=_element("tripdata", loader, _prop("vendor_id", "integer")))
+    _contract(tmp_path, "core", "a_model", schema=_element("a_model", loader))
+    _generated(tmp_path)
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["contract/loader-column"])
+    assert "bronze.tripdata" in diags[0]["message"] and "_dlt_load_id" in diags[0]["message"]
+
+    _contract(tmp_path, "bronze", "tripdata", schema=_element("tripdata", _prop("vendor_id", "integer")))
+    _generated(tmp_path)
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain"}
+    model = _written(tmp_path, "core", "a_model")["schema"][0]["properties"]
+    assert model[0]["name"] == "_dlt_load_id"
+
+
+TEMPLATED_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    description: '{{ doc("model_grain") }}'
+    columns:
+      - name: trip_key
+        description: '{{ doc("trip_key") }}'
+      - name: fare
+        description: The fare total, as billed.
+"""
+
+
+def test_reverse_omits_a_dbt_doc_reference_instead_of_copying_it(tmp_path):
+    """`{{ doc(...) }}` is a pointer dbt resolves; a contract states prose or nothing."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": TEMPLATED_PROPERTIES})
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", False), ("fare", "DOUBLE", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    doc = _written(tmp_path, "core", "a_model")
+    assert "dataGranularityDescription" not in doc["schema"][0]
+    props = _properties_by_name(doc)
+    assert "description" not in props["trip_key"]
+    assert props["fare"]["description"] == "The fare total, as billed."
+
+    _generated(tmp_path)
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (0, ["contract/no-grain"])
+
+
+def test_check_calls_a_templated_grain_no_grain(tmp_path):
+    """A `{{ ... }}` grain states nothing a reader can use, so the warning it would silence fires."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=[{
+        "name": "a_model", "dataGranularityDescription": '{{ doc("model_grain") }}'}])
+    _generated(tmp_path)
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (0, ["contract/no-grain"])
+    assert diags[0]["severity"] == "warning"
+
+
+def test_reverse_leaves_an_existing_contract_alone_unless_forced(tmp_path):
+    """The review edits a draft; a second pass must not quietly revert it."""
+    _repo(tmp_path, models=["a_model"])
+    _warehouse(tmp_path, {("core", "a_model"): [("trip_key", "VARCHAR", True)]})
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    path = tmp_path / "contracts" / "core" / "a_model.odcs.yaml"
+    written = path.read_text(encoding="utf-8")
+    reviewed = written.replace("version: 1.0.0", "version: 2.0.0")
+    path.write_text(reviewed, encoding="utf-8")
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+    assert code == 0 and _codes(diags) == ["contract/exists"]
+    assert diags[0]["severity"] == "warning" and "1" in diags[0]["message"]
+    assert path.read_text(encoding="utf-8") == reviewed
+
+    assert _run("reverse", "--root", str(tmp_path), "--force") == (0, [])
+    assert path.read_text(encoding="utf-8") == written
+
+
+RELATIONSHIP_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    columns:
+      - name: zone_key
+        tests:
+          - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
+"""
+
+
+def test_reverse_carries_a_relationships_test_as_a_property_relationship(tmp_path):
+    """A `relationships` test is a declared foreign key, never a quality rule."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": RELATIONSHIP_PROPERTIES})
+    _warehouse(tmp_path, {("core", "a_model"): [("zone_key", "VARCHAR", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    prop = _properties_by_name(_written(tmp_path, "core", "a_model"))["zone_key"]
+    assert prop["relationships"] == [{"to": "dim_zone.zone_key"}]
+    assert "quality" not in prop
 
 
 

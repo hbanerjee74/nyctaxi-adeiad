@@ -29,14 +29,17 @@ schema:
         logicalType: string
         physicalType: BIGINT
         description: Driver who signed on.
+        relationships:
+          - to: dim_driver.driver_key
       - name: vehicle_key
         logicalType: string
         physicalType: INTEGER
         description: Vehicle operated during the shift.
+        relationships:
+          - to: dim_vehicle.vehicle_key
       - name: occupancy_rate
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("occupancy_rate") }}'
       - name: shift_date_key
         logicalType: integer
         physicalType: INTEGER

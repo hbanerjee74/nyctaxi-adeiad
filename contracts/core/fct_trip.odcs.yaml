@@ -17,7 +17,7 @@ schema:
         logicalType: string
         physicalType: VARCHAR
         primaryKey: true
-        description: '{{ doc("trip_key") }}'
+        description: Natural key from the trip_natural_key macro.
         quality:
           - type: library
             metric: duplicateValues
@@ -29,26 +29,36 @@ schema:
         logicalType: string
         physicalType: VARCHAR
         description: Role-playing zone key, resolved as of the trip's own date.
+        relationships:
+          - to: dim_zone.zone_key
       - name: dropoff_zone_key
         logicalType: string
         physicalType: VARCHAR
         description: The same dimension in its destination role.
+        relationships:
+          - to: dim_zone.zone_key
       - name: vendor_key
         logicalType: string
         physicalType: VARCHAR
         description: Vendor surrogate, resolved as of the trip date.
+        relationships:
+          - to: dim_vendor.vendor_key
       - name: trip_quality_key
         logicalType: string
         physicalType: VARCHAR
         description: Junk-dimension key over the observed quality verdicts.
+        relationships:
+          - to: dim_trip_quality.trip_quality_key
       - name: payment_method_key
         logicalType: integer
         physicalType: BIGINT
         description: How the trip settled.
+        relationships:
+          - to: dim_payment_method.payment_method_key
       - name: is_fleet_attributed
         logicalType: boolean
         physicalType: BOOLEAN
-        description: '{{ doc("fleet_attribution") }}'
+        description: True when Harbour Point operated the trip; null driver/vehicle/shift otherwise.
         quality:
           - type: library
             metric: nullValues
@@ -56,7 +66,7 @@ schema:
       - name: fare_residual
         logicalType: number
         physicalType: DOUBLE
-        description: '{{ doc("fare_residual") }}'
+        description: Trip total minus every modelled fare component, row level.
       - name: airport_fee
         logicalType: number
         physicalType: DOUBLE
