@@ -15,7 +15,7 @@ Not queued, because something already settled it:
 
 - a nullable column the data never nulls — a null rate of zero is the answer to "can it be null";
 - an enum-shaped column carrying an `accepted_values` test, or any rule that asserts zero violations;
-- an enum-shaped column whose name ends in `_key` or `_id` — a key is an identifier, not a value set, and class 6 asks what it is;
+- an enum-shaped column whose name ends in `_key` or `_id` — an identifier's value set is not a domain, so the value-set question never applies to it. A repeating `_key` is asked in class 4, where the question asks what it targets; a non-repeating `_key` or an `_id` is asked in class 6, where the question asks what it references or whether it is the relation's own identifier, unless the contract declares it `primaryKey`;
 - a reference-shaped column that declares a `relationships` target;
 - a `*_key` column the contract declares `primaryKey` — it states row identity, not a reference;
 - an empty relation, whose data settles nothing and so is only asked about where the contract is silent.
@@ -382,7 +382,7 @@ One row per table; every column named in it is one finding, and one answer in th
 
 ## 5. Enum-shaped column whose set may be open
 
-155 string columns hold between two and twelve distinct values and repeat them, with no `accepted_values` test. That is the shape of an enum and equally the shape of a small lookup — a borough name, a garage name, a classification that may grow. The twelve-value bound is a judgement, not a fact: above it a column reads as free text, a name or a code, and below it the question is worth asking. `open by design` is a complete answer. A column whose name ends in `_key` or `_id` is not listed: an identifier's value set is not a domain, and class 6 asks the question that settles it.
+155 string columns hold between two and twelve distinct values and repeat them, with no `accepted_values` test. That is the shape of an enum and equally the shape of a small lookup — a borough name, a garage name, a classification that may grow. The twelve-value bound is a judgement, not a fact: above it a column reads as free text, a name or a code, and below it the question is worth asking. `open by design` is a complete answer. A column whose name ends in `_key` or `_id` is not listed: an identifier's value set is not a domain. A repeating `_key` is asked in class 4, where the question asks what it targets; a non-repeating `_key` or an `_id` is asked in class 6, where the question asks what it references or whether it is the relation's own identifier, unless the contract declares it `primaryKey`.
 
 | Column | Evidence | Question | Status |
 | --- | --- | --- | --- |
