@@ -80,9 +80,6 @@ DLT_TYPES = {
 # The quality metrics that reduce to a generic dbt test, and the test each becomes.
 QUALITY_TESTS = {"duplicateValues": "unique", "nullValues": "not_null"}
 
-# The keys `generate` owns anywhere. A check proves them present and absent, never only present.
-OWNED_KEYS = ("contract", "data_type", "data_tests")
-
 app = typer.Typer(add_completion=False)
 
 
@@ -690,19 +687,21 @@ def _stale(path: Path, root: Path, key: str) -> dict:
                  f"{_display(path, root)}: {key} is stale; run generate")
 
 
-def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:
-    """Owned keys on disk that the contract does not own here.
+def _stale_keys(found: dict, owned: dict, table: str) -> list[str]:
+    """Owned keys on disk that `_owned` does not produce here.
 
-    A hand-added key is as stale as a missing one: `check` proves the boundary both ways, or a
-    generated key can be introduced by hand and never regenerated.
+    The vocabulary comes from `_owned`'s own output for this contract, so the two cannot
+    disagree: a key `generate` never writes for this kind is not stale, because `generate`
+    could never clear it, and a key it does write on a column the contract does not declare is.
     """
-    stale = [f"{table}.contract"] if "contract" in found and kind != "model" else []
+    stale = [f"{table}.contract"] if "contract" in found and "contract" not in owned else []
+    column_keys = {key for keys in owned["columns"].values() for key in keys}
     for column in found.get("columns") or []:
         if not isinstance(column, dict):
             continue
-        keys = owned["columns"].get(column.get("name"), {})
+        declared = owned["columns"].get(column.get("name"), {})
         stale.extend(f"{table}.columns.{column.get('name')}.{key}"
-                     for key in OWNED_KEYS if key in column and key not in keys)
+                     for key in column_keys if key in column and key not in declared)
     return stale
 
 
@@ -752,7 +751,7 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                 continue
             if "contract" in owned and found.get("contract") != owned["contract"]:
                 diags.append(_stale(path, root, f"{table}.contract"))
-            for key in _stale_keys(found, owned, kind, table):
+            for key in _stale_keys(found, owned, table):
                 diags.append(_stale(path, root, key))
             columns = {column.get("name"): column
                        for column in found.get("columns") or [] if isinstance(column, dict)}

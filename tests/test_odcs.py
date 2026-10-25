@@ -364,6 +364,33 @@ seeds:
         tests: [unique, not_null]
 """
 
+ZERO_INDENT_PROPERTIES = """version: 2
+models:
+- name: a_model
+  columns:
+  - name: trip_key
+    description: kept
+"""
+
+MODEL_WITH_DATA_TESTS = """version: 2
+
+models:
+  - name: a_model
+    columns:
+      - name: trip_key
+        data_tests: [unique, not_null]
+"""
+
+SEED_WITH_DATA_TYPE = """version: 2
+
+seeds:
+  - name: band
+    columns:
+      - name: band_order
+        data_type: INTEGER
+        data_tests: [unique]
+"""
+
 
 def _entries(path, section="models"):
     """A properties file's entries, by the name dbt resolves them with."""
@@ -615,4 +642,49 @@ def test_check_reports_a_data_type_on_a_column_the_contract_never_declares(tmp_p
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["generated/stale"])
     assert "a_model.columns.total_amount.data_type" in diags[0]["message"]
+
+
+def test_hand_written_data_tests_on_a_model_column_are_not_stale(tmp_path):
+    """`data_tests` is dbt's own spelling; `generate` never writes it on a model, so it is not ours."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITH_DATA_TESTS})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    _generated(tmp_path)
+
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column["data_tests"] == ["unique", "not_null"]
+    assert column["data_type"] == "VARCHAR"
+
+
+def test_hand_written_data_type_on_a_seed_column_is_not_stale(tmp_path):
+    """A seed carries generated `data_tests`; a `data_type` there is hand-written and not ours."""
+    _repo(tmp_path, seeds=["band"], files={"seeds/seeds.yml": SEED_WITH_DATA_TYPE})
+    _contract(tmp_path, "seeds", "band", schema=_element(
+        "band", _prop("band_order", "integer", quality=[_rule("duplicateValues")])))
+    _generated(tmp_path)
+
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    column = _entries(tmp_path / "seeds" / "seeds.yml", "seeds")[1]["band"]["columns"][0]
+    assert column == {"name": "band_order", "data_type": "INTEGER", "data_tests": ["unique"]}
+
+
+def test_generate_augments_a_zero_indent_properties_file(tmp_path):
+    """A block sequence at its key's indent is one entry; a second is dbt's hard parse error."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": ZERO_INDENT_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    _generated(tmp_path)
+
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    text = (tmp_path / "models" / "core" / "_core.yml").read_text(encoding="utf-8")
+    assert text.count("- name: a_model") == 1
+    model = yaml.safe_load(text)["models"][0]
+    assert model["contract"] == {"enforced": True}
+    assert model["columns"] == [
+        {"name": "trip_key", "description": "kept", "data_type": "VARCHAR"}
+    ]
+
 
