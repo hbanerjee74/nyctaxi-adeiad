@@ -269,6 +269,8 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 Use the `subagent-driven-development` skill. Each task is dispatched to a subagent with its Files, Interfaces and Steps intact, and its output is checked against the task's own acceptance step before the next task starts. Two subagents never edit the same file; the generator-owned properties files and `contracts/**` are serialised through the tasks as written.
 
+**No PR per task.** Every task commits to one branch, and the pull request is raised only at the close-out below. A task that fails its own acceptance step is fixed before the next one starts; nothing is pushed as a draft PR to be finished later.
+
 ## Close-out — the gated finish, once every task is ticked
 
 None of this is optional, and none of it may be skipped because the work "looks done".
