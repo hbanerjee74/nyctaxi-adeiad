@@ -1686,3 +1686,97 @@ def test_a_contract_whose_name_is_not_its_relation_is_misnamed(tmp_path):
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 1
     assert "contract/misnamed" in [d["code"] for d in diags]
+
+
+def _gold_document(relationships=(), unique_keys=None):
+    dataset = {
+        "name": "trips",
+        "source": "core.a_model",
+        "primary_key": ["id"],
+        "fields": [{"name": "id", "datatype": "String"}],
+    }
+    if unique_keys:
+        dataset["unique_keys"] = unique_keys
+    return {
+        "version": "0.2.0.dev0",
+        "name": "doc",
+        "datasets": [dataset],
+        "relationships": list(relationships),
+    }
+
+
+def _gold_contract(tmp_path, relationships=None):
+    prop = {"name": "id", "logicalType": "string", "physicalType": "VARCHAR", "primaryKey": True}
+    if relationships is not None:
+        prop["relationships"] = relationships
+    _contract(
+        tmp_path,
+        "core",
+        "a_model",
+        schema=[
+            {
+                "name": "a_model",
+                "dataGranularityDescription": "One row per trip.",
+                "properties": [prop],
+            }
+        ],
+    )
+
+
+def test_a_declared_relationship_the_contract_drops_is_reported(tmp_path):
+    """The document states the identity graph; a contract that drops an edge cannot be joined."""
+    _repo(
+        tmp_path,
+        models=["a_model"],
+        logical_model=_gold_document(
+            relationships=[
+                {
+                    "name": "trip_to_trip",
+                    "from": "trips",
+                    "to": "trips",
+                    "from_columns": ["id"],
+                    "to_columns": ["id"],
+                }
+            ]
+        ),
+    )
+    _gold_contract(tmp_path)
+    _run("generate", "--root", str(tmp_path))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 0
+    assert [d["code"] for d in diags] == ["gold/missing-relationship"]
+    assert diags[0]["severity"] == "warning"
+    assert "trip_to_trip" in diags[0]["message"]
+
+
+def test_a_declared_relationship_the_contract_carries_passes(tmp_path):
+    _repo(
+        tmp_path,
+        models=["a_model"],
+        logical_model=_gold_document(
+            relationships=[
+                {
+                    "name": "trip_to_trip",
+                    "from": "trips",
+                    "to": "trips",
+                    "from_columns": ["id"],
+                    "to_columns": ["id"],
+                }
+            ]
+        ),
+    )
+    _gold_contract(tmp_path, relationships=[{"to": "a_model.id"}])
+    _run("generate", "--root", str(tmp_path))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert [d["code"] for d in diags if d["code"].startswith("gold/")] == []
+
+
+def test_a_composite_unique_key_is_reported_as_inexpressible(tmp_path):
+    """ODCS states uniqueness per property, so a multi-column key is a warning, not silence."""
+    _repo(tmp_path, models=["a_model"], logical_model=_gold_document(unique_keys=[["id", "name"]]))
+    _gold_contract(tmp_path)
+    _run("generate", "--root", str(tmp_path))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 0
+    assert [d["code"] for d in diags] == ["gold/composite-key"]
+    assert diags[0]["severity"] == "warning"

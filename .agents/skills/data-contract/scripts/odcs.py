@@ -449,6 +449,72 @@ def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
                                f"model declares"))
         else:
             diags.extend(_property_diagnostics(f"{label}.{name}", prop, field, name in keys))
+    diags.extend(_declared_relationships(relation, path, dataset, props, documents,
+                                        declared_document[1]))
+    diags.extend(_declared_unique_keys(label, dataset))
+    return diags
+
+
+def _declared_relationships(relation: tuple[str, str], path: Path, dataset: dict,
+                            props: dict[str, dict],
+                            documents: dict[tuple[str, str], tuple[dict, Path]],
+                            document_path: Path) -> list[dict]:
+    """Every relationship the document declares FROM this dataset, against the contract.
+
+    The document states the identity graph; a contract that drops a relationship publishes a
+    shape a consumer cannot join on, and nothing else compares the two.
+    """
+    targets = {
+        str(doc.get("name")): str(doc.get("source")).split(".", 1)[-1]
+        for doc, _path in documents.values()
+        if doc.get("name") and doc.get("source")
+    }
+    document = yaml.safe_load(document_path.read_text(encoding="utf-8")) or {}
+    diags = []
+    for relationship in document.get("relationships") or []:
+        if relationship.get("from") != dataset.get("name"):
+            continue
+        target = targets.get(str(relationship.get("to")))
+        columns = relationship.get("to_columns") or []
+        if target is None or not columns:
+            continue
+        for column in relationship.get("from_columns") or []:
+            prop = props.get(column)
+            if prop is None:
+                continue
+            declared = [
+                str(entry.get("to") or "").split(".")
+                for entry in prop.get("relationships") or []
+                if isinstance(entry, dict)
+            ]
+            if not any(parts and parts[-1] == columns[0] and target in parts for parts in declared):
+                diags.append(_diag(
+                    # A warning: carrying the edge publishes a shape and adds a dbt test, so
+                    # authoring it is a deliberate change, not a gate fix. Reported, never silent.
+                    "warning", "gold/missing-relationship",
+                    f"{relation[0]}.{relation[1]}.{column}: the canonical model declares "
+                    f"`{relationship.get('name')}` to `{target}.{columns[0]}` and the contract "
+                    f"declares no such relationship",
+                ))
+    return diags
+
+
+def _declared_unique_keys(label: str, dataset: dict) -> list[dict]:
+    """A composite unique key is a promise ODCS cannot state: report it, never drop it.
+
+    A warning, because the contract has no field for a multi-column key: `unique` is per
+    property. Saying nothing would lose the key; failing would demand an inexpressible fix.
+    """
+    diags = []
+    for key in dataset.get("unique_keys") or []:
+        if not isinstance(key, list) or len(key) < 2:
+            continue
+        diags.append(_diag(
+            "warning", "gold/composite-key",
+            f"{label}: the canonical model declares the composite unique key "
+            f"({', '.join(str(k) for k in key)}); ODCS states uniqueness per property, so the "
+            f"contract cannot carry it and a reader needs the document",
+        ))
     return diags
 
 
