@@ -862,22 +862,27 @@ def _stale(path: Path, root: Path, key: str) -> dict:
                  f"{_display(path, root)}: {key} is stale; run generate")
 
 
-# The column keys `_owned` produces per kind, used only when a contract yields none of its own.
-FALLBACK_KEYS = {"model": ("data_type", "data_tests"), "seed": ("data_tests",)}
+# The column keys `generate` owns per kind: what it writes, plus `tests`, the legacy spelling it
+# renames to `data_tests`. A floor, not a lookup of what this contract happened to yield: a key
+# `generate` writes for the kind is reportable even where this contract states no instance.
+OWNED_COLUMN_KEYS = {"model": ("data_type", "data_tests", "tests"),
+                     "seed": ("data_tests", "tests")}
 
 
 def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:
     """Owned column keys on disk that `_owned` does not produce here.
 
-    The vocabulary is `_owned`'s own output for this contract, so the two cannot disagree.
-    It falls back to the kind's own key when a contract yields none (`_owned` writes no column
-    key for a seed whose rule is not translatable yet, or for a model element with no
-    properties): `generate` never deletes a key it stopped writing, so a key left behind must
-    still be reported rather than disappear with the vocabulary.
+    The vocabulary is the kind's capability set union `_owned`'s own output for this contract, so
+    a key the contract does not state is still reportable: `generate` never deletes a key it
+    cannot account for, and a leftover must be visible rather than disappear with the vocabulary.
+    A legacy `tests` list is always a leftover, because `generate` renames every one it can
+    restate to `data_tests`, and dbt refuses a column carrying both.
     """
     stale = [f"{table}.contract"] if "contract" in found and "contract" not in owned else []
-    column_keys = sorted({key for keys in owned["columns"].values() for key in keys}
-                         or FALLBACK_KEYS.get(kind, ()))
+    column_keys = sorted(
+        set(OWNED_COLUMN_KEYS.get(kind, ()))
+        | {key for keys in owned["columns"].values() for key in keys}
+    )
     for column in found.get("columns") or []:
         if not isinstance(column, dict):
             continue

@@ -514,6 +514,53 @@ def test_generate_writes_a_model_column_data_tests_from_its_quality(tmp_path):
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
+BLOCK_TESTS_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    columns:
+      - name: trip_key
+        tests:
+          - not_null
+          - unique
+"""
+
+
+def test_generate_drops_a_block_sequence_tests_list_it_restates_exactly(tmp_path):
+    """A block sequence is the same declaration as a flow list; both are one rename away."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": BLOCK_TESTS_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("nullValues"), _rule("duplicateValues")])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    text = (tmp_path / "models" / "core" / "_core.yml").read_text(encoding="utf-8")
+    assert not [line for line in text.splitlines() if line.strip().startswith("tests:")]
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column == {"name": "trip_key", "data_type": "VARCHAR",
+                      "data_tests": ["not_null", "unique"]}
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_generate_leaves_a_block_sequence_tests_list_the_contract_only_partly_restates(tmp_path):
+    """A list carrying a rule the contract does not is left whole: deleting it drops a test."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": BLOCK_TESTS_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("duplicateValues")])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
+    assert column["tests"] == ["not_null", "unique"]
+    assert column["data_tests"] == ["unique"]
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "a_model.columns.trip_key.tests" in diags[0]["message"]
+
+
 def test_generate_writes_accepted_values_with_its_arguments(tmp_path):
     """A constrained column keeps the set it is constrained to, not just the test's name."""
     _repo(tmp_path, models=["a_model"],
@@ -607,8 +654,9 @@ def test_generate_twice_changes_nothing(tmp_path):
           files={"models/core/_core.yml": CORE_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
         "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
-            _rule("duplicateValues"), _rule("nullValues")],
-            relationships=[{"to": "core.dim_zone.zone_key"}])))
+            _rule("duplicateValues"), _rule("nullValues")]),
+        _prop("total_amount", "number", physicalType="DECIMAL(10,2)",
+              relationships=[{"to": "core.dim_zone.zone_key"}])))
     _contract(tmp_path, "bronze", "tripdata", schema=_element(
         "tripdata", _prop("vendor_id", "integer", physicalType="BIGINT")))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
@@ -627,7 +675,8 @@ def test_check_reports_a_generated_key_removed_by_hand(tmp_path):
           files={"models/core/_core.yml": CORE_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
         "a_model",
-        _prop("trip_key", "string", physicalType="VARCHAR"),
+        _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("duplicateValues"), _rule("nullValues")]),
         _prop("total_amount", "number", physicalType="DECIMAL(10,2)")))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
     assert _run("check", "--root", str(tmp_path)) == (0, [])
@@ -738,7 +787,8 @@ def test_check_reports_a_data_type_on_a_column_the_contract_never_declares(tmp_p
     _repo(tmp_path, models=["a_model"],
           files={"models/core/_core.yml": CORE_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
-        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR", quality=[
+            _rule("duplicateValues"), _rule("nullValues")])))
     _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
@@ -752,14 +802,31 @@ def test_check_reports_a_data_type_on_a_column_the_contract_never_declares(tmp_p
     assert "a_model.columns.total_amount.data_type" in diags[0]["message"]
 
 
+def test_check_reports_a_tests_list_the_contract_does_not_restate(tmp_path):
+    """The legacy key is `generate`'s to remove: a list it cannot rename is drift, not dbt's error."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": BLOCK_TESTS_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    _generated(tmp_path)
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "a_model.columns.trip_key.tests" in diags[0]["message"]
+
+
 def test_check_reports_a_model_data_tests_the_contract_does_not_declare(tmp_path):
-    """`generate` owns a model column's `data_tests`; a list it does not produce is drift."""
+    """`generate` owns a model column's `data_tests`; a list it does not produce is drift.
+
+    Including where the contract states no rule at all: the key is one `generate` writes for
+    every model, so its absence from this contract's rules does not make it someone else's.
+    """
     _repo(tmp_path, models=["a_model"],
           files={"models/core/_core.yml": MODEL_WITH_DATA_TESTS})
     _contract(tmp_path, "core", "a_model", schema=_element(
         "a_model",
         _prop("trip_key", "string", physicalType="VARCHAR"),
-        _prop("fare", "number", physicalType="DOUBLE", quality=[_rule("nullValues")])))
+        _prop("fare", "number", physicalType="DOUBLE")))
     _generated(tmp_path)
 
     code, diags = _run("check", "--root", str(tmp_path))
