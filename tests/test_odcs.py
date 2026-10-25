@@ -1744,6 +1744,7 @@ def test_a_declared_relationship_the_contract_drops_is_reported(tmp_path):
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 0
+    assert code == 0
     assert [d["code"] for d in diags] == ["gold/missing-relationship"]
     assert diags[0]["severity"] == "warning"
     assert "trip_to_trip" in diags[0]["message"]
@@ -1799,7 +1800,7 @@ def test_a_relationship_naming_the_wrong_target_is_reported(tmp_path):
             ]
         ),
     )
-    _gold_contract(tmp_path, relationships=[{"to": "dim_elsewhere.id"}])
+    _gold_contract(tmp_path, relationships=[{"to": "a_model.other.id"}])
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
     assert [d["code"] for d in diags] == ["gold/missing-relationship"]
