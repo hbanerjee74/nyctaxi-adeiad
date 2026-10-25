@@ -1780,3 +1780,26 @@ def test_a_composite_unique_key_is_reported_as_inexpressible(tmp_path):
     assert code == 0
     assert [d["code"] for d in diags] == ["gold/composite-key"]
     assert diags[0]["severity"] == "warning"
+
+
+def test_a_relationship_naming_the_wrong_target_is_reported(tmp_path):
+    """The column alone is not the edge: the target has to be the relation the model names."""
+    _repo(
+        tmp_path,
+        models=["a_model"],
+        logical_model=_gold_document(
+            relationships=[
+                {
+                    "name": "trip_to_trip",
+                    "from": "trips",
+                    "to": "trips",
+                    "from_columns": ["id"],
+                    "to_columns": ["id"],
+                }
+            ]
+        ),
+    )
+    _gold_contract(tmp_path, relationships=[{"to": "dim_elsewhere.id"}])
+    _run("generate", "--root", str(tmp_path))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert [d["code"] for d in diags] == ["gold/missing-relationship"]

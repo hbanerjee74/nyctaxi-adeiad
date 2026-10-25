@@ -487,7 +487,8 @@ def _declared_relationships(relation: tuple[str, str], path: Path, dataset: dict
                 for entry in prop.get("relationships") or []
                 if isinstance(entry, dict)
             ]
-            if not any(parts and parts[-1] == columns[0] and target in parts for parts in declared):
+            if not any(len(parts) >= 2 and parts[-1] == columns[0] and parts[-2] == target
+                       for parts in declared):
                 diags.append(_diag(
                     # A warning: carrying the edge publishes a shape and adds a dbt test, so
                     # authoring it is a deliberate change, not a gate fix. Reported, never silent.
