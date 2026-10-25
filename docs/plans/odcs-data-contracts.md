@@ -49,6 +49,8 @@ Nothing in the left column may be pushed into the review ("the agent will notice
 | The Domain has **no** `verifying` skill — verification is a plugin skill | The gate lands in `odcs.py` + `ossie_lint.py`, and the plugin's `verifying` gap is a `skill-changes` row, not a file here. |
 | The existing test set is exactly four generic kinds and 13 singular tests: `not_null` 62, `unique` 44, `relationships` 11, `accepted_values` 6 | Task 5's mapping is complete at five translations; the before/after count is the proof. |
 | The built warehouse at `studio/data/duckdb/74dd3bba-…/nyc_taxi.duckdb` predates the current models | Task 4 rebuilds from a copy of it; a stale catalog produces a wrong contract. |
+| The copied warehouse cannot be built incrementally: `fct_trip` is not rebuilt under its rebuilt dimensions, leaving 28 orphan `trip_quality_key` rows | Task 4 runs `dbt build --full-refresh`; a plain build passes 220 of 224 tests and fails the relationship test. |
+| Five dbt models select `_dlt_load_id`, and an enforced contract rejects an undeclared output column | The `_dlt_` exclusion covers columns the loader adds to a dlt-loaded relation, not one a dbt model propagates; `check` enforces the distinction as `contract/loader-column`. |
 
 Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables across ten declared schemas.
 
