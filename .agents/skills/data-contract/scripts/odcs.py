@@ -242,13 +242,13 @@ def expected_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]
     expected: dict[tuple[str, str], str] = {}
     for name, layer in (repo_map.get("layers") or {}).items():
         path = root / layer["path"] if layer.get("path") else None
-        if path is None or not path.is_dir():
+        if path is None or not path.is_dir() or layer.get("built_by") != "dbt":
             continue
-        suffix = ".csv" if name == "seeds" else ".sql" if layer.get("built_by") == "dbt" else None
-        if suffix is None:
-            continue
-        for file in sorted(path.rglob(f"*{suffix}")):
-            expected[(layer["schema"], file.stem)] = f"layer {name}"
+        # A dbt layer builds whatever it holds: a model from a `.sql`, a seed from a `.csv`.
+        # Which suffix belongs to which is the file's fact, not the layer's name.
+        for suffix in (".sql", ".csv"):
+            for file in sorted(path.rglob(f"*{suffix}")):
+                expected[(layer["schema"], file.stem)] = f"layer {name}"
     for name, source in (repo_map.get("sources") or {}).items():
         docs = source.get("docs")
         if not docs:
@@ -344,29 +344,20 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tup
     return datasets
 
 
-def _gold_schemas(root: Path, repo_map: dict,
-                  expected: dict[tuple[str, str], str]) -> set[str]:
+def _gold_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
     """Schemas holding gold relations: the layers the map declares gold, where they are built.
 
-    The declaration is the map's, because another Domain names its layers differently and only
-    its map knows which of them are gold. A map that declares none is read by shape instead —
-    a dbt layer that builds a model is gold, a seed or raw layer is not — so a contract set on
-    such a map still gates agreement rather than passing for want of a declaration. That
-    reading cannot tell a staging layer from a mart, so a map that wants an exact answer
-    declares the list.
+    The map is the only source. Another Domain names its layers differently, so a layer name is
+    something this tool cannot know; guessing one — by exclusion, or by the shape of the
+    directory — would gate relations the Domain never called gold and pass over the ones it did.
+    An undeclared set is therefore empty and names nothing, and `check` warns about the gap
+    instead of inventing a gold set to fill it.
     """
     layers = repo_map.get("layers") or {}
-    declared = repo_map.get("gold_layers")
-    if declared is None:
-        declared = [
-            name for name, layer in layers.items()
-            if layer.get("built_by") == "dbt" and layer.get("path")
-            and any((root / layer["path"]).rglob("*.sql"))
-        ]
     built = {schema for schema, _ in expected}
     return {
         layers[name]["schema"]
-        for name in declared
+        for name in repo_map.get("gold_layers") or []
         if name in layers and layers[name]["schema"] in built
     }
 
@@ -1486,7 +1477,9 @@ def check(root: str = "", relations: bool = False):
     Where the repo has adopted a canonical model, a gold contract must also agree with the
     document that names its relation. A schema that model documents no relation in is not yet
     modelled: its gold relations warn (`contract/no-document`) instead of failing, because the
-    review asks for those documents and the gate has nothing to agree with. `--relations` adds
+    review asks for those documents and the gate has nothing to agree with. A map that declares
+    no gold layers leaves nothing to agree with at all: `map/no-gold-layers` reports that gap
+    rather than inventing a set. `--relations` adds
     the comparison against the built relation and fails when no catalog resolves, rather than
     skipping: asking for the check and getting silence is the false pass it exists to prevent.
     """
@@ -1501,12 +1494,19 @@ def check(root: str = "", relations: bool = False):
 
     expected = expected_relations(repo_root, repo_map)
     documents = _canonical_datasets(repo_root, repo_map)
-    gold = _gold_schemas(repo_root, repo_map, expected) if documents else set()
+    gold = _gold_schemas(repo_map, expected) if documents else set()
     # A schema the canonical model documents no relation in is not yet modelled: the review
     # asks for a document, the gate does not fail a relation that never had one to agree with.
     modelled = gold & {schema for schema, _ in documents}
     diags: list[dict] = []
     parsed: dict[tuple[str, str], dict] = {}
+
+    # A canonical model with no gold layers declared leaves agreement unchecked. Saying so is the
+    # report; guessing which layers are gold would gate relations the map never claimed.
+    if documents and not (repo_map.get("gold_layers") or []):
+        diags.append(_diag("warning", "map/no-gold-layers",
+                           "repo-map.json declares no gold_layers, so no relation is gated against "
+                           "the canonical model; declare the layers that hold gold"))
 
     for relation, declarer in sorted(expected.items()):
         if relation not in contracts:

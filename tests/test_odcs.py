@@ -61,7 +61,7 @@ def _doc(table, **overrides):
 
 
 def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None, files=None):
-    """A minimal repo: layers, seeds, a source's resource docs and a canonical model.
+    """A minimal repo: layers, their gold declaration, seeds, a source's docs and a canonical model.
 
     `files` writes hand-written properties files, as `{relative path: text or document}`.
     """
@@ -76,6 +76,7 @@ def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None, files
         target.write_text(yaml.safe_dump(logical_model))
     repo_map = {
         "artifact_paths": artifacts,
+        "gold_layers": ["core"],
         "layers": {
             "bronze": {"schema": "bronze", "path": "ingestion/", "built_by": "dlt"},
             "core": {"schema": "core", "path": "models/core/", "built_by": "dbt"},
@@ -191,6 +192,19 @@ def test_check_rejects_a_contract_naming_no_declared_relation(tmp_path):
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["contract/orphan"])
+
+
+def test_a_seed_layer_named_something_else_still_owes_its_contract(tmp_path):
+    """The `.csv` suffix follows the files a dbt layer holds, not the name `seeds`."""
+    _repo(tmp_path, files={"seeds/band.csv": "band_order\n1\n"})
+    map_path = tmp_path / "repo-map.json"
+    repo_map = json.loads(map_path.read_text())
+    repo_map["layers"] = {"bands": {"schema": "seeds", "path": "seeds/", "built_by": "dbt"}}
+    map_path.write_text(json.dumps(repo_map))
+    _contract(tmp_path, "seeds", "band")
+    _generated(tmp_path)
+
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
 def test_check_rejects_a_present_but_empty_section(tmp_path):
@@ -351,6 +365,28 @@ def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
     map_path.write_text(json.dumps(repo_map))
     _generated(elsewhere)
     assert _run("check", "--root", str(elsewhere)) == (0, [])
+
+
+def test_a_map_declaring_no_gold_layers_checks_none_and_says_so(tmp_path):
+    """Gold is the map's declaration: without one nothing is gold, and the gate reports the gap."""
+    _repo(tmp_path, models=["a_model", "b_model"],
+          logical_model=_model(("a_model", TRIP_FIELDS, ["trip_key"])))
+    map_path = tmp_path / "repo-map.json"
+    repo_map = json.loads(map_path.read_text())
+    del repo_map["gold_layers"]
+    map_path.write_text(json.dumps(repo_map))
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", primaryKey=True),
+        _prop("pickup_date", "date"), _prop("total_amount", "number")))
+    _contract(tmp_path, "core", "b_model")
+    _generated(tmp_path)
+
+    code, diags = _run("check", "--root", str(tmp_path))
+
+    # No `contract/no-document` and no `gold/undeclared`: an undeclared gold set names no relation,
+    # so the warning about the missing declaration is the whole answer.
+    assert (code, _codes(diags)) == (0, ["map/no-gold-layers"])
+    assert "gold_layers" in diags[0]["message"]
 
 
 CORE_PROPERTIES = """version: 2
@@ -1110,6 +1146,7 @@ def test_gold_relation_in_a_schema_the_model_never_covers_is_not_a_gap(tmp_path)
     map_path = tmp_path / "repo-map.json"
     repo_map = json.loads(map_path.read_text())
     repo_map["layers"]["agg"] = {"schema": "agg", "path": "models/agg/", "built_by": "dbt"}
+    repo_map["gold_layers"] = ["core", "agg"]
     map_path.write_text(json.dumps(repo_map))
     (tmp_path / "models" / "agg").mkdir(parents=True)
     (tmp_path / "models" / "agg" / "agg_mart.sql").write_text("select 1\n")

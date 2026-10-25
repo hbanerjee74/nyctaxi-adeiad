@@ -96,6 +96,9 @@ def test_the_gold_layers_are_declared_and_exist():
     assert "gold_layers" in REPO_MAP, "the map declares no gold layers, so the tool infers them"
     unknown = set(REPO_MAP["gold_layers"]) - set(REPO_MAP["layers"])
     assert unknown == set(), f"gold layers the map does not declare: {sorted(unknown)}"
+    assert set(REPO_MAP["gold_layers"]) == {"core", "agg", "finance", "ops"}, (
+        "the gated gold set changed; `check`'s `contract/no-document` count moves with it"
+    )
 
 
 def test_source_artifact_patterns_resolve_for_every_source():
