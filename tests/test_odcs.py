@@ -18,10 +18,16 @@ RUNNER = CliRunner()
 
 
 def _run(*args):
-    """Invoke the CLI; stdout is always pure JSON."""
+    """Invoke the CLI; stdout is always pure JSON, so a crash fails here instead of passing as []."""
     result = RUNNER.invoke(app, list(args))
+    assert result.stdout.strip(), f"no JSON on stdout: {result.exception!r}"
     assert result.exit_code in (0, 1, 2), result.output
-    return result.exit_code, json.loads(result.stdout or "[]")
+    return result.exit_code, json.loads(result.stdout)
+
+
+def _generated(tmp_path):
+    """Write the keys `generate` owns, for the fixtures whose subject is not staleness."""
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
 
 
 def _codes(diags):
@@ -119,8 +125,21 @@ def _element(table, *properties):
              "properties": list(properties)}]
 
 
+PHYSICAL_TYPES = {
+    "string": "VARCHAR",
+    "integer": "BIGINT",
+    "number": "DECIMAL(10,2)",
+    "boolean": "BOOLEAN",
+    "date": "DATE",
+    "time": "TIME",
+    "timestamp": "TIMESTAMP",
+}
+
+
 def _prop(name, logical_type, **overrides):
-    prop = {"name": name, "logicalType": logical_type}
+    """A contract property; every one carries a `physicalType`, as `reverse` writes it."""
+    prop = {"name": name, "logicalType": logical_type,
+            "physicalType": PHYSICAL_TYPES.get(logical_type, "VARCHAR")}
     prop.update(overrides)
     return prop
 
@@ -135,6 +154,7 @@ def _contract(tmp_path, schema_name, table_name, **overrides):
 def test_check_accepts_a_declared_relation_with_its_contract(tmp_path):
     _repo(tmp_path, models=["a_model"])
     _contract(tmp_path, "core", "a_model")
+    _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -142,6 +162,7 @@ def test_check_requires_a_contract_for_every_declared_relation(tmp_path):
     """dbt models, seeds and documented dlt resources all count, from the map alone."""
     _repo(tmp_path, models=["a_model", "b_model"], seeds=["band"], sources={"src": ("raw", ["t"])})
     _contract(tmp_path, "core", "a_model")
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 1
     assert _codes(diags) == ["contract/missing", "contract/missing", "contract/missing"]
@@ -154,6 +175,7 @@ def test_check_rejects_a_contract_naming_no_declared_relation(tmp_path):
     _repo(tmp_path, models=["a_model"])
     _contract(tmp_path, "core", "a_model")
     _contract(tmp_path, "core", "gone")
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["contract/orphan"])
 
@@ -162,6 +184,7 @@ def test_check_rejects_a_present_but_empty_section(tmp_path):
     """Absence is the only honest 'no promise'; an empty `servers` claims one."""
     _repo(tmp_path, models=["a_model"])
     _contract(tmp_path, "core", "a_model", servers=[])
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["contract/empty-section"])
     assert "servers" in diags[0]["message"]
@@ -171,6 +194,7 @@ def test_check_warns_but_passes_when_the_grain_is_unstated(tmp_path):
     """Onboarding may leave the grain to review; the gate warns, the review refuses."""
     _repo(tmp_path, models=["a_model"])
     _contract(tmp_path, "core", "a_model", schema=[{"name": "a_model"}])
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (0, ["contract/no-grain"])
     assert diags[0]["severity"] == "warning"
@@ -204,6 +228,7 @@ def _trips(tmp_path, fields=TRIP_FIELDS, primary_key=("trip_key",)):
 
 def test_gold_agreement_passes_when_the_contract_matches_the_model(tmp_path):
     _trips(tmp_path)
+    _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -212,6 +237,7 @@ def test_gold_omission_fails_and_names_the_relation_and_field(tmp_path):
     _contract(tmp_path, "core", "a_model", schema=_element(
         "a_model", _prop("trip_key", "string", primaryKey=True), _prop("total_amount", "number")))
     _repo(tmp_path, models=["a_model"], logical_model=_model(("a_model", TRIP_FIELDS, ["trip_key"])))
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["gold/omits-declared"])
     assert "core.a_model" in diags[0]["message"] and "pickup_date" in diags[0]["message"]
@@ -225,6 +251,7 @@ def test_gold_logical_type_disagreement_names_both_sides(tmp_path):
         _prop("trip_key", "string", primaryKey=True),
         _prop("pickup_date", "date"),
         _prop("total_amount", "string")))
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["gold/divergent"])
     assert "'number'" in diags[0]["message"] and "'string'" in diags[0]["message"]
@@ -241,11 +268,13 @@ def test_gold_datetimetz_needs_the_timezone_option(tmp_path):
     _contract(tmp_path, "core", "a_model", schema=loaded_at)
     _repo(tmp_path, models=["a_model"], logical_model=_model(
         ("a_model", {**TRIP_FIELDS, "loaded_at": "DateTimeTz"}, ["trip_key"])))
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["gold/divergent"])
     assert "timezone" in diags[0]["message"]
     loaded_at[0]["properties"][-1]["logicalTypeOptions"] = {"timezone": True}
     _contract(tmp_path, "core", "a_model", schema=loaded_at)
+    _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -260,6 +289,7 @@ def test_gold_datetime_must_not_carry_the_timezone_option(tmp_path):
     _contract(tmp_path, "core", "a_model", schema=schema)
     _repo(tmp_path, models=["a_model"], logical_model=_model(
         ("a_model", {**TRIP_FIELDS, "loaded_at": "DateTime"}, ["trip_key"])))
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["gold/divergent"])
     assert "timezone" in diags[0]["message"]
@@ -273,6 +303,7 @@ def test_gold_contract_with_no_document_fails(tmp_path):
         "a_model", _prop("trip_key", "string", primaryKey=True),
         _prop("pickup_date", "date"), _prop("total_amount", "number")))
     _contract(tmp_path, "core", "b_model")
+    _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["gold/undeclared"])
     assert "core.b_model" in diags[0]["message"]
@@ -287,6 +318,7 @@ def test_gold_ignores_a_property_the_model_does_not_declare(tmp_path):
         _prop("pickup_date", "date"),
         _prop("total_amount", "number"),
         _prop("audit_note", "string")))
+    _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -294,6 +326,7 @@ def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
     """Not adopting a canonical model is not a broken contract set, whatever the map says."""
     _repo(tmp_path, models=["a_model"])
     _contract(tmp_path, "core", "a_model")
+    _generated(tmp_path)
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
     elsewhere = tmp_path / "absent"
@@ -303,6 +336,7 @@ def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
     repo_map = json.loads(map_path.read_text())
     repo_map["artifact_paths"]["logical_model"] = "logical-model/*.ossie.yaml"
     map_path.write_text(json.dumps(repo_map))
+    _generated(elsewhere)
     assert _run("check", "--root", str(elsewhere)) == (0, [])
 
 
@@ -496,7 +530,7 @@ def test_generate_refuses_a_contract_whose_servers_disagree_with_the_map(tmp_pat
         "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
 
     code, diags = _run("generate", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["contract/servers-mismatch"])
+    assert (code, _codes(diags)) == (1, ["contract/servers-schema"])
     assert "'staging'" in diags[0]["message"] and "'core'" in diags[0]["message"]
     assert (tmp_path / "models" / "core" / "_core.yml").read_text() == CORE_PROPERTIES
 
@@ -504,4 +538,81 @@ def test_generate_refuses_a_contract_whose_servers_disagree_with_the_map(tmp_pat
               schema=_element(
                   "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+
+def test_check_reports_a_generated_module_that_no_longer_parses(tmp_path):
+    """A hand-mangled module is stale, not a traceback: stdout stays JSON."""
+    _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
+    _contract(tmp_path, "bronze", "tripdata", schema=_element(
+        "tripdata", _prop("vendor_id", "integer", physicalType="BIGINT")))
+    _generated(tmp_path)
+
+    module = tmp_path / "ingestion" / "contracts.py"
+    module.write_text(module.read_text(encoding="utf-8") + "(\n", encoding="utf-8")
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "ingestion/contracts.py" in diags[0]["message"]
+    assert "COLUMNS" in diags[0]["message"]
+
+
+def test_check_reports_a_missing_generated_module(tmp_path):
+    """Contract present and `generate` never run is the staleness the gate exists for."""
+    _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
+    _contract(tmp_path, "bronze", "tripdata", schema=_element(
+        "tripdata", _prop("vendor_id", "integer", physicalType="BIGINT")))
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "ingestion/contracts.py" in diags[0]["message"]
+
+
+def test_check_reports_a_model_with_no_generated_entry(tmp_path):
+    """A contract whose properties entry was never generated is stale, not silent."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "models/core/_generated.yml" in diags[0]["message"]
+    assert "models.a_model" in diags[0]["message"]
+
+
+def test_check_reports_a_contract_hand_written_on_a_seed(tmp_path):
+    """Seeds never carry a contract; one added by hand is a generated key out of place."""
+    _repo(tmp_path, seeds=["band"], files={"seeds/seeds.yml": """version: 2
+
+seeds:
+  - name: band
+    contract: {enforced: true}
+    columns:
+      - name: band_order
+        data_tests: [unique]
+"""})
+    _contract(tmp_path, "seeds", "band", schema=_element(
+        "band", _prop("band_order", "integer", quality=[_rule("duplicateValues")])))
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "band.contract" in diags[0]["message"]
+
+
+def test_check_reports_a_data_type_on_a_column_the_contract_never_declares(tmp_path):
+    """`check` proves the owned keys are absent where the contract does not own them, too."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    _generated(tmp_path)
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+    path = tmp_path / "models" / "core" / "_core.yml"
+    doc, _ = _entries(path)
+    doc["models"][0]["columns"][1]["data_type"] = "VARCHAR"
+    path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "a_model.columns.total_amount.data_type" in diags[0]["message"]
 

@@ -80,6 +80,9 @@ DLT_TYPES = {
 # The quality metrics that reduce to a generic dbt test, and the test each becomes.
 QUALITY_TESTS = {"duplicateValues": "unique", "nullValues": "not_null"}
 
+# The keys `generate` owns anywhere. A check proves them present and absent, never only present.
+OWNED_KEYS = ("contract", "data_type", "data_tests")
+
 app = typer.Typer(add_completion=False)
 
 
@@ -419,7 +422,7 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
     for server in contract.get("servers") or []:
         stated = (server or {}).get("schema") if isinstance(server, dict) else None
         if stated and stated != relation[0]:
-            raise _Refused(_diag("error", "contract/servers-mismatch",
+            raise _Refused(_diag("error", "contract/servers-schema",
                                  f"{relation[0]}.{relation[1]}: `servers[].schema` says "
                                  f"{stated!r}, the map declares {relation[0]!r}"))
     owned: dict = {"columns": {}}
@@ -461,10 +464,27 @@ def _indent(line: str) -> int:
 
 
 def _block_end(lines: list[str], index: int, indent: int) -> int:
-    """The line after the block that the `key:` or `- name:` line at `indent` opens."""
+    """The line after the block that the `- name:` line at `indent` opens: a sibling ends it."""
     for other in range(index + 1, len(lines)):
         text = lines[other].strip()
         if text and not text.startswith("#") and _indent(lines[other]) <= indent:
+            return other
+    return len(lines)
+
+
+def _key_block_end(lines: list[str], index: int, indent: int) -> int:
+    """The line after the value of the key at `indent`.
+
+    A block sequence may sit at the same indent as the key that owns it, so a `- ` line there
+    is the value; the next mapping key is what ends it.
+    """
+    for other in range(index + 1, len(lines)):
+        text = lines[other].strip()
+        if not text or text.startswith("#"):
+            continue
+        if _indent(lines[other]) < indent:
+            return other
+        if _indent(lines[other]) == indent and not text.startswith("-"):
             return other
     return len(lines)
 
@@ -481,7 +501,7 @@ def _section(lines: list[str], key: str) -> tuple[int, int] | None:
     for index, line in enumerate(lines):
         match = KEY.match(line)
         if match and _indent(line) == 0 and match.group(2) == key and not match.group(3):
-            return index + 1, _block_end(lines, index, 0)
+            return index + 1, _key_block_end(lines, index, 0)
     return None
 
 
@@ -515,7 +535,7 @@ def _key_span(lines: list[str], start: int, end: int, key: str) -> tuple[int, in
     for index in range(start + 1, end):
         match = KEY.match(lines[index])
         if match and _indent(lines[index]) == indent and match.group(2) == key:
-            return index, _block_end(lines, index, indent)
+            return index, _key_block_end(lines, index, indent)
     return None
 
 
@@ -640,9 +660,13 @@ def _module_text(tables: dict[str, dict[str, dict]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _columns_module(path: Path) -> dict:
-    """The generated module's COLUMNS, read without importing it."""
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+def _columns_module(path: Path) -> dict | None:
+    """The generated module's COLUMNS, read without importing it; None when it does not parse."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (SyntaxError, ValueError):
+        return None
+    for node in tree.body:
         if isinstance(node, ast.Assign):
             target = node.targets[0]
         elif isinstance(node, ast.AnnAssign):
@@ -666,12 +690,28 @@ def _stale(path: Path, root: Path, key: str) -> dict:
                  f"{_display(path, root)}: {key} is stale; run generate")
 
 
+def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:
+    """Owned keys on disk that the contract does not own here.
+
+    A hand-added key is as stale as a missing one: `check` proves the boundary both ways, or a
+    generated key can be introduced by hand and never regenerated.
+    """
+    stale = [f"{table}.contract"] if "contract" in found and kind != "model" else []
+    for column in found.get("columns") or []:
+        if not isinstance(column, dict):
+            continue
+        keys = owned["columns"].get(column.get("name"), {})
+        stale.extend(f"{table}.columns.{column.get('name')}.{key}"
+                     for key in OWNED_KEYS if key in column and key not in keys)
+    return stale
+
+
 def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                        docs: dict) -> list[dict]:
     """What `generate` would write, against what is on disk: one computation, no second copy.
 
-    A target file that does not exist is not stale: nothing there claims to be generated.
-    Every file that does exist must agree with the contracts it serves.
+    A contract whose generated artifact or entry is absent is stale: `generate` never having
+    run is exactly the drift this check exists to catch.
     """
     targets: dict[Path, list[tuple[tuple[str, str], dict, str]]] = {}
     diags: list[dict] = []
@@ -684,18 +724,18 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
         except _Refused as refusal:
             diags.append(refusal.diag)
             continue
-        if target is None or not target[1].is_file():
-            continue
-        targets.setdefault(target[1], []).append((relation, doc, target[0]))
+        if target is not None:
+            targets.setdefault(target[1], []).append((relation, doc, target[0]))
 
     hints: dict[str, dict[str, dict]] = {}
     module: Path | None = None
     on_disk_module: dict = {}
     for path, entries in sorted(targets.items()):
         if entries[0][2] == "dlt":
-            module, on_disk_module = path, _columns_module(path)
+            module = path
+            on_disk_module = _columns_module(path) if path.is_file() else {}
         else:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            doc = yaml.safe_load(path.read_text(encoding="utf-8")) if path.is_file() else {}
         for relation, contract, kind in entries:
             try:
                 owned = _owned(relation, contract, kind)
@@ -712,6 +752,8 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                 continue
             if "contract" in owned and found.get("contract") != owned["contract"]:
                 diags.append(_stale(path, root, f"{table}.contract"))
+            for key in _stale_keys(found, owned, kind, table):
+                diags.append(_stale(path, root, key))
             columns = {column.get("name"): column
                        for column in found.get("columns") or [] if isinstance(column, dict)}
             for column, keys in owned["columns"].items():
@@ -720,11 +762,14 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                         diags.append(_stale(path, root, f"{table}.columns.{column}.{key}"))
 
     if hints and module is not None:
-        for table in sorted(set(hints) | set(on_disk_module)):
-            want, got = hints.get(table) or {}, on_disk_module.get(table) or {}
-            for column in sorted(set(want) | set(got)):
-                if want.get(column) != got.get(column):
-                    diags.append(_stale(module, root, f'COLUMNS["{table}"]["{column}"]'))
+        if not module.is_file() or on_disk_module is None:
+            diags.append(_stale(module, root, "COLUMNS"))
+        else:
+            for table in sorted(set(hints) | set(on_disk_module)):
+                want, got = hints.get(table) or {}, on_disk_module.get(table) or {}
+                for column in sorted(set(want) | set(got)):
+                    if want.get(column) != got.get(column):
+                        diags.append(_stale(module, root, f'COLUMNS["{table}"]["{column}"]'))
     return diags
 
 
