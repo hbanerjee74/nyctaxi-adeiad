@@ -29,7 +29,7 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
 | [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Canonical Ossie model shape and VIBEDATA rules |
 | [`data-contract`](.agents/skills/data-contract/SKILL.md) | Authored contract, generated dbt and dlt keys, when the version moves, and what is never invented |
-| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The six judgements no check makes: grain truth, honest `required`, rules against data and ADRs, version moves, actionable descriptions, cross-contract logical types |
+| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The review checklist: grain truth, honest `required`, rules against data and ADRs, version moves, actionable descriptions, cross-contract logical types, and meaning against the canonical document |
 | [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: classifying gold tables, concepts, natural identity, relationships, declaration-only |
 | [`validating-ontology`](.agents/skills/validating-ontology/SKILL.md) | The ontology's own gate: structure, coverage and content against the model |
 | [`validating-semantic-model`](.agents/skills/validating-semantic-model/SKILL.md) | Structural gate plus the content review before commit |
