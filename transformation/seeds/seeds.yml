@@ -8,24 +8,24 @@ seeds:
       restates every time-of-day report.
     columns:
       - name: hour_of_day
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]
       - name: daypart_code
-        tests: [not_null]
+        data_tests: [not_null]
 
   - name: distance_bands
     description: Trip distance banding used by every distance-profile aggregate.
     columns:
       - name: band_order
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]
 
   - name: duration_bands
     description: Trip duration banding, in minutes.
     columns:
       - name: band_order
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]
 
   - name: fare_bands
     description: Trip total banding, in dollars.
     columns:
       - name: band_order
-        tests: [unique, not_null]
+        data_tests: [unique, not_null]

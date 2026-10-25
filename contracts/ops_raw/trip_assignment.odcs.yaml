@@ -1,0 +1,70 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: feb14203-e499-529e-9014-24ea438fc15a
+name: trip_assignment
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: trip_assignment
+    properties:
+      - name: assignment_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: service_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: dropoff_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: assigned_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: assignment_method
+        logicalType: string
+        physicalType: VARCHAR
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

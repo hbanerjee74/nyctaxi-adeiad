@@ -1,0 +1,46 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 0507d553-f862-5e4a-88a6-40256bda32e4
+name: vendor_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: vendor_master
+    properties:
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: vendor_legal_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vendor_short_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: contract_tier
+        logicalType: string
+        physicalType: VARCHAR
+      - name: valid_from_date
+        logicalType: date
+        physicalType: DATE
+      - name: valid_to_date
+        logicalType: date
+        physicalType: DATE
+      - name: source_version
+        logicalType: integer
+        physicalType: INTEGER
+      - name: is_approved
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

@@ -1,0 +1,42 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: bbd94f7e-bb18-5861-83ef-e335a8e018c8
+name: maintenance_event
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: maintenance_event
+    properties:
+      - name: maintenance_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: started_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: down_days
+        logicalType: integer
+        physicalType: BIGINT
+      - name: maintenance_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: cost_usd
+        logicalType: integer
+        physicalType: BIGINT
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

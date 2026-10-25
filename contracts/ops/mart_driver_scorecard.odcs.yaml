@@ -1,0 +1,102 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 6c804919-cbf6-554d-8414-23b559c3632c
+name: mart_driver_scorecard
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops
+schema:
+  - name: mart_driver_scorecard
+    dataGranularityDescription: Driver performance, ranked within garage and fleet-wide. Ranking is on revenue per online hour, not gross revenue -- gross rewards whoever worked the most hours, which is a roster fact rather than a performance one. Drivers below the hours floor are carried but flagged.
+    properties:
+      - name: driver_key
+        logicalType: integer
+        physicalType: BIGINT
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: is_below_ranking_floor
+        logicalType: boolean
+        physicalType: BOOLEAN
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE
+        description: '{{ doc("occupancy_rate") }}'
+      - name: driver_ref
+        logicalType: string
+        physicalType: VARCHAR
+      - name: engagement_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: garage_key
+        logicalType: integer
+        physicalType: BIGINT
+      - name: home_garage_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: active_days
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: shift_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: trip_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: online_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: on_trip_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: gross_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_cost
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_margin
+        logicalType: number
+        physicalType: DOUBLE
+      - name: paid_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_online_hour
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_trip
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trips_per_online_hour
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_share
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fleet_rank
+        logicalType: integer
+        physicalType: BIGINT
+      - name: garage_rank
+        logicalType: integer
+        physicalType: BIGINT
+      - name: revenue_quartile
+        logicalType: integer
+        physicalType: BIGINT
+      - name: occupancy_percentile
+        logicalType: number
+        physicalType: DOUBLE

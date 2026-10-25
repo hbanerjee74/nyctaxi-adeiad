@@ -3,185 +3,641 @@ version: 2
 models:
   - name: dim_date
     description: Date spine with holiday, weekend and school-term flags from master data.
+    contract: {enforced: true}
     columns:
       - name: date_key
         tests: [unique, not_null]
+        data_type: INTEGER
       - name: calendar_date
         tests: [unique, not_null]
-
+        data_type: DATE
+      - name: calendar_year
+        data_type: BIGINT
+      - name: calendar_quarter
+        data_type: BIGINT
+      - name: calendar_month
+        data_type: BIGINT
+      - name: month_name
+        data_type: VARCHAR
+      - name: iso_week
+        data_type: BIGINT
+      - name: month_start_date
+        data_type: TIMESTAMP
+      - name: week_start_date
+        data_type: TIMESTAMP
+      - name: day_of_week
+        data_type: BIGINT
+      - name: day_name
+        data_type: VARCHAR
+      - name: is_weekend
+        data_type: BOOLEAN
+      - name: is_holiday
+        data_type: BOOLEAN
+      - name: holiday_name
+        data_type: VARCHAR
+      - name: holiday_class
+        data_type: VARCHAR
+      - name: is_school_term
+        data_type: BOOLEAN
+      - name: is_non_working_day
+        data_type: BOOLEAN
   - name: dim_daypart
     description: "One row per hour of the day, with its daypart. Analyst-owned banding from the daypart seed."
+    contract: {enforced: true}
     columns:
       - name: hour_of_day
         tests: [unique, not_null]
-
+        data_type: INTEGER
+      - name: daypart_code
+        data_type: VARCHAR
+      - name: daypart_name
+        data_type: VARCHAR
+      - name: is_peak
+        data_type: BOOLEAN
   - name: dim_zone
     description: |
       Type 2 zone dimension, natural key `location_id`.
       {{ doc("scd2_asof") }}
+    contract: {enforced: true}
     columns:
       - name: zone_key
         description: Surrogate key over natural key plus valid-from date.
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: zone_natural_key
         tests: [not_null]
+        data_type: BIGINT
       - name: is_current_version
         tests: [not_null]
+        data_type: BOOLEAN
       - name: borough_name
         tests:
           - accepted_values:
               arguments:
                 values: ['Manhattan','Brooklyn','Queens','Bronx','Staten Island','EWR','Unknown','N/A']
-
+        data_type: VARCHAR
+      - name: zone_version
+        data_type: INTEGER
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
+      - name: zone_name
+        data_type: VARCHAR
+      - name: borough_code
+        data_type: VARCHAR
+      - name: reporting_region
+        data_type: VARCHAR
+      - name: tlc_service_zone
+        data_type: VARCHAR
+      - name: zone_class
+        data_type: VARCHAR
+      - name: demand_tier
+        data_type: VARCHAR
+      - name: centroid_lat
+        data_type: DOUBLE
+      - name: centroid_lon
+        data_type: DOUBLE
+      - name: area_sq_mi
+        data_type: DOUBLE
+      - name: resident_population
+        data_type: BIGINT
+      - name: is_airport_zone
+        data_type: BOOLEAN
+      - name: is_congestion_zone
+        data_type: BOOLEAN
+      - name: is_nyc
+        data_type: BOOLEAN
+      - name: is_core_market
+        data_type: BOOLEAN
+      - name: is_unresolved_zone
+        data_type: BOOLEAN
+      - name: poi_count
+        data_type: BIGINT
+      - name: poi_categories
+        data_type: VARCHAR
   - name: dim_vendor
     description: |
       Type 2 vendor dimension, natural key `vendor_id`. VendorID 2 carries two
       versions across the July 2023 Curb Mobility rebrand.
       {{ doc("scd2_asof") }}
+    contract: {enforced: true}
     columns:
       - name: vendor_key
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: vendor_natural_key
         tests: [not_null]
-
+        data_type: INTEGER
+      - name: vendor_version
+        data_type: INTEGER
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
+      - name: is_current_version
+        data_type: BOOLEAN
+      - name: vendor_legal_name
+        data_type: VARCHAR
+      - name: vendor_short_code
+        data_type: VARCHAR
+      - name: contract_tier
+        data_type: VARCHAR
+      - name: is_approved
+        data_type: BOOLEAN
   - name: dim_payment_method
     description: "One row per payment method: how it settles, whether tips are recorded and whether trips paid this way count as revenue."
+    contract: {enforced: true}
     columns:
       - name: payment_method_key
         tests: [unique, not_null]
+        data_type: INTEGER
       - name: tip_is_captured
         description: '{{ doc("measurable_tip_rate") }}'
         tests: [not_null]
-
+        data_type: BOOLEAN
+      - name: payment_method_name
+        data_type: VARCHAR
+      - name: settlement_class
+        data_type: VARCHAR
+      - name: settlement_days
+        data_type: INTEGER
+      - name: processor_fee_pct
+        data_type: DECIMAL(5,4)
+      - name: counts_as_revenue
+        data_type: BOOLEAN
   - name: dim_rate_plan
     description: "One row per rate plan, with its pricing model and flat-fare amount."
+    contract: {enforced: true}
     columns:
       - name: rate_plan_key
         tests: [unique, not_null]
-
+        data_type: INTEGER
+      - name: rate_plan_name
+        data_type: VARCHAR
+      - name: pricing_model
+        data_type: VARCHAR
+      - name: is_flat_fare
+        data_type: BOOLEAN
+      - name: flat_fare_amount
+        data_type: DECIMAL(4,2)
+      - name: is_airport_plan
+        data_type: BOOLEAN
+      - name: is_metered_baseline
+        data_type: BOOLEAN
   - name: dim_service_type
     description: "One row per service type (fleet), with its airport and Manhattan-core hail rules."
+    contract: {enforced: true}
     columns:
       - name: service_type_key
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: service_type_name
+        data_type: VARCHAR
+      - name: may_serve_airports
+        data_type: BOOLEAN
+      - name: may_serve_manhattan_core
+        data_type: BOOLEAN
+      - name: hail_rule
+        data_type: VARCHAR
   - name: dim_fare_regime
     description: Effective-dated surcharge rates, joined on component and date.
+    contract: {enforced: true}
     columns:
       - name: fare_regime_key
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: fare_component
+        data_type: VARCHAR
+      - name: rate_amount
+        data_type: DECIMAL(3,2)
+      - name: applies_to_fleet
+        data_type: VARCHAR
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
+      - name: is_current_regime
+        data_type: BOOLEAN
   - name: dim_driver
     description: >
       Type 1. Drivers change garage and status but the operator keeps no history,
       so claiming Type 2 here would be a dimension whose history is fabricated.
+    contract: {enforced: true}
     columns:
       - name: driver_key
         tests: [unique, not_null]
+        data_type: BIGINT
       - name: garage_key
         tests:
           - relationships: {arguments: {to: ref('dim_garage'), field: garage_key}}
-
+        data_type: BIGINT
+      - name: hack_licence_no
+        data_type: VARCHAR
+      - name: driver_ref
+        data_type: VARCHAR
+      - name: engagement_type
+        data_type: VARCHAR
+      - name: driver_status
+        data_type: VARCHAR
+      - name: is_wav_certified
+        data_type: BOOLEAN
+      - name: hire_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: termination_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: tenure_days
+        data_type: BIGINT
+      - name: home_garage_name
+        data_type: VARCHAR
+      - name: lease_id
+        data_type: BIGINT
+      - name: lease_type
+        data_type: VARCHAR
+      - name: lease_rate
+        data_type: DECIMAL(22,2)
+      - name: revenue_share_pct
+        data_type: DECIMAL(3,2)
+      - name: primary_vehicle_id
+        data_type: BIGINT
   - name: dim_vehicle
     description: Type 1, with maintenance downtime folded in.
+    contract: {enforced: true}
     columns:
       - name: vehicle_key
         tests: [unique, not_null]
+        data_type: BIGINT
       - name: medallion_number
         tests: [not_null]
-
+        data_type: VARCHAR
+      - name: vin
+        data_type: VARCHAR
+      - name: make
+        data_type: VARCHAR
+      - name: model
+        data_type: VARCHAR
+      - name: make_model
+        data_type: VARCHAR
+      - name: model_year
+        data_type: BIGINT
+      - name: vehicle_age_years
+        data_type: BIGINT
+      - name: fuel_type
+        data_type: VARCHAR
+      - name: is_low_emission
+        data_type: BOOLEAN
+      - name: wheelchair_accessible
+        data_type: BOOLEAN
+      - name: garage_key
+        data_type: BIGINT
+      - name: garage_name
+        data_type: VARCHAR
+      - name: in_service_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: retired_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: is_in_service
+        data_type: BOOLEAN
+      - name: maintenance_events
+        data_type: BIGINT
+      - name: maintenance_down_days
+        data_type: HUGEINT
+      - name: maintenance_cost_usd
+        data_type: HUGEINT
   - name: dim_garage
     description: "One row per garage, with its capacity and the number of vehicles assigned."
+    contract: {enforced: true}
     columns:
       - name: garage_key
         tests: [unique, not_null]
-
+        data_type: INTEGER
+      - name: garage_name
+        data_type: VARCHAR
+      - name: borough_name
+        data_type: VARCHAR
+      - name: bay_capacity
+        data_type: INTEGER
+      - name: opened_date
+        data_type: DATE
+      - name: assigned_vehicle_count
+        data_type: BIGINT
   - name: dim_trip_quality
     description: >
       Junk dimension over the observed combinations of the trip quality verdicts.
       Only combinations that occur are materialised; the full cross product would
       be 4096 rows, almost all empty.
+    contract: {enforced: true}
     columns:
       - name: trip_quality_key
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: is_billable
+        data_type: BOOLEAN
+      - name: is_refund
+        data_type: BOOLEAN
+      - name: is_zero_distance
+        data_type: BOOLEAN
+      - name: is_implausibly_short
+        data_type: BOOLEAN
+      - name: is_implausibly_fast
+        data_type: BOOLEAN
+      - name: is_negative_duration
+        data_type: BOOLEAN
+      - name: is_zero_passenger
+        data_type: BOOLEAN
+      - name: is_missing_passenger_count
+        data_type: BOOLEAN
+      - name: is_sparse_vendor_feed
+        data_type: BOOLEAN
+      - name: is_unresolved_pickup_zone
+        data_type: BOOLEAN
+      - name: is_undocumented_rate_code
+        data_type: BOOLEAN
+      - name: is_missing_airport_fee
+        data_type: BOOLEAN
+      - name: is_clean_trip
+        data_type: BOOLEAN
   - name: bridge_zone_poi
     description: >
       One row per zone and POI category, so zone to POI is one-to-many. A
       zone-level measure joined through it fans out across categories by design,
       which is why it carries an allocation factor.
+    contract: {enforced: true}
     columns:
       - name: poi_id
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: zone_natural_key
+        data_type: BIGINT
+      - name: poi_category
+        data_type: VARCHAR
+      - name: poi_category_name
+        data_type: VARCHAR
+      - name: poi_name
+        data_type: VARCHAR
+      - name: demand_weight
+        data_type: INTEGER
+      - name: allocation_factor
+        data_type: DOUBLE
   - name: fct_trip
     description: |
       One row per TLC trip. The grain of the warehouse.
 
       {{ doc("fleet_attribution") }}
+    contract: {enforced: true}
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: pickup_zone_key
         description: Role-playing zone key, resolved as of the trip's own date.
         tests:
           - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
+        data_type: VARCHAR
       - name: dropoff_zone_key
         description: The same dimension in its destination role.
         tests:
           - relationships: {arguments: {to: ref('dim_zone'), field: zone_key}}
+        data_type: VARCHAR
       - name: vendor_key
         tests:
           - relationships: {arguments: {to: ref('dim_vendor'), field: vendor_key}}
+        data_type: VARCHAR
       - name: trip_quality_key
         tests:
           - relationships: {arguments: {to: ref('dim_trip_quality'), field: trip_quality_key}}
+        data_type: VARCHAR
       - name: payment_method_key
         tests:
           - relationships: {arguments: {to: ref('dim_payment_method'), field: payment_method_key}}
+        data_type: BIGINT
       - name: is_fleet_attributed
         description: '{{ doc("fleet_attribution") }}'
         tests: [not_null]
+        data_type: BOOLEAN
       - name: fare_residual
         description: '{{ doc("fare_residual") }}'
+        data_type: DOUBLE
       - name: airport_fee
         description: >
           Yellow only, rejoined from bronze. Null for every green trip by
           construction -- see airport_fee_status before aggregating it.
-
+        data_type: DOUBLE
+      - name: pickup_date_key
+        data_type: INTEGER
+      - name: pickup_date
+        data_type: DATE
+      - name: pickup_hour
+        data_type: BIGINT
+      - name: daypart_code
+        data_type: VARCHAR
+      - name: service_type_key
+        data_type: VARCHAR
+      - name: rate_plan_key
+        data_type: BIGINT
+      - name: shift_id
+        data_type: VARCHAR
+      - name: driver_key
+        data_type: BIGINT
+      - name: vehicle_key
+        data_type: INTEGER
+      - name: assignment_method
+        data_type: VARCHAR
+      - name: pickup_datetime
+        data_type: TIMESTAMP
+      - name: dropoff_datetime
+        data_type: TIMESTAMP
+      - name: pickup_location_id
+        data_type: INTEGER
+      - name: dropoff_location_id
+        data_type: INTEGER
+      - name: passenger_count
+        data_type: BIGINT
+      - name: store_and_fwd_flag
+        data_type: VARCHAR
+      - name: trip_type
+        data_type: BIGINT
+      - name: trip_distance
+        data_type: DOUBLE
+      - name: trip_seconds
+        data_type: BIGINT
+      - name: avg_mph
+        data_type: DOUBLE
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: ehail_fee
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: total_surcharges
+        data_type: DOUBLE
+      - name: measurable_tip_rate
+        data_type: DOUBLE
+      - name: is_billable
+        data_type: BOOLEAN
+      - name: airport_fee_status
+        data_type: VARCHAR
   - name: fct_shift
     description: The bridge between the operational world and the revenue world.
+    contract: {enforced: true}
     columns:
       - name: shift_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: driver_key
         tests:
           - relationships: {arguments: {to: ref('dim_driver'), field: driver_key}}
+        data_type: BIGINT
       - name: vehicle_key
         tests:
           - relationships: {arguments: {to: ref('dim_vehicle'), field: vehicle_key}}
+        data_type: INTEGER
       - name: occupancy_rate
         description: '{{ doc("occupancy_rate") }}'
-
+        data_type: DOUBLE
+      - name: shift_date_key
+        data_type: INTEGER
+      - name: shift_date
+        data_type: DATE
+      - name: garage_key
+        data_type: BIGINT
+      - name: engagement_type
+        data_type: VARCHAR
+      - name: lease_type
+        data_type: VARCHAR
+      - name: shift_start_ts
+        data_type: TIMESTAMP
+      - name: effective_end_ts
+        data_type: TIMESTAMP
+      - name: is_unclosed_shift
+        data_type: BOOLEAN
+      - name: online_seconds
+        data_type: BIGINT
+      - name: on_trip_seconds
+        data_type: HUGEINT
+      - name: available_seconds
+        data_type: HUGEINT
+      - name: break_seconds
+        data_type: HUGEINT
+      - name: unaccounted_seconds
+        data_type: HUGEINT
+      - name: idle_rate
+        data_type: DOUBLE
+      - name: trip_count
+        data_type: BIGINT
+      - name: gross_revenue
+        data_type: DOUBLE
+      - name: fare_revenue
+        data_type: DOUBLE
+      - name: tip_revenue
+        data_type: DOUBLE
+      - name: airport_fee_collected
+        data_type: DOUBLE
+      - name: surcharge_collected
+        data_type: DOUBLE
+      - name: recognised_revenue
+        data_type: DOUBLE
+      - name: paid_miles
+        data_type: DOUBLE
+      - name: paid_seconds
+        data_type: HUGEINT
+      - name: shift_cost
+        data_type: DOUBLE
+      - name: shift_margin
+        data_type: DOUBLE
+      - name: revenue_per_online_hour
+        data_type: DOUBLE
+      - name: revenue_per_paid_mile
+        data_type: DOUBLE
+      - name: odometer_miles
+        data_type: DOUBLE
+      - name: paid_mile_ratio
+        data_type: DOUBLE
+      - name: negative_interval_count
+        data_type: BIGINT
+      - name: telematics_source
+        data_type: VARCHAR
   - name: fct_status_interval
     description: >
       One row per driver state interval. The only place idle time is locatable --
       a trip says where a driver earned, this says where they waited.
+    contract: {enforced: true}
     columns:
       - name: interval_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: status_code
         tests:
           - accepted_values:
               arguments:
                 values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
-
+        data_type: VARCHAR
+      - name: shift_id
+        data_type: VARCHAR
+      - name: driver_key
+        data_type: BIGINT
+      - name: vehicle_key
+        data_type: INTEGER
+      - name: interval_date_key
+        data_type: INTEGER
+      - name: interval_date
+        data_type: DATE
+      - name: interval_hour
+        data_type: BIGINT
+      - name: daypart_code
+        data_type: VARCHAR
+      - name: zone_key
+        data_type: VARCHAR
+      - name: zone_natural_key
+        data_type: INTEGER
+      - name: interval_start_ts
+        data_type: TIMESTAMP
+      - name: interval_end_ts
+        data_type: TIMESTAMP
+      - name: interval_seconds
+        data_type: BIGINT
+      - name: is_terminal_interval
+        data_type: BOOLEAN
+      - name: is_negative_interval
+        data_type: BOOLEAN
+      - name: skew_seconds
+        data_type: BIGINT
   - name: fct_maintenance
     description: >
       Semi-additive. Down-days sum across vehicles but not across overlapping
       ranges, so availability must expand this to a daily grain rather than
       summing the column.
+    contract: {enforced: true}
     columns:
       - name: maintenance_id
         tests: [unique, not_null]
+        data_type: VARCHAR
+      - name: vehicle_key
+        data_type: BIGINT
+      - name: garage_key
+        data_type: BIGINT
+      - name: started_date_key
+        data_type: INTEGER
+      - name: started_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: ended_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: down_days
+        data_type: BIGINT
+      - name: maintenance_type
+        data_type: VARCHAR
+      - name: cost_usd
+        data_type: BIGINT

@@ -1,0 +1,102 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 18a03801-8362-5453-8397-f3d2d7e073a5
+name: fct_status_interval
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: fct_status_interval
+    dataGranularityDescription: One row per driver state interval. The only place idle time is locatable — a trip says where a driver earned, this says where they waited.
+    properties:
+      - name: interval_id
+        logicalType: string
+        physicalType: VARCHAR
+        primaryKey: true
+        description: Interval identifier; the grain of the occupancy fact.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: status_code
+        logicalType: string
+        physicalType: VARCHAR
+        description: Driver state for the interval (LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT).
+        quality:
+          - type: library
+            metric: invalidValues
+            arguments:
+              valid_values:
+                - LOGIN
+                - AVAILABLE
+                - DISPATCHED
+                - ON_TRIP
+                - BREAK
+                - LOGOUT
+            mustBe: 0
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+        description: Shift the interval belongs to.
+      - name: driver_key
+        logicalType: string
+        physicalType: BIGINT
+        description: Driver the interval is attributed to.
+      - name: vehicle_key
+        logicalType: string
+        physicalType: INTEGER
+        description: Vehicle the driver was in during the interval.
+      - name: interval_date_key
+        logicalType: integer
+        physicalType: INTEGER
+        description: Surrogate key into date for the interval date.
+      - name: interval_date
+        logicalType: date
+        physicalType: DATE
+        description: Calendar date the interval started.
+      - name: interval_hour
+        logicalType: integer
+        physicalType: BIGINT
+        description: Hour of day the interval started (0-23), joins dim_daypart.
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+        description: Analyst-owned daypart band for interval_hour.
+      - name: zone_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: Zone surrogate resolved to the current version of the zone.
+      - name: zone_natural_key
+        logicalType: integer
+        physicalType: INTEGER
+        description: TLC location_id of the interval's zone.
+      - name: interval_start_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: interval_end_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: interval_seconds
+        logicalType: integer
+        physicalType: BIGINT
+        description: Duration of the interval. Sum it for time; do not read a single row.
+      - name: is_terminal_interval
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_negative_interval
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True when the event stream closes the interval before it opens; a quality flag, not a duration.
+      - name: skew_seconds
+        logicalType: integer
+        physicalType: BIGINT
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition

@@ -1,0 +1,86 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 4e444cf1-c71c-55ee-a5f8-a05f960f43c3
+name: green_tripdata
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: bronze
+schema:
+  - name: green_tripdata
+    properties:
+      - name: VendorID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: lpep_pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: lpep_dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: RatecodeID
+        logicalType: integer
+        physicalType: BIGINT
+      - name: PULocationID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: DOLocationID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: ehail_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: payment_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

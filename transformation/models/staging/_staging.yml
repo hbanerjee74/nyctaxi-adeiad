@@ -5,135 +5,521 @@ models:
     description: >
       Yellow taxi trip records, one row per bronze row: renamed and typed.
       Timestamps are brought back to plain UTC timestamps.
+    contract: {enforced: true}
     columns:
       - name: pickup_datetime
         tests: [not_null]
-
+        data_type: TIMESTAMP
+      - name: vendor_id
+        data_type: INTEGER
+      - name: dropoff_datetime
+        data_type: TIMESTAMP
+      - name: passenger_count
+        data_type: BIGINT
+      - name: trip_distance
+        data_type: DOUBLE
+      - name: rate_code_id
+        data_type: BIGINT
+      - name: store_and_fwd_flag
+        data_type: VARCHAR
+      - name: pickup_location_id
+        data_type: INTEGER
+      - name: dropoff_location_id
+        data_type: INTEGER
+      - name: payment_type
+        data_type: BIGINT
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: airport_fee
+        data_type: DOUBLE
+      - name: _dlt_load_id
+        data_type: VARCHAR
   - name: stg_tlc__green_tripdata
     description: >
       Green taxi trip records, one row per bronze row: renamed and typed. Carries
       `ehail_fee` and `trip_type`, which yellow does not.
+    contract: {enforced: true}
     columns:
       - name: pickup_datetime
         tests: [not_null]
-
+        data_type: TIMESTAMP
+      - name: vendor_id
+        data_type: INTEGER
+      - name: dropoff_datetime
+        data_type: TIMESTAMP
+      - name: passenger_count
+        data_type: BIGINT
+      - name: trip_distance
+        data_type: DOUBLE
+      - name: rate_code_id
+        data_type: BIGINT
+      - name: store_and_fwd_flag
+        data_type: VARCHAR
+      - name: pickup_location_id
+        data_type: INTEGER
+      - name: dropoff_location_id
+        data_type: INTEGER
+      - name: payment_type
+        data_type: BIGINT
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: ehail_fee
+        data_type: DOUBLE
+      - name: trip_type
+        data_type: BIGINT
+      - name: _dlt_load_id
+        data_type: VARCHAR
   - name: stg_tlc__yellow_trip_extras
     description: >
       Yellow-only columns the conform step drops (ADR 0006), keyed back to the
       trip. Deduplicated to one row per natural key so the rejoin cannot
       multiply the fact.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: airport_fee
         description: >
           Airport access fee as published. Dirty by nature: 1.75 current, zero on
           trips that incur none, negative on reversals, null where the vendor did
           not populate it.
-
+        data_type: DOUBLE
+      - name: pickup_location_id
+        data_type: INTEGER
+      - name: pickup_datetime
+        data_type: TIMESTAMP
   - name: stg_tlc__green_trip_extras
     description: Green-only columns, same reconstruction and dedup rule as yellow.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: ehail_fee
+        data_type: DOUBLE
+      - name: trip_type
+        data_type: BIGINT
+      - name: pickup_datetime
+        data_type: TIMESTAMP
   - name: stg_mdm__zones
     description: Zone master, kept versioned. Collapsing to current is the dimension's job.
+    contract: {enforced: true}
+    columns:
+      - name: location_id
+        data_type: BIGINT
+      - name: borough_name
+        data_type: VARCHAR
+      - name: zone_name
+        data_type: VARCHAR
+      - name: tlc_service_zone
+        data_type: VARCHAR
+      - name: zone_class
+        data_type: VARCHAR
+      - name: demand_tier
+        data_type: VARCHAR
+      - name: centroid_lat
+        data_type: DOUBLE
+      - name: centroid_lon
+        data_type: DOUBLE
+      - name: area_sq_mi
+        data_type: DOUBLE
+      - name: resident_population
+        data_type: BIGINT
+      - name: is_airport_zone
+        data_type: BOOLEAN
+      - name: is_congestion_zone
+        data_type: BOOLEAN
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
+      - name: source_version
+        data_type: INTEGER
+      - name: _dlt_load_id
+        data_type: VARCHAR
   - name: stg_mdm__vendors
     description: Vendor master, kept versioned.
+    contract: {enforced: true}
+    columns:
+      - name: vendor_id
+        data_type: INTEGER
+      - name: vendor_legal_name
+        data_type: VARCHAR
+      - name: vendor_short_code
+        data_type: VARCHAR
+      - name: contract_tier
+        data_type: VARCHAR
+      - name: is_approved
+        data_type: BOOLEAN
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
+      - name: source_version
+        data_type: INTEGER
   - name: stg_mdm__payment_methods
     description: "One row per payment method, as the master-data platform delivers it."
+    contract: {enforced: true}
     columns:
       - name: payment_type
         tests: [unique, not_null]
+        data_type: INTEGER
+      - name: payment_method_name
+        data_type: VARCHAR
+      - name: settlement_class
+        data_type: VARCHAR
+      - name: tip_is_captured
+        data_type: BOOLEAN
+      - name: settlement_days
+        data_type: INTEGER
+      - name: processor_fee_pct
+        data_type: DECIMAL(5,4)
+      - name: counts_as_revenue
+        data_type: BOOLEAN
   - name: stg_mdm__rate_plans
     description: "One row per rate plan, as the master-data platform delivers it."
+    contract: {enforced: true}
     columns:
       - name: rate_code_id
         tests: [unique, not_null]
+        data_type: INTEGER
+      - name: rate_plan_name
+        data_type: VARCHAR
+      - name: pricing_model
+        data_type: VARCHAR
+      - name: is_flat_fare
+        data_type: BOOLEAN
+      - name: flat_fare_amount
+        data_type: DECIMAL(4,2)
+      - name: is_airport_plan
+        data_type: BOOLEAN
+      - name: is_metered_baseline
+        data_type: BOOLEAN
   - name: stg_mdm__fare_regimes
     description: "One row per fare regime: a surcharge rate with the dates it applies between."
+    contract: {enforced: true}
+    columns:
+      - name: regime_code
+        data_type: VARCHAR
+      - name: fare_component
+        data_type: VARCHAR
+      - name: rate_amount
+        data_type: DECIMAL(3,2)
+      - name: applies_to_fleet
+        data_type: VARCHAR
+      - name: valid_from_date
+        data_type: DATE
+      - name: valid_to_date
+        data_type: DATE
   - name: stg_mdm__boroughs
     description: "One row per borough."
+    contract: {enforced: true}
     columns:
       - name: borough_name
         tests: [unique, not_null]
+        data_type: VARCHAR
+      - name: borough_code
+        data_type: VARCHAR
+      - name: reporting_region
+        data_type: VARCHAR
+      - name: resident_population
+        data_type: INTEGER
+      - name: area_sq_mi
+        data_type: DECIMAL(5,2)
+      - name: is_nyc
+        data_type: BOOLEAN
+      - name: is_core_market
+        data_type: BOOLEAN
   - name: stg_mdm__zone_poi
     description: Many-to-many zone to point-of-interest.
+    contract: {enforced: true}
     columns:
       - name: poi_id
         tests: [unique, not_null]
+        data_type: VARCHAR
+      - name: location_id
+        data_type: BIGINT
+      - name: poi_category
+        data_type: VARCHAR
+      - name: poi_category_name
+        data_type: VARCHAR
+      - name: poi_name
+        data_type: VARCHAR
+      - name: demand_weight
+        data_type: INTEGER
   - name: stg_mdm__calendar
     description: "One row per calendar date, with holiday, weekend and school-term flags."
+    contract: {enforced: true}
     columns:
       - name: calendar_date
         tests: [unique, not_null]
+        data_type: DATE
+      - name: holiday_name
+        data_type: VARCHAR
+      - name: holiday_class
+        data_type: VARCHAR
+      - name: is_holiday
+        data_type: BOOLEAN
+      - name: is_weekend
+        data_type: BOOLEAN
+      - name: is_school_term
+        data_type: BOOLEAN
   - name: stg_mdm__weather
     description: "One row per borough and day: the simulated weather observation."
+    contract: {enforced: true}
     columns:
       - name: observation_id
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: obs_date
+        data_type: DATE
+      - name: borough_name
+        data_type: VARCHAR
+      - name: temp_avg_f
+        data_type: DOUBLE
+      - name: precip_inches
+        data_type: DOUBLE
+      - name: snow_inches
+        data_type: DOUBLE
+      - name: wind_mph
+        data_type: DOUBLE
+      - name: is_wet_day
+        data_type: BOOLEAN
+      - name: is_snow_day
+        data_type: BOOLEAN
   - name: stg_ops__garages
     description: "One row per garage."
+    contract: {enforced: true}
     columns:
       - name: garage_id
         tests: [unique, not_null]
+        data_type: INTEGER
+      - name: garage_name
+        data_type: VARCHAR
+      - name: borough_name
+        data_type: VARCHAR
+      - name: bay_capacity
+        data_type: INTEGER
+      - name: opened_date
+        data_type: DATE
   - name: stg_ops__vehicles
     description: "One row per vehicle, with an in-service flag."
+    contract: {enforced: true}
     columns:
       - name: vehicle_id
         tests: [unique, not_null]
+        data_type: BIGINT
       - name: garage_id
         tests:
           - relationships: {arguments: {to: ref('stg_ops__garages'), field: garage_id}}
+        data_type: BIGINT
+      - name: medallion_number
+        data_type: VARCHAR
+      - name: vin
+        data_type: VARCHAR
+      - name: make
+        data_type: VARCHAR
+      - name: model
+        data_type: VARCHAR
+      - name: model_year
+        data_type: BIGINT
+      - name: fuel_type
+        data_type: VARCHAR
+      - name: wheelchair_accessible
+        data_type: BOOLEAN
+      - name: in_service_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: retired_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: is_in_service
+        data_type: BOOLEAN
   - name: stg_ops__drivers
     description: "One row per driver."
+    contract: {enforced: true}
     columns:
       - name: driver_id
         tests: [unique, not_null]
+        data_type: BIGINT
+      - name: hack_licence_no
+        data_type: VARCHAR
+      - name: driver_ref
+        data_type: VARCHAR
+      - name: engagement_type
+        data_type: VARCHAR
+      - name: home_garage_id
+        data_type: BIGINT
+      - name: hire_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: termination_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: is_wav_certified
+        data_type: BOOLEAN
+      - name: driver_status
+        data_type: VARCHAR
   - name: stg_ops__leases
     description: "One row per lease agreement."
+    contract: {enforced: true}
     columns:
       - name: lease_id
         tests: [unique, not_null]
+        data_type: BIGINT
+      - name: driver_id
+        data_type: BIGINT
+      - name: primary_vehicle_id
+        data_type: BIGINT
+      - name: lease_type
+        data_type: VARCHAR
+      - name: lease_rate
+        data_type: DECIMAL(22,2)
+      - name: revenue_share_pct
+        data_type: DECIMAL(3,2)
+      - name: lease_start_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: lease_end_date
+        data_type: TIMESTAMP WITH TIME ZONE
   - name: stg_ops__shifts
     description: >
       Shift sign-ons with an effective end resolved once. ~1.5% of shifts never
       emitted LOGOUT; `is_unclosed_shift` marks where the derived end was
       substituted so nobody has to guess.
+    contract: {enforced: true}
     columns:
       - name: shift_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: shift_start_ts
         tests: [not_null]
+        data_type: TIMESTAMP
       - name: effective_end_ts
         tests: [not_null]
+        data_type: TIMESTAMP
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: driver_id
+        data_type: BIGINT
+      - name: shift_end_ts
+        data_type: TIMESTAMP
+      - name: derived_end_ts
+        data_type: TIMESTAMP
+      - name: is_unclosed_shift
+        data_type: BOOLEAN
+      - name: shift_seconds
+        data_type: BIGINT
+      - name: shift_date
+        data_type: DATE
+      - name: reported_trip_count
+        data_type: BIGINT
+      - name: odometer_start
+        data_type: DOUBLE
+      - name: odometer_end
+        data_type: DOUBLE
+      - name: odometer_miles
+        data_type: DOUBLE
+      - name: telematics_source
+        data_type: VARCHAR
   - name: stg_ops__trip_assignments
     description: "One row per trip assignment, with the warehouse's trip key derived from the operator's natural columns."
+    contract: {enforced: true}
     columns:
       - name: assignment_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: trip_key
         tests: [not_null]
+        data_type: VARCHAR
       - name: shift_id
         tests:
           - relationships: {arguments: {to: ref('stg_ops__shifts'), field: shift_id}}
+        data_type: VARCHAR
+      - name: driver_id
+        data_type: BIGINT
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: assigned_ts
+        data_type: TIMESTAMP
+      - name: assignment_method
+        data_type: VARCHAR
   - name: stg_ops__status_events
     description: >
       The occupancy stream. `skew_seconds` exposes the gap between assigned
       and received time; sessionizing on the wrong one produces negative
       intervals.
+    contract: {enforced: true}
     columns:
       - name: event_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: status_code
         tests:
           - accepted_values:
               arguments:
                 values: [LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK, LOGOUT]
+        data_type: VARCHAR
+      - name: shift_id
+        data_type: VARCHAR
+      - name: driver_id
+        data_type: BIGINT
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: event_ts
+        data_type: TIMESTAMP
+      - name: received_ts
+        data_type: TIMESTAMP
+      - name: zone_id
+        data_type: INTEGER
+      - name: source_system
+        data_type: VARCHAR
+      - name: skew_seconds
+        data_type: BIGINT
+      - name: is_occupied_status
+        data_type: BOOLEAN
+      - name: is_available_status
+        data_type: BOOLEAN
   - name: stg_ops__maintenance
     description: "One row per maintenance event, with its end date."
+    contract: {enforced: true}
     columns:
       - name: maintenance_id
         tests: [unique, not_null]
+        data_type: VARCHAR
+      - name: vehicle_id
+        data_type: BIGINT
+      - name: started_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: down_days
+        data_type: BIGINT
+      - name: ended_date
+        data_type: TIMESTAMP WITH TIME ZONE
+      - name: maintenance_type
+        data_type: VARCHAR
+      - name: cost_usd
+        data_type: BIGINT

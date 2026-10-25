@@ -15,6 +15,7 @@ warehouse is consulted only by `--relations`.
 
 Usage:
   python3 scripts/odcs.py check [--root PATH] [--relations]
+  python3 scripts/odcs.py reverse [--root PATH] [--catalog PATH]
   python3 scripts/odcs.py generate [--root PATH]
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
@@ -24,6 +25,7 @@ Exit 0 when no errors (warnings allowed), 1 otherwise.
 import json
 import ast
 import re
+import uuid
 from pathlib import Path
 
 import jsonschema
@@ -60,6 +62,57 @@ LOGICAL_TYPES = {
 # dbt reads a model's properties under `models:` and a seed's under `seeds:`.
 PROPERTIES_SECTION = {"model": "models", "seed": "seeds"}
 
+# Relations the installed loader library writes into every dlt schema; no dlt resource declares
+# them, and nothing is generated from their contracts.
+AUDIT_RELATIONS = ("audit_runs", "audit_table_loads")
+
+# The warehouse file at the repo root: what `servers[].database` names and what `reverse` reads
+# when no catalog is given.
+WAREHOUSE_FILE = "domain.duckdb"
+
+# A DuckDB column type reduced to the ODCS `logicalType` that states the same value.
+PHYSICAL_LOGICAL = {
+    "VARCHAR": "string",
+    "CHAR": "string",
+    "TEXT": "string",
+    "STRING": "string",
+    "UUID": "string",
+    "JSON": "string",
+    "BIGINT": "integer",
+    "INTEGER": "integer",
+    "SMALLINT": "integer",
+    "TINYINT": "integer",
+    "HUGEINT": "integer",
+    "UBIGINT": "integer",
+    "UINTEGER": "integer",
+    "USMALLINT": "integer",
+    "UTINYINT": "integer",
+    "DECIMAL": "number",
+    "DOUBLE": "number",
+    "FLOAT": "number",
+    "REAL": "number",
+    "BOOLEAN": "boolean",
+    "DATE": "date",
+    "TIME": "time",
+    "TIMESTAMP": "timestamp",
+    "TIMESTAMP WITH TIME ZONE": "timestamp",
+    "TIMESTAMP_NS": "timestamp",
+    "TIMESTAMP_MS": "timestamp",
+    "TIMESTAMP_S": "timestamp",
+}
+
+# A dbt generic test as the ODCS library rule it asserts. `relationships` is absent on purpose:
+# it becomes a declared relationship, which a later task maps.
+RULE_METRICS = {"not_null": "nullValues", "unique": "duplicateValues",
+                "accepted_values": "invalidValues"}
+
+# Authored once, for the relations no declared resource in this repo builds.
+AUDIT_PURPOSE = (
+    "Load audit relation, owned by the installed vibedata library. The loader writes its "
+    "columns, so a change here follows a loader upgrade rather than a change in this "
+    "repository's sources."
+)
+
 # Files that carry sources, unit tests or semantics; a generated key has no home in them.
 RESERVED_PROPERTIES = ("_sources.yml", "_unit_tests.yml", "_semantic.yml")
 
@@ -93,6 +146,13 @@ class _Refused(Exception):
     def __init__(self, diag: dict):
         super().__init__(diag["message"])
         self.diag = diag
+
+
+class _IndentedDumper(yaml.SafeDumper):
+    """PyYAML puts a block sequence flush with its key; this repo's YAML indents it."""
+
+    def increase_indent(self, flow: bool = False, indentless: bool = False):
+        return super().increase_indent(flow, False)
 
 
 def _repo_root(start: Path) -> Path:
@@ -156,8 +216,9 @@ def expected_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]
     """Every relation the map declares, as `(schema, table)` mapped to what declares it.
 
     dbt models and seeds come from the layer paths. Raw relations come from each source's
-    resource docs. The loader's audit relations are written by the installed library and
-    appear in none of these, so only `--relations` can see them.
+    resource docs. The loader's audit relations are written by the installed library and appear
+    in none of these, so only the catalog can see them: `reverse` contracts them and `check`
+    refuses to call their contracts orphans.
     """
     expected: dict[tuple[str, str], str] = {}
     for name, layer in (repo_map.get("layers") or {}).items():
@@ -227,17 +288,18 @@ def _grain(doc: dict, path: Path) -> list[dict]:
                   f"a shipped intent presents as complete without one")]
 
 
-def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], dict]:
+def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tuple[dict, Path]]:
     """Every dataset the canonical model declares, keyed by the relation its `source` names.
 
-    Empty when the repo has adopted no canonical model: a contract set is not broken for
-    lacking something it never promised to agree with.
+    Each value keeps the document it was read from, so a contract can name its authority and
+    the two readings cannot disagree. Empty when the repo has adopted no canonical model: a
+    contract set is not broken for lacking something it never promised to agree with.
     """
     raw = (repo_map.get("artifact_paths") or {}).get("logical_model")
     if not raw:
         return {}
     base = _declared(root, raw)
-    datasets: dict[tuple[str, str], dict] = {}
+    datasets: dict[tuple[str, str], tuple[dict, Path]] = {}
     if not base.is_dir():
         return datasets
     for path in sorted(base.glob("*.ossie.yaml")):
@@ -247,7 +309,7 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], dic
                 continue
             source = str(dataset.get("source") or "").split(".", 1)
             if len(source) == 2:
-                datasets[(source[0], source[1])] = dataset
+                datasets[(source[0], source[1])] = (dataset, path)
     return datasets
 
 
@@ -304,15 +366,17 @@ def _property_diagnostics(where: str, prop: dict, field: dict, primary: bool) ->
 
 
 def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
-                    documents: dict[tuple[str, str], dict], gold: set[str]) -> list[dict]:
+                    documents: dict[tuple[str, str], tuple[dict, Path]],
+                    gold: set[str]) -> list[dict]:
     """A gold contract against the canonical document that names its relation."""
     label = f"{relation[0]}.{relation[1]}"
-    dataset = documents.get(relation)
-    if dataset is None:
+    declared_document = documents.get(relation)
+    if declared_document is None:
         if relation[0] not in gold:
             return []
         return [_diag("error", "gold/undeclared",
                       f"{path}: no canonical document names the gold relation {label}")]
+    dataset = declared_document[0]
     declared = {
         field["name"]: field
         for field in dataset.get("fields") or []
@@ -338,6 +402,16 @@ def _layer_for(repo_map: dict, schema: str) -> dict | None:
         if layer.get("schema") == schema:
             return layer
     return None
+
+
+def _is_audit(relation: tuple[str, str], repo_map: dict) -> bool:
+    """A relation the installed loader writes into a dlt layer's schema, not a dlt resource."""
+    layer = _layer_for(repo_map, relation[0])
+    return (
+        layer is not None
+        and layer.get("built_by") == "dlt"
+        and relation[1] in AUDIT_RELATIONS
+    )
 
 
 def _hints_module(root: Path, repo_map: dict) -> Path:
@@ -376,6 +450,8 @@ def _document_entry(doc: dict, section: str, table: str) -> dict | None:
 
 def _target(root: Path, repo_map: dict, relation: tuple[str, str]) -> tuple[str, Path] | None:
     """What kind of relation this is and which generated artifact its keys belong to."""
+    if _is_audit(relation, repo_map):
+        return None
     layer = _layer_for(repo_map, relation[0])
     if layer is None:
         return None
@@ -601,6 +677,27 @@ def _flow(value) -> str:
     return yaml.safe_dump(value, default_flow_style=True).removesuffix("\n...\n").strip()
 
 
+def _drop_renamed_tests(lines: list[str], start: int, end: int, column: str,
+                        keys: dict) -> list[str]:
+    """Drop a column's `tests` when `data_tests` now states exactly the same rules.
+
+    dbt refuses both keys on one column, so writing the same list again is a rename rather than
+    a second declaration. A list that differs is left alone: the refusal is then dbt's to make.
+    """
+    if "data_tests" not in keys:
+        return lines
+    block = _key_span(lines, start, end, "columns")
+    if block is None:
+        return lines
+    item = _entry(lines, column, block[0] + 1, block[1])
+    if item is None:
+        return lines
+    span = _key_span(lines, item[0], item[1], "tests")
+    if span is None or _scalar(lines[span[0]].split(":", 1)[1]) != keys["data_tests"]:
+        return lines
+    return [*lines[:span[0]], *lines[_content_end(lines, *span):]]
+
+
 def _apply(text: str, section: str, table: str, owned: dict) -> str:
     """The properties file with this relation's owned keys written in; everything else intact."""
     lines = text.splitlines()
@@ -621,6 +718,8 @@ def _apply(text: str, section: str, table: str, owned: dict) -> str:
         for key, value in keys.items():
             lines = _set_column(lines, start, end, column, key, _flow(value))
             start, end = _entry(lines, table, *_section(lines, section))
+        lines = _drop_renamed_tests(lines, start, end, column, keys)
+        start, end = _entry(lines, table, *_section(lines, section))
     if "contract" in owned:
         lines = _put(lines, start, end, "contract", _flow(owned["contract"]), before="columns")
     return _joined(lines)
@@ -779,12 +878,249 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
     return diags
 
 
+def _sentence(text: object) -> str:
+    """One flowing line: a block scalar's line breaks and trailing newline are not content."""
+    return " ".join(str(text).split())
+
+
+def _server(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict:
+    """Where the relation lives. The map declares no platform yet, so it is the local duckdb file."""
+    return {
+        "server": repo_map.get("repo_root") or root.name,
+        "type": "duckdb",
+        "database": WAREHOUSE_FILE,
+        "schema": relation[0],
+    }
+
+
+def _properties_entry(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict | None:
+    """The relation's entry in the dbt properties file that already names it, if one does.
+
+    True of a dbt model and a seed; a dlt-loaded relation has no properties file, so it has
+    nothing to contribute and nothing is looked for.
+    """
+    layer = _layer_for(repo_map, relation[0])
+    if layer is None or layer.get("built_by") != "dbt" or not layer.get("path"):
+        return None
+    kind = "seed" if (root / layer["path"] / f"{relation[1]}.csv").is_file() else "model"
+    path = _properties_file(root, layer, relation[1], PROPERTIES_SECTION[kind])
+    if not path.is_file():
+        return None
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError):
+        return None
+    return _document_entry(doc, PROPERTIES_SECTION[kind], relation[1])
+
+
+def _logical_types(relation: tuple[str, str], column: str, physical: str,
+                   field: dict | None) -> tuple[str | None, bool]:
+    """(logicalType, carries a timezone) for one column.
+
+    The canonical model's `datatype` wins where it declares the field: it is the agreed
+    meaning, and the contract exists to agree with it. The physical type answers otherwise.
+    """
+    datatype = (field or {}).get("datatype")
+    if datatype in LOGICAL_TYPES:
+        return LOGICAL_TYPES[datatype], datatype == "DateTimeTz"
+    base = physical.split("(", 1)[0].strip().upper()
+    logical = PHYSICAL_LOGICAL.get(base)
+    if logical is None:
+        raise _Refused(_diag("error", "contract/unmapped-type",
+                             f"{relation[0]}.{relation[1]}.{column}: `{physical}` has no ODCS "
+                             f"logicalType"))
+    return logical, "WITH TIME ZONE" in base
+
+
+def _quality_rules(column: dict | None) -> list[dict]:
+    """The rules an existing dbt generic test already asserts, in the shape `generate` reads."""
+    declared = (column or {}).get("tests") or (column or {}).get("data_tests") or []
+    rules = []
+    for test in declared:
+        if isinstance(test, str):
+            name, arguments = test, {}
+        elif isinstance(test, dict) and len(test) == 1:
+            name, arguments = next(iter(test.items()))
+            arguments = arguments if isinstance(arguments, dict) else {}
+        else:
+            continue
+        if name not in RULE_METRICS:
+            continue
+        rule: dict = {"type": "library", "metric": RULE_METRICS[name]}
+        if name == "accepted_values":
+            values = arguments.get("values") or (arguments.get("arguments") or {}).get("values")
+            if not values:
+                continue
+            rule["arguments"] = {"valid_values": list(values)}
+        rule["mustBe"] = 0
+        rules.append(rule)
+    return rules
+
+
+def _catalog_relations(catalog: Path, repo_map: dict,
+                       expected: dict[tuple[str, str], str]) -> dict[tuple[str, str], list[dict]]:
+    """Every column of every relation a contract is owed for, in catalog order.
+
+    A relation the map declares is owed one; so is a loader audit relation, which no declared
+    resource builds. `_dlt_*` bookkeeping and a table nothing declares are not.
+    """
+    import duckdb
+
+    try:
+        con = duckdb.connect(str(catalog), read_only=True)
+        try:
+            rows = con.execute(
+                """
+                select table_schema, table_name, column_name, data_type, is_nullable
+                from information_schema.columns
+                where table_schema not in ('information_schema', 'pg_catalog')
+                order by table_schema, table_name, ordinal_position
+                """
+            ).fetchall()
+        finally:
+            con.close()
+    except duckdb.Error as exc:
+        raise _Refused(_diag("error", "catalog/unreadable", f"{catalog}: {exc}"))
+
+    relations: dict[tuple[str, str], list[dict]] = {}
+    for schema, table, column, physical, nullable in rows:
+        relation = (schema, table)
+        if table.startswith("_dlt"):
+            continue
+        if relation not in expected and not _is_audit(relation, repo_map):
+            continue
+        relations.setdefault(relation, []).append({
+            "name": column, "physicalType": physical, "nullable": nullable != "NO",
+        })
+    return relations
+
+
+def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[dict],
+           documents: dict[tuple[str, str], tuple[dict, Path]]) -> dict:
+    """One contract, holding only what the catalog, the canonical model and dbt already state."""
+    schema, table = relation
+    document = documents.get(relation)
+    dataset = document[0] if document else {}
+    entry = _properties_entry(root, repo_map, relation) or {}
+    fields = {field["name"]: field for field in dataset.get("fields") or []
+              if isinstance(field, dict) and field.get("name")}
+    described = {column["name"]: column for column in entry.get("columns") or []
+                 if isinstance(column, dict) and column.get("name")}
+    keys = set(dataset.get("primary_key") or [])
+
+    element: dict = {"name": table}
+    grain = dataset.get("description") or entry.get("description")
+    if grain:
+        element["dataGranularityDescription"] = _sentence(grain)
+
+    properties = []
+    for column in columns:
+        field = fields.get(column["name"])
+        declared = described.get(column["name"])
+        logical, timezone = _logical_types(relation, column["name"], column["physicalType"], field)
+        prop: dict = {"name": column["name"]}
+        if logical:
+            prop["logicalType"] = logical
+        prop["physicalType"] = column["physicalType"]
+        if timezone:
+            prop["logicalTypeOptions"] = {"timezone": True}
+        if not column["nullable"]:
+            prop["required"] = True
+        if column["name"] in keys:
+            prop["primaryKey"] = True
+        description = (declared or {}).get("description") or (field or {}).get("description")
+        if description:
+            prop["description"] = _sentence(description)
+        rules = _quality_rules(declared)
+        if rules:
+            prop["quality"] = rules
+        properties.append(prop)
+    if properties:
+        element["properties"] = properties
+
+    doc = {
+        "apiVersion": SPEC_VERSION,
+        "kind": "DataContract",
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{schema}.{table}")),
+        "name": table,
+        "version": "1.0.0",
+        "status": "active",
+        "servers": [_server(root, repo_map, relation)],
+        "schema": [element],
+    }
+    if _is_audit(relation, repo_map):
+        doc["description"] = {"purpose": AUDIT_PURPOSE}
+    if document is not None:
+        doc["authoritativeDefinitions"] = [
+            {"url": _display(document[1], root), "type": "businessDefinition"},
+        ]
+    return doc
+
+
+def _dump(doc: dict) -> str:
+    """One contract as YAML: the order it was built in, never wrapped, so a re-run is identical.
+
+    The dumper indents a block sequence under its key, which is how the rest of the repo's
+    YAML reads; PyYAML's default puts it flush with the key.
+    """
+    return yaml.dump(doc, Dumper=_IndentedDumper, sort_keys=False, allow_unicode=True, width=1000)
+
+
 @app.command()
 def version():
     """Pin report: tool, standard version and the vendored upstream commit, as JSON."""
     # Also forces Typer group mode so `check` keeps its subcommand name once
     # `reverse` and `generate` land beside it.
     print(json.dumps({"tool": "odcs", "spec": SPEC_VERSION, "upstream_commit": UPSTREAM_COMMIT}))
+
+
+@app.command()
+def reverse(root: str = "", catalog: str = ""):
+    """Draft one contract per relation, grounded only in the catalog, the model and dbt.
+
+    The warehouse is the physical truth: every property and its type comes from
+    `information_schema`. A field the canonical model declares overrides the physical type, and
+    an existing dbt generic test becomes a quality rule. Nothing is invented: a relation no
+    description reaches, or a gold relation no document names, is left for the review rather
+    than filled in. The id is derived from the relation, so a re-run reproduces every file.
+    """
+    repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
+    repo_map = _repo_map(repo_root)
+    raw = (repo_map.get("artifact_paths") or {}).get("data_contract")
+    try:
+        if not raw:
+            raise _Refused(_diag("error", "contract/unconfigured",
+                                 "repo-map.json declares no artifact_paths.data_contract, so no "
+                                 "contract can be placed"))
+        warehouse = Path(catalog).resolve() if catalog else repo_root / WAREHOUSE_FILE
+        if not warehouse.is_file():
+            raise _Refused(_diag("error", "catalog/missing",
+                                 f"{warehouse}: no DuckDB warehouse to read; build the Domain or "
+                                 f"pass --catalog"))
+        documents = _canonical_datasets(repo_root, repo_map)
+        relations = _catalog_relations(
+            warehouse, repo_map, expected_relations(repo_root, repo_map))
+    except _Refused as refusal:
+        print(json.dumps([refusal.diag]))
+        raise typer.Exit(1)
+
+    drafts: list[tuple[tuple[str, str], dict]] = []
+    diags: list[dict] = []
+    for relation, columns in sorted(relations.items()):
+        try:
+            drafts.append((relation, _draft(repo_root, repo_map, relation, columns, documents)))
+        except _Refused as refusal:
+            diags.append(refusal.diag)
+    if diags:
+        print(json.dumps(diags))
+        raise typer.Exit(1)
+
+    base = _declared(repo_root, raw)
+    for relation, doc in drafts:
+        target = base / relation[0] / f"{relation[1]}.odcs.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(_dump(doc), encoding="utf-8")
+    print(json.dumps([]))
 
 
 @app.command()
@@ -846,9 +1182,11 @@ def check(root: str = "", relations: bool = False):
     """Validate every committed contract against the repo map and the vendored schema.
 
     Where the repo has adopted a canonical model, a gold contract must also agree with the
-    document that names its relation. `--relations` adds the comparison against the built
-    relation and fails when no catalog resolves, rather than skipping: asking for the check
-    and getting silence is the false pass it exists to prevent.
+    document that names its relation. A schema that model documents no relation in is not yet
+    modelled, so its gold relations are the review's to ask about and not this gate's to fail.
+    `--relations` adds the comparison against the built relation and fails when no catalog
+    resolves, rather than skipping: asking for the check and getting silence is the false pass
+    it exists to prevent.
     """
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
@@ -862,6 +1200,9 @@ def check(root: str = "", relations: bool = False):
     expected = expected_relations(repo_root, repo_map)
     documents = _canonical_datasets(repo_root, repo_map)
     gold = _gold_schemas(repo_map, expected) if documents else set()
+    # A schema the canonical model documents no relation in is not yet modelled: the review
+    # asks for a document, the gate does not fail a relation that never had one to agree with.
+    gold &= {schema for schema, _ in documents}
     diags: list[dict] = []
     parsed: dict[tuple[str, str], dict] = {}
 
@@ -870,9 +1211,10 @@ def check(root: str = "", relations: bool = False):
             diags.append(_diag("error", "contract/missing",
                                f"{relation[0]}.{relation[1]}: declared by {declarer} and has no contract"))
     for relation, path in sorted(contracts.items()):
-        if relation not in expected:
-            diags.append(_diag("error", "contract/orphan",
-                               f"{path}: names no relation the map declares"))
+        if relation in expected or _is_audit(relation, repo_map):
+            continue
+        diags.append(_diag("error", "contract/orphan",
+                           f"{path}: names no relation the map declares"))
 
     for relation, path in sorted(contracts.items()):
         try:

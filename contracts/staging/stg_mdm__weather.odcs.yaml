@@ -1,0 +1,49 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 327f3ccc-9ddb-556a-9f6e-7035bd74294b
+name: stg_mdm__weather
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_mdm__weather
+    dataGranularityDescription: 'One row per borough and day: the simulated weather observation.'
+    properties:
+      - name: observation_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: obs_date
+        logicalType: date
+        physicalType: DATE
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: temp_avg_f
+        logicalType: number
+        physicalType: DOUBLE
+      - name: precip_inches
+        logicalType: number
+        physicalType: DOUBLE
+      - name: snow_inches
+        logicalType: number
+        physicalType: DOUBLE
+      - name: wind_mph
+        logicalType: number
+        physicalType: DOUBLE
+      - name: is_wet_day
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_snow_day
+        logicalType: boolean
+        physicalType: BOOLEAN

@@ -6,41 +6,129 @@ models:
       Current-version zone attributes with borough rollup and a point-of-interest
       summary. The current-version filter is mandatory: zone_master is versioned
       at source, and without it every trip touching a re-designated zone doubles.
+    contract: {enforced: true}
     columns:
       - name: location_id
         tests: [unique, not_null]
+        data_type: BIGINT
       - name: is_unresolved_zone
         description: >
           True for TLC codes 264 and 265. These join the lookup cleanly, which is
           precisely the hazard -- the failure mode is a meaningless borough, not
           an unmatched row.
-
+        data_type: BOOLEAN
+      - name: zone_name
+        data_type: VARCHAR
+      - name: borough_name
+        data_type: VARCHAR
+      - name: borough_code
+        data_type: VARCHAR
+      - name: reporting_region
+        data_type: VARCHAR
+      - name: is_nyc
+        data_type: BOOLEAN
+      - name: is_core_market
+        data_type: BOOLEAN
+      - name: tlc_service_zone
+        data_type: VARCHAR
+      - name: zone_class
+        data_type: VARCHAR
+      - name: demand_tier
+        data_type: VARCHAR
+      - name: centroid_lat
+        data_type: DOUBLE
+      - name: centroid_lon
+        data_type: DOUBLE
+      - name: area_sq_mi
+        data_type: DOUBLE
+      - name: resident_population
+        data_type: BIGINT
+      - name: is_airport_zone
+        data_type: BOOLEAN
+      - name: is_congestion_zone
+        data_type: BOOLEAN
+      - name: poi_count
+        data_type: BIGINT
+      - name: poi_demand_weight
+        data_type: HUGEINT
+      - name: has_airport_poi
+        data_type: BOOLEAN
+      - name: poi_categories
+        data_type: VARCHAR
   - name: int_trips_conformed
     description: >
       Yellow and green trips on one grain, one row per distinct trip, with the
       derived measures every downstream model would otherwise recompute. No
       filtering: refunds, zero-distance trips and out-of-window pickups survive.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: service_type
         tests:
           - accepted_values: {arguments: {values: ['yellow', 'green']}}
+        data_type: VARCHAR
       - name: pickup_location_id
         description: Joins the zone dimension.
+        data_type: INTEGER
       - name: trip_seconds
         description: Dropoff minus pickup. Negative on a handful of malformed records.
-
+        data_type: BIGINT
+      - name: vendor_id
+        data_type: INTEGER
+      - name: pickup_datetime
+        data_type: TIMESTAMP
+      - name: dropoff_datetime
+        data_type: TIMESTAMP
+      - name: pickup_date
+        data_type: DATE
+      - name: pickup_hour
+        data_type: BIGINT
+      - name: dropoff_location_id
+        data_type: INTEGER
+      - name: rate_code_id
+        data_type: BIGINT
+      - name: payment_type
+        data_type: BIGINT
+      - name: passenger_count
+        data_type: BIGINT
+      - name: store_and_fwd_flag
+        data_type: VARCHAR
+      - name: trip_distance
+        data_type: DOUBLE
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: avg_mph
+        data_type: DOUBLE
+      - name: _dlt_load_id
+        data_type: VARCHAR
   - name: int_trips_enriched
     description: >
       The cross-layer model: conformed trips rejoined to the
       fleet-specific bronze columns the conform step drops. Both joins are optional
       many-to-one; multiplication here would be a defect.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         description: '{{ doc("trip_key") }}'
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: airport_fee_status
         description: >
           Distinguishes 'not_applicable' (green, no such column) from 'missing'
@@ -48,49 +136,279 @@ models:
           two is how a fleet-blind average goes wrong.
         tests:
           - accepted_values: {arguments: {values: ['present', 'missing', 'not_applicable']}}
-
+        data_type: VARCHAR
+      - name: service_type
+        data_type: VARCHAR
+      - name: vendor_id
+        data_type: INTEGER
+      - name: pickup_datetime
+        data_type: TIMESTAMP
+      - name: dropoff_datetime
+        data_type: TIMESTAMP
+      - name: pickup_date
+        data_type: DATE
+      - name: pickup_hour
+        data_type: BIGINT
+      - name: pickup_location_id
+        data_type: INTEGER
+      - name: dropoff_location_id
+        data_type: INTEGER
+      - name: rate_code_id
+        data_type: BIGINT
+      - name: payment_type
+        data_type: BIGINT
+      - name: passenger_count
+        data_type: BIGINT
+      - name: store_and_fwd_flag
+        data_type: VARCHAR
+      - name: trip_distance
+        data_type: DOUBLE
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: trip_seconds
+        data_type: BIGINT
+      - name: avg_mph
+        data_type: DOUBLE
+      - name: _dlt_load_id
+        data_type: VARCHAR
+      - name: airport_fee
+        data_type: DOUBLE
+      - name: ehail_fee
+        data_type: DOUBLE
+      - name: trip_type
+        data_type: BIGINT
   - name: int_trip_fare_components
     description: Fare decomposition with an explicit residual.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: fare_residual
         description: '{{ doc("fare_residual") }}'
+        data_type: DOUBLE
       - name: measurable_tip_rate
         description: '{{ doc("measurable_tip_rate") }}'
-
+        data_type: DOUBLE
+      - name: service_type
+        data_type: VARCHAR
+      - name: pickup_date
+        data_type: DATE
+      - name: fare_amount
+        data_type: DOUBLE
+      - name: tip_amount
+        data_type: DOUBLE
+      - name: tolls_amount
+        data_type: DOUBLE
+      - name: extra
+        data_type: DOUBLE
+      - name: mta_tax
+        data_type: DOUBLE
+      - name: improvement_surcharge
+        data_type: DOUBLE
+      - name: congestion_surcharge
+        data_type: DOUBLE
+      - name: airport_fee
+        data_type: DOUBLE
+      - name: total_amount
+        data_type: DOUBLE
+      - name: total_surcharges
+        data_type: DOUBLE
+      - name: has_unexplained_residual
+        data_type: BOOLEAN
+      - name: tip_rate_on_fare
+        data_type: DOUBLE
+      - name: tip_is_captured
+        data_type: BOOLEAN
+      - name: counts_as_revenue
+        data_type: BOOLEAN
+      - name: settlement_class
+        data_type: VARCHAR
   - name: int_trip_quality_flags
     description: >
       Every quality verdict for a trip, in one row. Nothing is deleted -- ADR
       0003 puts the billable rule in gold, and an excluded trip still happened.
+    contract: {enforced: true}
     columns:
       - name: trip_key
         tests: [unique, not_null]
-
+        data_type: VARCHAR
+      - name: is_billable
+        data_type: BOOLEAN
+      - name: is_refund
+        data_type: BOOLEAN
+      - name: is_zero_distance
+        data_type: BOOLEAN
+      - name: is_implausibly_short
+        data_type: BOOLEAN
+      - name: is_implausibly_fast
+        data_type: BOOLEAN
+      - name: is_negative_duration
+        data_type: BOOLEAN
+      - name: is_zero_passenger
+        data_type: BOOLEAN
+      - name: is_missing_passenger_count
+        data_type: BOOLEAN
+      - name: is_sparse_vendor_feed
+        data_type: BOOLEAN
+      - name: is_unresolved_pickup_zone
+        data_type: BOOLEAN
+      - name: is_unresolved_dropoff_zone
+        data_type: BOOLEAN
+      - name: is_undocumented_rate_code
+        data_type: BOOLEAN
+      - name: is_missing_airport_fee
+        data_type: BOOLEAN
   - name: int_status_intervals
     description: >
       The status stream sessionized into intervals. Ordered on event_ts, never
       received_ts. Terminal intervals on unclosed shifts are closed against the
       shift's effective end rather than left open.
+    contract: {enforced: true}
     columns:
       - name: interval_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: interval_seconds
         description: Floored at zero; `is_negative_interval` records where that floor bit.
-
+        data_type: BIGINT
+      - name: shift_id
+        data_type: VARCHAR
+      - name: driver_id
+        data_type: BIGINT
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: status_code
+        data_type: VARCHAR
+      - name: zone_id
+        data_type: INTEGER
+      - name: interval_start_ts
+        data_type: TIMESTAMP
+      - name: interval_end_ts
+        data_type: TIMESTAMP
+      - name: is_terminal_interval
+        data_type: BOOLEAN
+      - name: is_negative_interval
+        data_type: BOOLEAN
+      - name: skew_seconds
+        data_type: BIGINT
+      - name: interval_date
+        data_type: DATE
+      - name: interval_hour
+        data_type: BIGINT
   - name: int_shift_occupancy
     description: '{{ doc("occupancy_rate") }}'
+    contract: {enforced: true}
     columns:
       - name: shift_id
         tests: [unique, not_null]
+        data_type: VARCHAR
       - name: online_seconds
         tests: [not_null]
-
+        data_type: BIGINT
+      - name: driver_id
+        data_type: BIGINT
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: shift_date
+        data_type: DATE
+      - name: shift_start_ts
+        data_type: TIMESTAMP
+      - name: effective_end_ts
+        data_type: TIMESTAMP
+      - name: is_unclosed_shift
+        data_type: BOOLEAN
+      - name: on_trip_seconds
+        data_type: HUGEINT
+      - name: available_seconds
+        data_type: HUGEINT
+      - name: break_seconds
+        data_type: HUGEINT
+      - name: dispatch_seconds
+        data_type: HUGEINT
+      - name: unaccounted_seconds
+        data_type: HUGEINT
+      - name: occupancy_rate
+        data_type: DOUBLE
+      - name: idle_rate
+        data_type: DOUBLE
+      - name: event_count
+        data_type: BIGINT
+      - name: negative_interval_count
+        data_type: BIGINT
+      - name: had_open_interval
+        data_type: BOOLEAN
+      - name: odometer_miles
+        data_type: DOUBLE
+      - name: telematics_source
+        data_type: VARCHAR
   - name: int_shift_economics
     description: >
       Shift revenue and cost. Lease terms differ by engagement -- owner-operators
       pay a revenue share, lease drivers a fixed rate -- and blending them
       without the type is how a fleet misreads its best drivers as its worst.
+    contract: {enforced: true}
     columns:
       - name: shift_id
         tests: [unique, not_null]
+        data_type: VARCHAR
+      - name: driver_id
+        data_type: BIGINT
+      - name: vehicle_id
+        data_type: INTEGER
+      - name: shift_date
+        data_type: DATE
+      - name: online_seconds
+        data_type: BIGINT
+      - name: on_trip_seconds
+        data_type: HUGEINT
+      - name: occupancy_rate
+        data_type: DOUBLE
+      - name: trip_count
+        data_type: BIGINT
+      - name: gross_revenue
+        data_type: DOUBLE
+      - name: fare_revenue
+        data_type: DOUBLE
+      - name: tip_revenue
+        data_type: DOUBLE
+      - name: airport_fee_collected
+        data_type: DOUBLE
+      - name: surcharge_collected
+        data_type: DOUBLE
+      - name: recognised_revenue
+        data_type: DOUBLE
+      - name: paid_miles
+        data_type: DOUBLE
+      - name: paid_seconds
+        data_type: HUGEINT
+      - name: engagement_type
+        data_type: VARCHAR
+      - name: lease_type
+        data_type: VARCHAR
+      - name: lease_rate
+        data_type: DECIMAL(22,2)
+      - name: revenue_share_pct
+        data_type: DECIMAL(3,2)
+      - name: shift_cost
+        data_type: DOUBLE
+      - name: shift_margin
+        data_type: DOUBLE
+      - name: revenue_per_online_hour
+        data_type: DOUBLE
+      - name: revenue_per_paid_mile
+        data_type: DOUBLE

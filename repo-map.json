@@ -196,6 +196,7 @@
     "verification": "docs/verify/{intent}.md",
     "case_record": "docs/cases/{intent}.md",
     "logical_model": "logical-model/*.ossie.yaml",
+    "data_contract": "contracts/{schema}/{table}.odcs.yaml",
     "ontology": "ontology/{name}.ontology.yaml",
     "ontology_mapping": "ontology/{document}.mapping.yaml"
   },

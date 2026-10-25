@@ -1,0 +1,79 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 43bad57f-02a0-5e8c-9de9-8e3661f29c19
+name: stg_tlc__yellow_tripdata
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_tlc__yellow_tripdata
+    dataGranularityDescription: 'Yellow taxi trip records, one row per bronze row: renamed and typed. Timestamps are brought back to plain UTC timestamps.'
+    properties:
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: rate_code_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: dropoff_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: payment_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: airport_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR

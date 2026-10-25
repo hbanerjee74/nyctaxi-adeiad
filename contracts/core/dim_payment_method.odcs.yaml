@@ -1,0 +1,54 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: a45a09d1-7457-595b-b0ce-61689d83d4ea
+name: dim_payment_method
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_payment_method
+    dataGranularityDescription: 'One row per payment method: settlement, tip capture, and revenue eligibility.'
+    properties:
+      - name: payment_method_key
+        logicalType: integer
+        physicalType: INTEGER
+        primaryKey: true
+        description: Payment type code.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: tip_is_captured
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: '{{ doc("measurable_tip_rate") }}'
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: payment_method_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Name of the payment method; its display key, as the finance marts carry it.
+      - name: settlement_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: settlement_days
+        logicalType: integer
+        physicalType: INTEGER
+      - name: processor_fee_pct
+        logicalType: number
+        physicalType: DECIMAL(5,4)
+      - name: counts_as_revenue
+        logicalType: boolean
+        physicalType: BOOLEAN
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_analytics.ossie.yaml
+    type: businessDefinition

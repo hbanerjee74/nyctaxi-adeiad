@@ -1,0 +1,94 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: e3be51f5-81a3-53e4-8203-4f9dedf645a6
+name: int_shift_economics
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_shift_economics
+    dataGranularityDescription: Shift revenue and cost. Lease terms differ by engagement -- owner-operators pay a revenue share, lease drivers a fixed rate -- and blending them without the type is how a fleet misreads its best drivers as its worst.
+    properties:
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: shift_date
+        logicalType: date
+        physicalType: DATE
+      - name: online_seconds
+        logicalType: integer
+        physicalType: BIGINT
+      - name: on_trip_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: gross_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: airport_fee_collected
+        logicalType: number
+        physicalType: DOUBLE
+      - name: surcharge_collected
+        logicalType: number
+        physicalType: DOUBLE
+      - name: recognised_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: paid_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: paid_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: engagement_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: lease_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: lease_rate
+        logicalType: number
+        physicalType: DECIMAL(22,2)
+      - name: revenue_share_pct
+        logicalType: number
+        physicalType: DECIMAL(3,2)
+      - name: shift_cost
+        logicalType: number
+        physicalType: DOUBLE
+      - name: shift_margin
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_online_hour
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_paid_mile
+        logicalType: number
+        physicalType: DOUBLE

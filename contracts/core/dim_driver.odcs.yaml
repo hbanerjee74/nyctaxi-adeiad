@@ -1,0 +1,87 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: d4ffe397-9122-546c-a7ea-f2dee59d3a48
+name: dim_driver
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_driver
+    dataGranularityDescription: Type 1 driver dimension — current driver state with their lease and home garage.
+    properties:
+      - name: driver_key
+        logicalType: string
+        physicalType: BIGINT
+        primaryKey: true
+        description: Operator's driver identifier.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: garage_key
+        logicalType: string
+        physicalType: BIGINT
+        description: Driver's home garage.
+      - name: hack_licence_no
+        logicalType: string
+        physicalType: VARCHAR
+      - name: driver_ref
+        logicalType: string
+        physicalType: VARCHAR
+        description: Short driver reference used in reports.
+      - name: engagement_type
+        logicalType: string
+        physicalType: VARCHAR
+        description: How the driver is engaged (employee, contractor, ...).
+      - name: driver_status
+        logicalType: string
+        physicalType: VARCHAR
+        description: Current activation status of the driver.
+      - name: is_wav_certified
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: Certified to drive a wheelchair-accessible vehicle.
+      - name: hire_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: Date engagement started; an attribute of the driver, not a time dimension.
+      - name: termination_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: Date engagement ended; null while active.
+      - name: tenure_days
+        logicalType: integer
+        physicalType: BIGINT
+        description: Days from hire to the report end; restates with the reporting window.
+      - name: home_garage_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Display name of the driver's home garage.
+      - name: lease_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: lease_type
+        logicalType: string
+        physicalType: VARCHAR
+        description: Current lease arrangement, null when the driver is not on a lease.
+      - name: lease_rate
+        logicalType: number
+        physicalType: DECIMAL(22,2)
+        description: Current lease rate charged to the driver.
+      - name: revenue_share_pct
+        logicalType: number
+        physicalType: DECIMAL(3,2)
+        description: Share of revenue retained under the current lease.
+      - name: primary_vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition

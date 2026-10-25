@@ -1,0 +1,38 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: f8a7b368-87b9-5362-aa62-65f21650ac56
+name: daypart_bands
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: seeds
+schema:
+  - name: daypart_bands
+    dataGranularityDescription: Hour-of-day to daypart mapping. Analyst-owned banding, not master data -- it encodes how this business chooses to talk about the day, and changing it restates every time-of-day report.
+    properties:
+      - name: hour_of_day
+        logicalType: integer
+        physicalType: INTEGER
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: daypart_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_peak
+        logicalType: boolean
+        physicalType: BOOLEAN

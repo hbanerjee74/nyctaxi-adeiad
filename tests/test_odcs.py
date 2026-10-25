@@ -2,6 +2,7 @@
 
 import json
 import sys
+import uuid
 from pathlib import Path
 
 import yaml
@@ -296,7 +297,7 @@ def test_gold_datetime_must_not_carry_the_timezone_option(tmp_path):
 
 
 def test_gold_contract_with_no_document_fails(tmp_path):
-    """A gold relation the canonical model never names has no agreed shape at all."""
+    """A gold relation inside a modelled schema that no document names has no agreed shape."""
     _repo(tmp_path, models=["a_model", "b_model"],
           logical_model=_model(("a_model", TRIP_FIELDS, ["trip_key"])))
     _contract(tmp_path, "core", "a_model", schema=_element(
@@ -727,6 +728,224 @@ def test_check_reports_a_data_type_when_the_contract_declares_no_properties(tmp_
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["generated/stale"])
     assert "a_model.columns.trip_key.data_type" in diags[0]["message"]
+
+
+WAREHOUSE = "domain.duckdb"
+
+REVERSE_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    description: One row per trip.
+    columns:
+      - name: trip_key
+        description: Surrogate key.
+        tests: [not_null, unique]
+      - name: service_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['yellow', 'green']
+"""
+
+
+def _warehouse(tmp_path, relations):
+    """A DuckDB catalog of `{(schema, table): [(column, physical type, nullable)]}`."""
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / WAREHOUSE))
+    try:
+        for (schema_name, table_name), columns in relations.items():
+            con.execute(f"create schema if not exists {schema_name}")
+            body = ", ".join(
+                f'"{name}" {physical}{"" if nullable else " NOT NULL"}'
+                for name, physical, nullable in columns
+            )
+            con.execute(f'create table {schema_name}."{table_name}" ({body})')
+    finally:
+        con.close()
+
+
+def _written(tmp_path, schema_name, table_name):
+    """The contract `reverse` wrote, parsed."""
+    path = tmp_path / "contracts" / schema_name / f"{table_name}.odcs.yaml"
+    assert path.is_file(), f"no contract at {path}"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _properties_by_name(doc):
+    return {prop["name"]: prop for prop in doc["schema"][0]["properties"]}
+
+
+def test_reverse_drafts_a_grounded_contract_from_the_catalog(tmp_path):
+    """A nullable, undescribed column yields no quality, no primaryKey and no `required: true`."""
+    _repo(tmp_path, models=["a_model"])
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", True), ("fare", "DOUBLE", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    doc = _written(tmp_path, "core", "a_model")
+    assert (doc["apiVersion"], doc["kind"]) == ("v3.2.0", "DataContract")
+    assert (doc["name"], doc["version"], doc["status"]) == ("a_model", "1.0.0", "active")
+    assert doc["id"] == str(uuid.uuid5(uuid.NAMESPACE_URL, "core.a_model"))
+    element = doc["schema"][0]
+    assert element["name"] == "a_model"
+    assert "dataGranularityDescription" not in element
+    assert element["properties"] == [
+        {"name": "trip_key", "logicalType": "string", "physicalType": "VARCHAR"},
+        {"name": "fare", "logicalType": "number", "physicalType": "DOUBLE"},
+    ]
+    assert "quality" not in element and "primaryKey" not in element
+    assert "authoritativeDefinitions" not in doc
+
+    _generated(tmp_path)
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (0, ["contract/no-grain"])
+
+
+def test_reverse_carries_a_generic_test_as_a_quality_rule(tmp_path):
+    """Only an existing dbt test becomes a rule, in the shape `generate` translates back."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": REVERSE_PROPERTIES})
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", False),
+        ("service_type", "VARCHAR", True),
+        ("fare", "DOUBLE", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    props = _properties_by_name(_written(tmp_path, "core", "a_model"))
+    assert props["trip_key"]["quality"] == [_rule("nullValues"), _rule("duplicateValues")]
+    assert props["trip_key"]["description"] == "Surrogate key."
+    assert props["service_type"]["quality"] == [
+        {"type": "library", "metric": "invalidValues",
+         "arguments": {"valid_values": ["yellow", "green"]}, "mustBe": 0}
+    ]
+    assert "quality" not in props["fare"]
+
+
+def test_reverse_takes_the_timezone_option_from_the_model(tmp_path):
+    """`DateTimeTz` carries the offset; `DateTime` does not, even over a timezone-aware column."""
+    fields = {"trip_key": "String", "loaded_at": "DateTimeTz", "booked_at": "DateTime"}
+    _repo(tmp_path, models=["a_model"],
+          logical_model=_model(("a_model", fields, ["trip_key"])))
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", False),
+        ("loaded_at", "TIMESTAMP", True),
+        ("booked_at", "TIMESTAMP WITH TIME ZONE", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    props = _properties_by_name(_written(tmp_path, "core", "a_model"))
+    assert props["loaded_at"]["logicalTypeOptions"] == {"timezone": True}
+    assert "logicalTypeOptions" not in props["booked_at"]
+
+
+def test_reverse_grounds_a_gold_contract_in_its_canonical_document(tmp_path):
+    """The model's `Decimal` wins over the catalog's VARCHAR, and the contract links the document."""
+    _repo(tmp_path, models=["a_model"], logical_model=_model((
+        "a_model", {"trip_key": "String", "total_amount": "Decimal"}, ["trip_key"])))
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", False), ("total_amount", "VARCHAR", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    doc = _written(tmp_path, "core", "a_model")
+    props = _properties_by_name(doc)
+    assert props["total_amount"]["logicalType"] == "number"
+    assert props["total_amount"]["physicalType"] == "VARCHAR"
+    assert props["trip_key"]["primaryKey"] is True
+    assert doc["authoritativeDefinitions"] == [
+        {"url": "logical-model/model.ossie.yaml", "type": "businessDefinition"}
+    ]
+
+
+def test_reverse_reproduces_its_files_byte_for_byte(tmp_path):
+    """The id is derived from the relation, so a second run is the same file, not a new one."""
+    _repo(tmp_path, models=["a_model"], logical_model=_model((
+        "a_model", {"trip_key": "String", "total_amount": "Decimal"}, ["trip_key"])))
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", False), ("total_amount", "DECIMAL(10,2)", True)]})
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    path = tmp_path / "contracts" / "core" / "a_model.odcs.yaml"
+    first = path.read_bytes()
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    assert path.read_bytes() == first
+
+
+def test_reverse_contracts_the_loader_audit_relations_and_skips_the_rest(tmp_path):
+    """Loader-owned audit tables are contracted; `_dlt_*` and undeclared relations are not."""
+    _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
+    _warehouse(tmp_path, {
+        ("bronze", "tripdata"): [("vendor_id", "BIGINT", True)],
+        ("bronze", "audit_runs"): [("load_id", "VARCHAR", True)],
+        ("bronze", "_dlt_loads"): [("load_id", "BIGINT", True)],
+        ("main", "metricflow_time_spine"): [("date_day", "DATE", True)],
+    })
+
+    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+
+    written = sorted(path.relative_to(tmp_path).as_posix()
+                     for path in (tmp_path / "contracts").rglob("*.odcs.yaml"))
+    assert written == ["contracts/bronze/audit_runs.odcs.yaml",
+                       "contracts/bronze/tripdata.odcs.yaml"]
+    assert "vibedata" in _written(tmp_path, "bronze", "audit_runs")["description"]["purpose"]
+
+    _generated(tmp_path)
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain"}
+    hints = (tmp_path / "ingestion" / "contracts.py").read_text(encoding="utf-8")
+    assert "tripdata" in hints and "audit_runs" not in hints
+
+
+def test_reverse_says_so_when_no_warehouse_resolves(tmp_path):
+    """A missing catalog is a diagnosis naming the path, not a traceback on stdout."""
+    _repo(tmp_path, models=["a_model"])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["catalog/missing"])
+    assert WAREHOUSE in diags[0]["message"]
+    assert not (tmp_path / "contracts").exists()
+
+
+SEED_WITH_BOTH_SPELLINGS = """version: 2
+
+seeds:
+  - name: band
+    columns:
+      - name: band_order
+        tests: [unique, not_null]
+"""
+
+
+def test_generate_renames_a_seed_tests_list_it_restates_exactly(tmp_path):
+    """dbt refuses `tests` and `data_tests` on one column; the same rules are one declaration."""
+    _repo(tmp_path, seeds=["band"], files={"seeds/seeds.yml": SEED_WITH_BOTH_SPELLINGS})
+    _contract(tmp_path, "seeds", "band", schema=_element(
+        "band", _prop("band_order", "integer", quality=[
+            _rule("duplicateValues"), _rule("nullValues")])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    column = _entries(tmp_path / "seeds" / "seeds.yml", "seeds")[1]["band"]["columns"][0]
+    assert column == {"name": "band_order", "data_tests": ["unique", "not_null"]}
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_gold_relation_in_a_schema_the_model_never_covers_is_not_a_gap(tmp_path):
+    """The model partitions the Domain by star: a schema it names nothing in is not yet modelled."""
+    _trips(tmp_path)
+    map_path = tmp_path / "repo-map.json"
+    repo_map = json.loads(map_path.read_text())
+    repo_map["layers"]["agg"] = {"schema": "agg", "path": "models/agg/", "built_by": "dbt"}
+    map_path.write_text(json.dumps(repo_map))
+    (tmp_path / "models" / "agg").mkdir(parents=True)
+    (tmp_path / "models" / "agg" / "agg_mart.sql").write_text("select 1\n")
+    _contract(tmp_path, "agg", "agg_mart")
+    _generated(tmp_path)
+
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
 

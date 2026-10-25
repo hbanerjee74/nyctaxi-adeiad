@@ -1,0 +1,50 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 52d395ae-88d6-5c6a-a5c1-f81b69bec55b
+name: lease_agreement
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: lease_agreement
+    properties:
+      - name: lease_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: primary_vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: lease_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: lease_rate
+        logicalType: number
+        physicalType: DECIMAL(22,2)
+      - name: revenue_share_pct
+        logicalType: number
+        physicalType: DECIMAL(3,2)
+      - name: lease_start_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: lease_end_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

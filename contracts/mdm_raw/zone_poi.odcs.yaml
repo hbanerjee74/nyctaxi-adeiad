@@ -1,0 +1,40 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: f18cbe09-2761-5a2e-9f89-57fc375eb5a4
+name: zone_poi
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: zone_poi
+    properties:
+      - name: poi_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: poi_category
+        logicalType: string
+        physicalType: VARCHAR
+      - name: poi_category_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: demand_weight
+        logicalType: integer
+        physicalType: INTEGER
+      - name: poi_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

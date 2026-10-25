@@ -1,0 +1,120 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: c3980d1c-69b8-5efa-85f8-8cb0877be03a
+name: int_trips_enriched
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_trips_enriched
+    dataGranularityDescription: 'The cross-layer model: conformed trips rejoined to the fleet-specific bronze columns the conform step drops. Both joins are optional many-to-one; multiplication here would be a defect.'
+    properties:
+      - name: trip_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: '{{ doc("trip_key") }}'
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: service_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: pickup_date
+        logicalType: date
+        physicalType: DATE
+      - name: pickup_hour
+        logicalType: integer
+        physicalType: BIGINT
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: dropoff_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: rate_code_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: payment_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_seconds
+        logicalType: integer
+        physicalType: BIGINT
+      - name: avg_mph
+        logicalType: number
+        physicalType: DOUBLE
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: airport_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: ehail_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: airport_fee_status
+        logicalType: string
+        physicalType: VARCHAR
+        description: Distinguishes 'not_applicable' (green, no such column) from 'missing' (yellow, column present but null) from 'present'. Collapsing the first two is how a fleet-blind average goes wrong.
+        quality:
+          - type: library
+            metric: invalidValues
+            arguments:
+              valid_values:
+                - present
+                - missing
+                - not_applicable
+            mustBe: 0

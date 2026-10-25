@@ -1,0 +1,54 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 4e41a1cb-c1fb-5309-ac37-344f95e1d5a1
+name: dim_rate_plan
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_rate_plan
+    dataGranularityDescription: One row per rate plan, with its pricing model and flat-fare terms from master data.
+    properties:
+      - name: rate_plan_key
+        logicalType: integer
+        physicalType: INTEGER
+        primaryKey: true
+        description: Source rate code (rate_code_id).
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: rate_plan_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Rate plan display name.
+      - name: pricing_model
+        logicalType: string
+        physicalType: VARCHAR
+        description: Pricing basis the plan charges on.
+      - name: is_flat_fare
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True when the plan charges a flat amount rather than the meter.
+      - name: flat_fare_amount
+        logicalType: number
+        physicalType: DECIMAL(4,2)
+        description: Flat amount charged under the plan; null for metered plans.
+      - name: is_airport_plan
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True for the airport flat-fare plans.
+      - name: is_metered_baseline
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True for the standard metered plan every other plan is compared against.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_analytics.ossie.yaml
+    type: businessDefinition

@@ -1,0 +1,63 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: d3d3121e-ea7a-5860-b419-6f73d8f6dee9
+name: mart_trip_quality_scorecard
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops
+schema:
+  - name: mart_trip_quality_scorecard
+    dataGranularityDescription: What proportion of the feed is trustworthy and whose records are not. Aggregated through the junk dimension so every verdict is groupable.
+    properties:
+      - name: trip_month
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: vendor_legal_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: clean_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: non_billable_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: refund_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: zero_distance_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: implausible_speed_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: sparse_feed_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: unresolved_zone_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: undocumented_rate_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: unbalanced_total_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: clean_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: sparse_feed_rate
+        logicalType: number
+        physicalType: DOUBLE

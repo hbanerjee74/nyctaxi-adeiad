@@ -1,0 +1,57 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 6ce38f3d-33c6-5629-8e99-2465ee936e46
+name: mart_monthly_service_summary
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: finance
+schema:
+  - name: mart_monthly_service_summary
+    dataGranularityDescription: Monthly volume and revenue by fleet and payment method.
+    properties:
+      - name: trip_month
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: service_type
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: invalidValues
+            arguments:
+              valid_values:
+                - yellow
+                - green
+            mustBe: 0
+      - name: payment_method_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: settlement_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: counts_as_revenue
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_fare
+        logicalType: number
+        physicalType: DOUBLE
+      - name: est_processor_fees
+        logicalType: number
+        physicalType: DOUBLE

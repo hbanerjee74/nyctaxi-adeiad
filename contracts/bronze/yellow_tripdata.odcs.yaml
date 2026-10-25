@@ -1,0 +1,83 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 9d7861f6-8191-5cc0-9c90-1a4a54fb5d3b
+name: yellow_tripdata
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: bronze
+schema:
+  - name: yellow_tripdata
+    properties:
+      - name: VendorID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: tpep_pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: tpep_dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: RatecodeID
+        logicalType: integer
+        physicalType: BIGINT
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: PULocationID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: DOLocationID
+        logicalType: integer
+        physicalType: INTEGER
+      - name: payment_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: Airport_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

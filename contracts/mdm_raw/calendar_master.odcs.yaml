@@ -1,0 +1,40 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 66476552-dc27-52a6-bf8d-38fdc10bcd4d
+name: calendar_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: calendar_master
+    properties:
+      - name: calendar_date
+        logicalType: date
+        physicalType: DATE
+      - name: holiday_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: holiday_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_holiday
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_weekend
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_school_term
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

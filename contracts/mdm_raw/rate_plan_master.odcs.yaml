@@ -1,0 +1,43 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: a8472ce9-0d3a-56ed-b7a9-e56cea154444
+name: rate_plan_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: rate_plan_master
+    properties:
+      - name: rate_code
+        logicalType: integer
+        physicalType: INTEGER
+      - name: rate_plan_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_flat_fare
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: flat_fare_amount
+        logicalType: number
+        physicalType: DECIMAL(4,2)
+      - name: is_airport_plan
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_metered_baseline
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: pricing_model
+        logicalType: string
+        physicalType: VARCHAR
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+      - name: _dlt_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true

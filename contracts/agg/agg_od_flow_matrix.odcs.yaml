@@ -1,0 +1,60 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 9f47759c-3c6d-514f-90db-d30cf896e1d4
+name: agg_od_flow_matrix
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_od_flow_matrix
+    dataGranularityDescription: Origin-to-destination flow -- the same zone dimension joined twice, in both roles. Published only for pairs with at least 25 billable trips (ADR 0017).
+    properties:
+      - name: origin_location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: origin_zone
+        logicalType: string
+        physicalType: VARCHAR
+      - name: origin_borough
+        logicalType: string
+        physicalType: VARCHAR
+      - name: origin_is_airport
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: dest_location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: dest_zone
+        logicalType: string
+        physicalType: VARCHAR
+      - name: dest_borough
+        logicalType: string
+        physicalType: VARCHAR
+      - name: dest_is_airport
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_intra_borough
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_fare
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_minutes
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_corridor_mph
+        logicalType: number
+        physicalType: DOUBLE

@@ -1,0 +1,50 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 74987f1a-e398-5566-8b82-35f2d97727e1
+name: dim_garage
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_garage
+    dataGranularityDescription: One row per garage with its capacity and the vehicles assigned to it.
+    properties:
+      - name: garage_key
+        logicalType: string
+        physicalType: INTEGER
+        primaryKey: true
+        description: Garage identifier.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: garage_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Garage display name.
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Borough the garage sits in.
+      - name: bay_capacity
+        logicalType: integer
+        physicalType: INTEGER
+        description: Number of bays available for vehicles.
+      - name: opened_date
+        logicalType: date
+        physicalType: DATE
+        description: Date the garage opened.
+      - name: assigned_vehicle_count
+        logicalType: integer
+        physicalType: BIGINT
+        description: Vehicles currently assigned to the garage.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition

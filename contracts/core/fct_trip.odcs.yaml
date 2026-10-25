@@ -1,0 +1,177 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 116ddee7-4f52-5ca9-9abd-8a3fa417d0c5
+name: fct_trip
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: fct_trip
+    dataGranularityDescription: One row per TLC trip. The grain of the warehouse.
+    properties:
+      - name: trip_key
+        logicalType: string
+        physicalType: VARCHAR
+        primaryKey: true
+        description: '{{ doc("trip_key") }}'
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: pickup_zone_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: Role-playing zone key, resolved as of the trip's own date.
+      - name: dropoff_zone_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: The same dimension in its destination role.
+      - name: vendor_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: Vendor surrogate, resolved as of the trip date.
+      - name: trip_quality_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: Junk-dimension key over the observed quality verdicts.
+      - name: payment_method_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: How the trip settled.
+      - name: is_fleet_attributed
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: '{{ doc("fleet_attribution") }}'
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: fare_residual
+        logicalType: number
+        physicalType: DOUBLE
+        description: '{{ doc("fare_residual") }}'
+      - name: airport_fee
+        logicalType: number
+        physicalType: DOUBLE
+        description: Yellow only, rejoined from bronze. Null for every green trip by construction -- see airport_fee_status before aggregating it.
+      - name: pickup_date_key
+        logicalType: integer
+        physicalType: INTEGER
+        description: Surrogate key into date for the pickup date.
+      - name: pickup_date
+        logicalType: date
+        physicalType: DATE
+        description: Calendar date of pickup; report window grain is day.
+      - name: pickup_hour
+        logicalType: integer
+        physicalType: BIGINT
+        description: Hour of day of pickup (0-23), joins dim_daypart.
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+        description: Analyst-owned daypart band for pickup_hour.
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+        description: Fleet service type of the trip.
+      - name: rate_plan_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: Rate plan in effect for the trip.
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+        description: Attributed fleet shift; null for non-fleet trips.
+      - name: driver_key
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_key
+        logicalType: integer
+        physicalType: INTEGER
+      - name: assignment_method
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: INTEGER
+        description: TLC location id of the pickup zone before the as-of join; the zone's natural key, and what the trip-to-zone join matches.
+      - name: dropoff_location_id
+        logicalType: integer
+        physicalType: INTEGER
+        description: TLC location id of the dropoff zone before the as-of join; the zone's natural key.
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_seconds
+        logicalType: integer
+        physicalType: BIGINT
+      - name: avg_mph
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: ehail_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+        description: Total amount charged, row level. Aggregate only through metrics.
+      - name: total_surcharges
+        logicalType: number
+        physicalType: DOUBLE
+      - name: measurable_tip_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: is_billable
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: Total amount is positive (ADR 0003). Null handling per ADR.
+      - name: airport_fee_status
+        logicalType: string
+        physicalType: VARCHAR
+        description: Yellow only; null for every green trip by construction.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_analytics.ossie.yaml
+    type: businessDefinition

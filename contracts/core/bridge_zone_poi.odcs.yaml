@@ -1,0 +1,54 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: d705ae57-ddfc-50b6-9a9a-f33b8e7b355d
+name: bridge_zone_poi
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: bridge_zone_poi
+    dataGranularityDescription: 'One row per point of interest with its zone and the share of that zone''s demand weight. A weighted bridge: measures crossing it are allocated, never repeated.'
+    properties:
+      - name: poi_id
+        logicalType: string
+        physicalType: VARCHAR
+        primaryKey: true
+        description: Point-of-interest identifier.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: zone_natural_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: TLC location_id of the zone the POI sits in.
+      - name: poi_category
+        logicalType: string
+        physicalType: VARCHAR
+        description: Category code of the point of interest.
+      - name: poi_category_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Category label of the point of interest.
+      - name: poi_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Display name of the point of interest.
+      - name: demand_weight
+        logicalType: integer
+        physicalType: INTEGER
+        description: Raw demand weight of the POI within its zone.
+      - name: allocation_factor
+        logicalType: number
+        physicalType: DOUBLE
+        description: The POI's share of its zone's total demand weight; multiply an allocated measure by it.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_analytics.ossie.yaml
+    type: businessDefinition

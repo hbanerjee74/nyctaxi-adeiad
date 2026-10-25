@@ -1,0 +1,57 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 6767ad11-6380-5435-8382-25fdafb31a75
+name: agg_trip_zone_daily
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_trip_zone_daily
+    dataGranularityDescription: 'Daily zone demand with period-over-period context. The window functions are the point: a raw count answers "how many", the lag and rolling average answer "is that normal".'
+    properties:
+      - name: pickup_date_key
+        logicalType: integer
+        physicalType: INTEGER
+      - name: pickup_date
+        logicalType: date
+        physicalType: DATE
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: zone_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: attributed_driver_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: prev_day_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: same_day_last_week_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_count_7d_avg
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_28d_rolling
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_rank_that_day
+        logicalType: integer
+        physicalType: BIGINT
