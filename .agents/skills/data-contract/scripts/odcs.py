@@ -37,7 +37,8 @@ UPSTREAM_COMMIT = "8b551607aad6801979bf4c209385e78fc4d029e5"
 # Sections that assert something. A present-but-empty one claims a promise nobody made.
 ROOT_SECTIONS = ("servers", "authoritativeDefinitions", "tags")
 
-# Gold is every dbt layer that is neither raw, staged nor a seed.
+# Gold is every dbt layer that is neither staging, intermediate nor a seed. Raw layers are
+# excluded by `built_by`, and this list is the one place the three names appear.
 NON_GOLD_LAYERS = ("staging", "intermediate", "seeds")
 
 # Ossie `DataType` reduced to the ODCS `logicalType` it states; `Opaque` states none.
