@@ -19,7 +19,10 @@ LIMIT = int(os.environ.get("DLT_INGEST_LIMIT", NO_LIMIT))
 
 # Each run reloads the whole fixed window, so every resource is a full replace.
 CONTRACT = {"columns": "freeze", "tables": "evolve", "data_type": "freeze"}
-# COLUMNS is generated from the contracts: a resource with no entry there is a defect and raises.
+# COLUMNS is generated from the contracts; a resource with no entry here raises. It is not a
+# first-load check: the hints hold an established schema against a new column, while a first
+# load establishes the shape and keeps whatever extra column it carries. `check --relations`
+# is the only landed-table comparison.
 
 
 def main():

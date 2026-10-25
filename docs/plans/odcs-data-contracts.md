@@ -37,7 +37,7 @@ Nothing in the left column may be pushed into the review ("the agent will notice
 | --- | --- |
 | dbt rejects two properties entries for one model: *"dbt found two schema.yml entries for the same resource named m"* | A generated properties file per model is impossible. The generator **augments** the existing layer file. |
 | `contract: enforced` fails when an output column is undeclared: *"missing in contract"* | The generator adds one `columns[]` entry per contract property. |
-| dlt `columns=` hints with `columns: freeze` reject an undeclared column: *"Contract on `columns` with `contract_mode=freeze` is violated"* | The dlt half needs only a generated hints module. |
+| dlt `columns=` hints with `columns: freeze` hold an established schema against a new column: *"Contract on `columns` with `contract_mode=freeze` is violated"*. A first load establishes the shape instead of checking it, and keeps any extra column it carries — the check only bites on a later run | The dlt half needs only a generated hints module, and `check --relations` is the only thing that compares a landed table to its contract |
 | dbt contracts are model-only | The 4 seeds get generated tests and `check --relations`; the build cannot hold them. |
 | `NON_GOLD_LAYERS` names `staging`, `intermediate` and `seeds`, so `gold/undeclared` infers the gold layers by exclusion | Another Domain may name its layers differently. Task 11 declares the gold layers in the map instead, and the tuple goes. |
 | `servers[].type` is a 44-value enum; `duckdb` requires `database`; `motherduck` and `fabric_*` are absent | `duckdb_local` and `motherduck` → `duckdb`; `bigquery`/`databricks`/`redshift`/`snowflake` → native; `fabric_lakehouse`/`fabric_warehouse` → `custom` + `customProperties`. |

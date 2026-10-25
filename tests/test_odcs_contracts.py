@@ -1,4 +1,11 @@
-"""The ingest pipelines freeze every resource against the columns its contract declares."""
+"""The ingest pipelines freeze every resource against the columns its contract declares.
+
+These tests build their pipelines from the repo root, so `ingestion/.dlt/config.toml` is not
+loaded and dlt's default snake_case naming applies here. Production runs from `ingestion/`, where
+`[schema] naming = "direct"` keeps `LocationID` exactly as written. Do not "correct" a CamelCase
+contract property to snake_case on the strength of this file: under direct naming that creates a
+second column instead of renaming one.
+"""
 
 from types import SimpleNamespace
 
