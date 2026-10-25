@@ -25,10 +25,12 @@ Exit 0 when no errors (warnings allowed), 1 otherwise.
 
 import json
 import ast
+import os
 import re
 import uuid
 from pathlib import Path
 
+import duckdb
 import jsonschema
 import typer
 import yaml
@@ -582,7 +584,7 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
     for server in contract.get("servers") or []:
         stated = (server or {}).get("schema") if isinstance(server, dict) else None
         if stated and stated != relation[0]:
-            raise _Refused(_diag("error", "contract/servers-schema",
+            raise _Refused(_diag("error", "servers/mismatch",
                                  f"{relation[0]}.{relation[1]}: `servers[].schema` says "
                                  f"{stated!r}, the map declares {relation[0]!r}"))
     owned: dict = {"columns": {}}
@@ -980,14 +982,103 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
     return diags
 
 
+# The `servers[].type` each platform kind maps to. A kind the standard names maps to itself; one
+# it does not is `custom`, the type the standard keeps for a technology it has no type for.
+SERVER_TYPES = {
+    "duckdb_local": "duckdb",
+    "motherduck": "duckdb",
+    "bigquery": "bigquery",
+    "databricks": "databricks",
+    "redshift": "redshift",
+    "snowflake": "snowflake",
+    "fabric_lakehouse": "custom",
+    "fabric_warehouse": "custom",
+}
+
+
+def _platform(repo_map: dict) -> str:
+    """The platform the map declares. One Domain runs on one, so the map is the only source."""
+    return str(repo_map.get("data_platform") or "")
+
+
+def _catalog_path(root: Path) -> Path | None:
+    """The warehouse `--relations` reads: the ephemeral path the platform sets, else the repo file."""
+    declared = os.environ.get("VD_EPHM_DUCKDB_LOCAL_PATH")
+    candidate = Path(declared) if declared else root / WAREHOUSE_FILE
+    return candidate if candidate.is_file() else None
+
+
+def _server_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
+                        repo_map: dict, root: Path) -> list[dict]:
+    """A contract's `servers` against the platform the map declares."""
+    expected = _server(root, repo_map, relation)
+    for server in doc.get("servers") or []:
+        if not isinstance(server, dict):
+            continue
+        wrong = [
+            f"`{field}` is {server.get(field)!r} and the map's `{_platform(repo_map)}` platform "
+            f"makes it {want!r}"
+            for field in ("type", "database")
+            if (want := expected.get(field)) is not None and server.get(field) != want
+        ]
+        if wrong:
+            return [_diag("error", "servers/mismatch", f"{path}: " + "; ".join(wrong))]
+    return []
+
+
+def _relation_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
+                          catalog: Path, repo_map: dict) -> list[dict]:
+    """The contract's columns against the columns the catalog holds for the relation.
+
+    A column the catalog has and the contract does not is the drift this exists for: the
+    contract states the shape, and the landed relation still carries a column it dropped.
+    """
+    con = duckdb.connect(str(catalog), read_only=True)
+    try:
+        rows = con.execute(
+            "select column_name from information_schema.columns "
+            "where table_schema = ? and table_name = ?",
+            [relation[0], relation[1]],
+        ).fetchall()
+    finally:
+        con.close()
+    # A loader column is not the relation's shape, the same rule the contract side applies.
+    landed = {row[0] for row in rows if not _is_loader_column(relation, row[0], repo_map)}
+    if not landed:
+        return []
+    declared = {
+        prop.get("name")
+        for element in doc.get("schema") or []
+        if isinstance(element, dict)
+        for prop in element.get("properties") or []
+        if isinstance(prop, dict) and prop.get("name")
+    }
+    diags = []
+    for name in sorted(declared - landed):
+        diags.append(_diag("error", "relations/mismatch",
+                           f"{relation[0]}.{relation[1]}: the contract declares `{name}` and the "
+                           f"built relation has no such column"))
+    for name in sorted(landed - declared):
+        diags.append(_diag("error", "relations/mismatch",
+                           f"{relation[0]}.{relation[1]}: the built relation carries `{name}` and "
+                           f"the contract does not declare it"))
+    return diags
+
+
 def _server(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict:
-    """Where the relation lives. The map declares no platform yet, so it is the local duckdb file."""
-    return {
+    """Where the relation lives: the Domain as the server, the platform as the type."""
+    platform = _platform(repo_map)
+    kind = SERVER_TYPES.get(platform, "custom")
+    server = {
         "server": repo_map.get("repo_root") or root.name,
-        "type": "duckdb",
-        "database": WAREHOUSE_FILE,
+        "type": kind,
         "schema": relation[0],
     }
+    if kind == "duckdb":
+        server["database"] = WAREHOUSE_FILE
+    else:
+        server["customProperties"] = [{"property": "platform", "value": platform or "unknown"}]
+    return server
 
 
 def _properties_entry(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict | None:
@@ -1542,9 +1633,24 @@ def check(root: str = "", relations: bool = False):
 
     diags.extend(_stale_diagnostics(repo_root, repo_map, contracts, parsed))
 
+    for relation, path in sorted(contracts.items()):
+        doc = parsed.get(relation)
+        if doc is not None:
+            diags.extend(_server_diagnostics(relation, path, doc, repo_map, repo_root))
+
     if relations:
-        diags.append(_diag("error", "relations/not-implemented",
-                           "check --relations is not implemented yet"))
+        catalog = _catalog_path(repo_root)
+        if catalog is None:
+            diags.append(_diag(
+                "error", "relations/no-catalog",
+                "check --relations needs a built relation: set VD_EPHM_DUCKDB_LOCAL_PATH or "
+                "build the warehouse the map declares",
+            ))
+        else:
+            for relation, path in sorted(contracts.items()):
+                doc = parsed.get(relation)
+                if doc is not None:
+                    diags.extend(_relation_diagnostics(relation, path, doc, catalog, repo_map))
 
     print(json.dumps(diags))
     raise typer.Exit(1 if any(d["severity"] == "error" for d in diags) else 0)

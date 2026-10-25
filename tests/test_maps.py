@@ -294,3 +294,19 @@ def test_compiled_references_name_no_catalog(dbt_packages):
     compiled = next((DBT_PROJECT / "target/compiled").rglob("int_trips_enriched.sql")).read_text()
     assert '"intermediate"."int_trips_conformed"' in compiled
     assert not re.search(r'"[^"]+"\."intermediate"\."int_trips_conformed"', compiled)
+
+
+def test_the_map_declares_the_platform_its_contracts_name():
+    """One Domain runs on one platform, so the map is the only source for `servers[].type`."""
+    platform = REPO_MAP.get("data_platform")
+    assert platform, "repo-map.json declares no data_platform, so no contract can name its server"
+    assert platform in {
+        "duckdb_local",
+        "motherduck",
+        "bigquery",
+        "databricks",
+        "redshift",
+        "snowflake",
+        "fabric_lakehouse",
+        "fabric_warehouse",
+    }, f"unknown data platform kind: {platform}"

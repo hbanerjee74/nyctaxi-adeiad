@@ -195,6 +195,10 @@
         }
       }
     },
+    "data_platform": {
+      "type": "string",
+      "description": "The Data Platform kind this Domain runs on, as the shared vocabulary names it. One Domain runs on one platform, so this is the only source for `servers[].type` in a data contract."
+    },
     "gold_layers": {
       "type": "array",
       "items": {

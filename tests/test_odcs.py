@@ -77,6 +77,7 @@ def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None, files
     repo_map = {
         "artifact_paths": artifacts,
         "gold_layers": ["core"],
+        "data_platform": "duckdb_local",
         "layers": {
             "bronze": {"schema": "bronze", "path": "ingestion/", "built_by": "dlt"},
             "core": {"schema": "core", "path": "models/core/", "built_by": "dbt"},
@@ -762,7 +763,7 @@ def test_generate_refuses_a_contract_whose_servers_disagree_with_the_map(tmp_pat
         "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
 
     code, diags = _run("generate", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["contract/servers-schema"])
+    assert (code, _codes(diags)) == (1, ["servers/mismatch"])
     assert "'staging'" in diags[0]["message"] and "'core'" in diags[0]["message"]
     assert (tmp_path / "models" / "core" / "_core.yml").read_text() == CORE_PROPERTIES
 
@@ -1531,4 +1532,121 @@ def test_reverse_findings_are_unique_and_identical_on_a_second_run(tmp_path):
             assert parts[2] in declared, location
 
 
+# ---------------------------------------------------------------------------
+# The catalog: the half no file check can see
+# ---------------------------------------------------------------------------
 
+
+def _catalog(tmp_path, columns):
+    """A DuckDB file holding `core.a_model` with the given column names."""
+    import duckdb
+
+    path = tmp_path / "warehouse.duckdb"
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("create schema core")
+        con.execute(f"create table core.a_model ({', '.join(f'{c} varchar' for c in columns)})")
+    finally:
+        con.close()
+    return path
+
+
+def _relations_run(tmp_path, monkeypatch, catalog):
+    # The generated keys are Task 3's subject; this run is about the catalog, so write them first
+    # as an author would, and let `check` report only what the relation comparison adds.
+    _run("generate", "--root", str(tmp_path))
+    if catalog is not None:
+        monkeypatch.setenv("VD_EPHM_DUCKDB_LOCAL_PATH", str(catalog))
+    else:
+        monkeypatch.delenv("VD_EPHM_DUCKDB_LOCAL_PATH", raising=False)
+    return _run("check", "--root", str(tmp_path), "--relations")
+
+
+def _contract_with(tmp_path, columns, **overrides):
+    properties = [{"name": c, "logicalType": "string", "physicalType": "VARCHAR"} for c in columns]
+    _contract(
+        tmp_path,
+        "core",
+        "a_model",
+        schema=[
+            {
+                "name": "a_model",
+                "dataGranularityDescription": "One row per event.",
+                "properties": properties,
+            }
+        ],
+        **overrides,
+    )
+
+
+def test_relations_pass_when_the_catalog_matches_the_contract(tmp_path, monkeypatch):
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x"])
+    code, diags = _relations_run(tmp_path, monkeypatch, _catalog(tmp_path, ["x"]))
+    assert code == 0 and [d for d in diags if d["code"].startswith(("relations/", "servers/"))] == []
+
+
+def test_a_contract_column_the_catalog_lacks_is_a_mismatch(tmp_path, monkeypatch):
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x", "gone"])
+    code, diags = _relations_run(tmp_path, monkeypatch, _catalog(tmp_path, ["x"]))
+    assert code == 1
+    assert [d["code"] for d in diags] == ["relations/mismatch"]
+    assert "gone" in diags[0]["message"]
+
+
+def test_a_catalog_column_the_contract_dropped_is_a_mismatch(tmp_path, monkeypatch):
+    """Case C: the contract says the shape, and the landed relation still carries a column."""
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x"])
+    code, diags = _relations_run(tmp_path, monkeypatch, _catalog(tmp_path, ["x", "surprise"]))
+    assert code == 1
+    assert [d["code"] for d in diags] == ["relations/mismatch"]
+    assert "surprise" in diags[0]["message"]
+
+
+def test_relations_without_a_catalog_fail_rather_than_skip(tmp_path, monkeypatch):
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x"])
+    code, diags = _relations_run(tmp_path, monkeypatch, None)
+    assert code == 1
+    assert [d["code"] for d in diags] == ["relations/no-catalog"]
+
+
+def test_a_server_that_disagrees_with_the_platform_is_a_mismatch(tmp_path, monkeypatch):
+    _repo(tmp_path, models=["a_model"])
+    _contract_with(tmp_path, ["x"], servers=[{"server": "a_model", "type": "custom"}])
+    code, diags = _relations_run(tmp_path, monkeypatch, _catalog(tmp_path, ["x"]))
+    assert code == 1
+    assert [d["code"] for d in diags] == ["servers/mismatch"]
+    assert "custom" in diags[0]["message"]
+
+
+def test_a_loader_column_in_the_catalog_is_not_a_mismatch(tmp_path, monkeypatch):
+    """The loader adds `_dlt_*` to a raw relation; that is not the relation's shape."""
+    _repo(tmp_path, sources={"src": ("bronze", ["t"])})
+    _contract(
+        tmp_path,
+        "bronze",
+        "t",
+        schema=[
+            {
+                "name": "t",
+                "dataGranularityDescription": "One row per event.",
+                "properties": [{"name": "x", "logicalType": "string", "physicalType": "VARCHAR"}],
+            }
+        ],
+    )
+    _run("generate", "--root", str(tmp_path))
+    catalog = tmp_path / "warehouse.duckdb"
+    import duckdb
+
+    con = duckdb.connect(str(catalog))
+    try:
+        con.execute("create schema bronze")
+        con.execute("create table bronze.t (x varchar, _dlt_id varchar, _dlt_load_id varchar)")
+    finally:
+        con.close()
+    monkeypatch.setenv("VD_EPHM_DUCKDB_LOCAL_PATH", str(catalog))
+    code, diags = _run("check", "--root", str(tmp_path), "--relations")
+    assert [d["code"] for d in diags if d["code"].startswith(("relations/", "servers/"))] == []
