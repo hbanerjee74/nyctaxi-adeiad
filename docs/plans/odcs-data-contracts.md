@@ -39,6 +39,7 @@ Nothing in the left column may be pushed into the review ("the agent will notice
 | `contract: enforced` fails when an output column is undeclared: *"missing in contract"* | The generator adds one `columns[]` entry per contract property. |
 | dlt `columns=` hints with `columns: freeze` reject an undeclared column: *"Contract on `columns` with `contract_mode=freeze` is violated"* | The dlt half needs only a generated hints module. |
 | dbt contracts are model-only | The 4 seeds get generated tests and `check --relations`; the build cannot hold them. |
+| `NON_GOLD_LAYERS` names `staging`, `intermediate` and `seeds`, so `gold/undeclared` infers the gold layers by exclusion | Another Domain may name its layers differently. Task 11 declares the gold layers in the map instead, and the tuple goes. |
 | `servers[].type` is a 44-value enum; `duckdb` requires `database`; `motherduck` and `fabric_*` are absent | `duckdb_local` and `motherduck` → `duckdb`; `bigquery`/`databricks`/`redshift`/`snowflake` → native; `fabric_lakehouse`/`fabric_warehouse` → `custom` + `customProperties`. |
 | `quality` has no root-level key; it nests in a `schema[]` element and on a property | Layout is `schema: [{name, properties, relationships, quality}]`. |
 | `DataQuality` needs `type`; `library` needs `metric` ∈ {nullValues, missingValues, invalidValues, duplicateValues, rowCount} plus one operator; `sql` needs `query` | The five translations in Task 5. |
@@ -188,7 +189,9 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 - [ ] **Step 1: Write the failing map test** — assert `artifact_paths.data_contract`, `modules.contracts`, `commands.odcs_check`, `commands.odcs_check_relations`, and the `key_directories` line exist; every path exists on disk; the module appears in `test-map.json`.
 - [ ] **Step 2: Run it — fails.**
-- [ ] **Step 3: Add the entries** in the same shape as `logical_model` and `ontology`.
+- [ ] **Step 3: Add the entries** in the same shape as `logical_model` and `ontology`, including the
+  `key_directories` line, and declare the gold layers explicitly so `odcs.py` stops inferring them
+  from the three names in `NON_GOLD_LAYERS`.
 - [ ] **Step 4: Run `tests/test_maps.py` — passes.**
 - [ ] **Step 5: Commit** `chore: register the contracts and their gate`.
 
