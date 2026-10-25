@@ -41,20 +41,22 @@ def _doc(table, **overrides):
     return doc
 
 
-def _repo(tmp_path, models=(), seeds=(), sources=None):
-    """A minimal repo the tool can resolve: layers, seeds and a source's resource docs."""
-    (tmp_path / "repo-map.json").write_text(
-        json.dumps(
-            {
-                "artifact_paths": {"data_contract": "contracts/{schema}/{table}.odcs.yaml"},
-                "layers": {
-                    "core": {"schema": "core", "path": "models/core/", "built_by": "dbt"},
-                    "seeds": {"schema": "seeds", "path": "seeds/", "built_by": "dbt"},
-                },
-                "sources": sources or {},
-            }
-        )
-    )
+def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None):
+    """A minimal repo: layers, seeds, a source's resource docs and a canonical model."""
+    artifacts = {"data_contract": "contracts/{schema}/{table}.odcs.yaml"}
+    if logical_model is not None:
+        artifacts["logical_model"] = "logical-model/*.ossie.yaml"
+        target = tmp_path / "logical-model" / "model.ossie.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(yaml.safe_dump(logical_model))
+    repo_map = {
+        "artifact_paths": artifacts,
+        "layers": {
+            "core": {"schema": "core", "path": "models/core/", "built_by": "dbt"},
+            "seeds": {"schema": "seeds", "path": "seeds/", "built_by": "dbt"},
+        },
+        "sources": {},
+    }
     for model in models:
         target = tmp_path / "models" / "core" / f"{model}.sql"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -71,17 +73,45 @@ def _repo(tmp_path, models=(), seeds=(), sources=None):
                 {"dataset": dataset, "resources": {r: {"description": r} for r in resources}}
             )
         )
-        (tmp_path / "repo-map.json").write_text(
-            json.dumps(
-                {
-                    **json.loads((tmp_path / "repo-map.json").read_text()),
-                    "sources": {
-                        name: {"kind": "dlt", "dataset": dataset, "docs": f"ingestion/docs/{name}.yml"}
-                    },
-                }
-            )
-        )
+        repo_map["sources"][name] = {
+            "kind": "dlt",
+            "dataset": dataset,
+            "docs": f"ingestion/docs/{name}.yml",
+        }
+    (tmp_path / "repo-map.json").write_text(json.dumps(repo_map))
     return tmp_path
+
+
+def _model(*datasets):
+    """A canonical document naming one dataset per `(table, fields, primary_key)` tuple."""
+    return {
+        "version": "0.2.0.dev0",
+        "name": "model",
+        "datasets": [
+            {
+                "name": table,
+                "source": f"core.{table}",
+                "primary_key": list(primary_key),
+                "fields": [
+                    {"name": field, "datatype": datatype, "description": field}
+                    for field, datatype in fields.items()
+                ],
+            }
+            for table, fields, primary_key in datasets
+        ],
+        "relationships": [],
+    }
+
+
+def _element(table, *properties):
+    return [{"name": table, "dataGranularityDescription": "One row per event.",
+             "properties": list(properties)}]
+
+
+def _prop(name, logical_type, **overrides):
+    prop = {"name": name, "logicalType": logical_type}
+    prop.update(overrides)
+    return prop
 
 
 def _contract(tmp_path, schema_name, table_name, **overrides):
@@ -140,3 +170,126 @@ def test_check_says_so_when_the_map_declares_no_contract_path(tmp_path):
     (tmp_path / "repo-map.json").write_text(json.dumps({"artifact_paths": {}, "layers": {}}))
     code, diags = _run("check", "--root", str(tmp_path))
     assert (code, _codes(diags)) == (1, ["contract/unconfigured"])
+
+
+TRIP_FIELDS = {"trip_key": "String", "pickup_date": "Date", "total_amount": "Decimal"}
+
+
+def _trips(tmp_path, fields=TRIP_FIELDS, primary_key=("trip_key",)):
+    """A gold contract and the canonical document that declares the same relation."""
+    _repo(tmp_path, models=["a_model"], logical_model=_model(("a_model", fields, primary_key)))
+    return _contract(
+        tmp_path,
+        "core",
+        "a_model",
+        schema=_element(
+            "a_model",
+            _prop("trip_key", "string", primaryKey=True),
+            _prop("pickup_date", "date"),
+            _prop("total_amount", "number"),
+        ),
+    )
+
+
+def test_gold_agreement_passes_when_the_contract_matches_the_model(tmp_path):
+    _trips(tmp_path)
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_gold_omission_fails_and_names_the_relation_and_field(tmp_path):
+    """The contract carries less than the canonical document declares for that relation."""
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", primaryKey=True), _prop("total_amount", "number")))
+    _repo(tmp_path, models=["a_model"], logical_model=_model(("a_model", TRIP_FIELDS, ["trip_key"])))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["gold/omits-declared"])
+    assert "core.a_model" in diags[0]["message"] and "pickup_date" in diags[0]["message"]
+
+
+def test_gold_logical_type_disagreement_names_both_sides(tmp_path):
+    """A `Decimal` reduces to `number`; a contract saying otherwise contradicts the model."""
+    _trips(tmp_path)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model",
+        _prop("trip_key", "string", primaryKey=True),
+        _prop("pickup_date", "date"),
+        _prop("total_amount", "string")))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert "'number'" in diags[0]["message"] and "'string'" in diags[0]["message"]
+
+
+def test_gold_datetimetz_needs_the_timezone_option(tmp_path):
+    """`DateTimeTz` reduces to a timestamp that carries the timezone option, and only it does."""
+    _trips(tmp_path)
+    loaded_at = _element("a_model",
+                         _prop("trip_key", "string", primaryKey=True),
+                         _prop("pickup_date", "date"),
+                         _prop("total_amount", "number"),
+                         _prop("loaded_at", "timestamp"))
+    _contract(tmp_path, "core", "a_model", schema=loaded_at)
+    _repo(tmp_path, models=["a_model"], logical_model=_model(
+        ("a_model", {**TRIP_FIELDS, "loaded_at": "DateTimeTz"}, ["trip_key"])))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert "timezone" in diags[0]["message"]
+    loaded_at[0]["properties"][-1]["logicalTypeOptions"] = {"timezone": True}
+    _contract(tmp_path, "core", "a_model", schema=loaded_at)
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_gold_datetime_must_not_carry_the_timezone_option(tmp_path):
+    """`DateTime` reduces to a timezone-free timestamp; the option would claim an offset it lacks."""
+    _trips(tmp_path)
+    schema = _element("a_model",
+                      _prop("trip_key", "string", primaryKey=True),
+                      _prop("pickup_date", "date"),
+                      _prop("total_amount", "number"),
+                      _prop("loaded_at", "timestamp", logicalTypeOptions={"timezone": True}))
+    _contract(tmp_path, "core", "a_model", schema=schema)
+    _repo(tmp_path, models=["a_model"], logical_model=_model(
+        ("a_model", {**TRIP_FIELDS, "loaded_at": "DateTime"}, ["trip_key"])))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert "timezone" in diags[0]["message"]
+
+
+def test_gold_contract_with_no_document_fails(tmp_path):
+    """A gold relation the canonical model never names has no agreed shape at all."""
+    _repo(tmp_path, models=["a_model", "b_model"],
+          logical_model=_model(("a_model", TRIP_FIELDS, ["trip_key"])))
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", primaryKey=True),
+        _prop("pickup_date", "date"), _prop("total_amount", "number")))
+    _contract(tmp_path, "core", "b_model")
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["gold/undeclared"])
+    assert "core.b_model" in diags[0]["message"]
+
+
+def test_gold_ignores_a_property_the_model_does_not_declare(tmp_path):
+    """The canonical model is curated: a contract may carry columns it never declares."""
+    _trips(tmp_path)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model",
+        _prop("trip_key", "string", primaryKey=True),
+        _prop("pickup_date", "date"),
+        _prop("total_amount", "number"),
+        _prop("audit_note", "string")))
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
+    """Not adopting a canonical model is not a broken contract set, whatever the map says."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model")
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+    elsewhere = tmp_path / "absent"
+    _repo(elsewhere, models=["a_model"])
+    _contract(elsewhere, "core", "a_model")
+    map_path = elsewhere / "repo-map.json"
+    repo_map = json.loads(map_path.read_text())
+    repo_map["artifact_paths"]["logical_model"] = "logical-model/*.ossie.yaml"
+    map_path.write_text(json.dumps(repo_map))
+    assert _run("check", "--root", str(elsewhere)) == (0, [])

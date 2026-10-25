@@ -1,8 +1,9 @@
 """ODCS data-contract tooling for this repo.
 
-Commands: `check` (schema and structure of the committed contracts), `check --relations`
-(adds the comparison against the built relation), `reverse` (draft contracts from an
-existing warehouse), `generate` (write the dbt keys and dlt hints from the contracts).
+Commands: `check` (schema and structure of the committed contracts, and their agreement
+with the canonical model that names each gold relation), `check --relations` (adds the
+comparison against the built relation), `reverse` (draft contracts from an existing
+warehouse), `generate` (write the dbt keys and dlt hints from the contracts).
 
 This script proves shape and reports facts. It never judges meaning: the grain, whether a
 `required` is honest, and whether a quality rule encodes the real business answer are the
@@ -35,6 +36,23 @@ UPSTREAM_COMMIT = "8b551607aad6801979bf4c209385e78fc4d029e5"
 
 # Sections that assert something. A present-but-empty one claims a promise nobody made.
 ROOT_SECTIONS = ("servers", "authoritativeDefinitions", "tags")
+
+# Gold is every dbt layer that is neither raw, staged nor a seed.
+NON_GOLD_LAYERS = ("staging", "intermediate", "seeds")
+
+# Ossie `DataType` reduced to the ODCS `logicalType` it states; `Opaque` states none.
+LOGICAL_TYPES = {
+    "String": "string",
+    "Integer": "integer",
+    "Decimal": "number",
+    "Float": "number",
+    "Boolean": "boolean",
+    "Date": "date",
+    "Time": "time",
+    "DateTime": "timestamp",
+    "DateTimeTz": "timestamp",
+    "Opaque": None,
+}
 
 app = typer.Typer(add_completion=False)
 
@@ -165,6 +183,111 @@ def _grain(doc: dict, path: Path) -> list[dict]:
                   f"a shipped intent presents as complete without one")]
 
 
+def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], dict]:
+    """Every dataset the canonical model declares, keyed by the relation its `source` names.
+
+    Empty when the repo has adopted no canonical model: a contract set is not broken for
+    lacking something it never promised to agree with.
+    """
+    raw = (repo_map.get("artifact_paths") or {}).get("logical_model")
+    if not raw:
+        return {}
+    base = _declared(root, raw)
+    datasets: dict[tuple[str, str], dict] = {}
+    if not base.is_dir():
+        return datasets
+    for path in sorted(base.glob("*.ossie.yaml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for dataset in doc.get("datasets") or []:
+            if not isinstance(dataset, dict):
+                continue
+            source = str(dataset.get("source") or "").split(".", 1)
+            if len(source) == 2:
+                datasets[(source[0], source[1])] = dataset
+    return datasets
+
+
+def _gold_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
+    """Schemas holding gold relations: a dbt layer the map builds, past raw and staging."""
+    built = {schema for schema, _ in expected}
+    return {
+        layer["schema"]
+        for name, layer in (repo_map.get("layers") or {}).items()
+        if name not in NON_GOLD_LAYERS
+        and layer.get("built_by") == "dbt"
+        and layer.get("schema") in built
+    }
+
+
+def _properties(contract: dict) -> dict[str, dict]:
+    """The contract's properties by name, across every schema element."""
+    props: dict[str, dict] = {}
+    for element in contract.get("schema") or []:
+        if isinstance(element, dict):
+            for prop in element.get("properties") or []:
+                if isinstance(prop, dict) and prop.get("name"):
+                    props[prop["name"]] = prop
+    return props
+
+
+def _property_diagnostics(where: str, prop: dict, field: dict, primary: bool) -> list[dict]:
+    """One contract property against the model field the document declares for it.
+
+    Only the model's own declarations are compared: it is curated, so a property it never
+    names is the contract's business.
+    """
+    diags = []
+    datatype = field.get("datatype")
+    if datatype in LOGICAL_TYPES:
+        want = LOGICAL_TYPES[datatype]
+        got = prop.get("logicalType")
+        if got != want:
+            diags.append(_diag("error", "gold/divergent",
+                               f"{where}: logicalType is {got!r}, the canonical model's "
+                               f"{datatype} is {want!r}"))
+        zone = (prop.get("logicalTypeOptions") or {}).get("timezone")
+        if datatype == "DateTimeTz" and not zone:
+            diags.append(_diag("error", "gold/divergent",
+                               f"{where}: `{datatype}` needs logicalTypeOptions.timezone true"))
+        elif datatype == "DateTime" and zone:
+            diags.append(_diag("error", "gold/divergent",
+                               f"{where}: `{datatype}` must not carry logicalTypeOptions.timezone"))
+    if primary and prop.get("primaryKey") is not True:
+        diags.append(_diag("error", "gold/divergent",
+                           f"{where}: the canonical model declares this primary key and the "
+                           f"property does not set primaryKey true"))
+    return diags
+
+
+def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
+                    documents: dict[tuple[str, str], dict], gold: set[str]) -> list[dict]:
+    """A gold contract against the canonical document that names its relation."""
+    label = f"{relation[0]}.{relation[1]}"
+    dataset = documents.get(relation)
+    if dataset is None:
+        if relation[0] not in gold:
+            return []
+        return [_diag("error", "gold/undeclared",
+                      f"{path}: no canonical document names the gold relation {label}")]
+    declared = {
+        field["name"]: field
+        for field in dataset.get("fields") or []
+        if isinstance(field, dict) and field.get("name")
+    }
+    keys = set(dataset.get("primary_key") or [])
+    props = _properties(contract)
+    diags = []
+    for name, field in declared.items():
+        prop = props.get(name)
+        if prop is None:
+            diags.append(_diag("error", "gold/omits-declared",
+                               f"{label}: the contract omits `{name}`, which the canonical "
+                               f"model declares"))
+        else:
+            diags.extend(_property_diagnostics(f"{label}.{name}", prop, field, name in keys))
+    return diags
+
+
 @app.command()
 def version():
     """Pin report: tool, standard version and the vendored upstream commit, as JSON."""
@@ -177,9 +300,10 @@ def version():
 def check(root: str = "", relations: bool = False):
     """Validate every committed contract against the repo map and the vendored schema.
 
-    `--relations` adds the comparison against the built relation and fails when no catalog
-    resolves, rather than skipping: asking for the check and getting silence is the false
-    pass it exists to prevent.
+    Where the repo has adopted a canonical model, a gold contract must also agree with the
+    document that names its relation. `--relations` adds the comparison against the built
+    relation and fails when no catalog resolves, rather than skipping: asking for the check
+    and getting silence is the false pass it exists to prevent.
     """
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
@@ -193,6 +317,8 @@ def check(root: str = "", relations: bool = False):
 
     expected = expected_relations(repo_root, repo_map)
     contracts = _contract_relations(repo_root, repo_map)
+    documents = _canonical_datasets(repo_root, repo_map)
+    gold = _gold_schemas(repo_map, expected) if documents else set()
     diags: list[dict] = []
 
     for relation, declarer in sorted(expected.items()):
@@ -216,6 +342,8 @@ def check(root: str = "", relations: bool = False):
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
         diags.extend(_grain(doc, path))
+        if documents:
+            diags.extend(_gold_agreement(relation, path, doc, documents, gold))
 
     if relations:
         diags.append(_diag("error", "relations/not-implemented",
