@@ -4,6 +4,7 @@
 import os
 
 import dlt
+from contracts import COLUMNS
 from sources.mdm import mdm_source
 from sources.tlc import zone_rows
 from vibedata.dlt.duckdb import finalize, setup_environment
@@ -19,6 +20,7 @@ LIMIT = int(os.environ.get("DLT_INGEST_LIMIT", NO_LIMIT))
 
 # Each run regenerates the whole master, so every resource is a full replace.
 CONTRACT = {"columns": "freeze", "tables": "evolve", "data_type": "freeze"}
+# COLUMNS is generated from the contracts: a resource with no entry there is a defect and raises.
 
 
 def main():
@@ -34,8 +36,12 @@ def main():
     source = mdm_source.clone(name=CONNECTION_NAME, section=CONNECTION_NAME)(zone_lookup=zone_rows)
     source.add_limit(LIMIT, count_rows=True)
 
-    for resource in source.selected_resources.values():
-        resource.apply_hints(write_disposition="replace", schema_contract=CONTRACT)
+    for name, resource in source.selected_resources.items():
+        resource.apply_hints(
+            write_disposition="replace",
+            columns=COLUMNS[name],
+            schema_contract=CONTRACT,
+        )
 
     try:
         load_info = pipeline.run(source)
