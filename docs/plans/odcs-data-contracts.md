@@ -254,7 +254,7 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 - [ ] **Step 1: Case A** — a dbt model gaining a column with no contract entry fails `dbt build`, naming the column. Prove it on a scratch copy.
 - [ ] **Step 2: Case B** — a dlt source yielding an undeclared column fails the load with the freeze violation.
-- [ ] **Step 3: Case C** — `check --relations` fails when the catalog holds a column the contract dropped, naming both.
+- [ ] **Step 3: Case C** — deferred to Task 2b by ruling, since `check --relations` is a stub until then. It becomes an acceptance criterion there rather than a skipped test here.
 - [ ] **Step 4: Run all three and record the exact message each produces** in the commit body.
 - [ ] **Step 5: Commit** `test: prove each enforcement path fails on drift`.
 
