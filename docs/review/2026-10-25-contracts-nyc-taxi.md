@@ -674,3 +674,52 @@ Order matters, because answers feed each other:
 5. **References (6).** A `relationships` entry on the property names the target and generates the dbt test; where the column is the relation's own identifier rather than a reference, say so in the contract; where it references something outside this Domain, the answer is a description sentence instead.
 
 Nothing here asks for a new pipeline, a new model or a schema change. Each answer is a line in a contract, and `generate` carries the enforceable half of it into the dbt tests and the dlt hints.
+
+## Findings this branch raised outside `reverse`
+
+`reverse` grounds a draft in the catalog, the existing tests and the existing descriptions. Four things the branch
+decided are not in that pass, and each needs a person:
+
+### Relationships the canonical model declares and no contract carries
+
+Fifteen. Each is a `gold/missing-relationship` warning: carrying one publishes an edge *and* adds a dbt
+`relationships` test, so it is a modelling decision rather than a gate fix.
+
+| Contract | The doubt | The question |
+| --- | --- | --- |
+| `core.bridge_zone_poi.zone_natural_key` | the model declares `zone_poi_to_zone` to `dim_zone.zone_natural_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_maintenance.vehicle_key` | the model declares `maintenance_to_vehicle` to `dim_vehicle.vehicle_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_maintenance.garage_key` | the model declares `maintenance_to_garage` to `dim_garage.garage_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_maintenance.started_date_key` | the model declares `maintenance_to_date` to `dim_date.date_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_shift.garage_key` | the model declares `shift_to_garage` to `dim_garage.garage_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_shift.shift_date_key` | the model declares `shift_to_date` to `dim_date.date_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_status_interval.driver_key` | the model declares `status_interval_to_driver` to `dim_driver.driver_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_status_interval.vehicle_key` | the model declares `status_interval_to_vehicle` to `dim_vehicle.vehicle_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_status_interval.interval_date_key` | the model declares `status_interval_to_date` to `dim_date.date_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_status_interval.interval_hour` | the model declares `status_interval_to_daypart` to `dim_daypart.hour_of_day`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_status_interval.zone_key` | the model declares `status_interval_to_zone` to `dim_zone.zone_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_trip.pickup_date_key` | the model declares `trips_to_date` to `dim_date.date_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_trip.pickup_hour` | the model declares `trips_to_daypart` to `dim_daypart.hour_of_day`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_trip.rate_plan_key` | the model declares `trips_to_rate_plan` to `dim_rate_plan.rate_plan_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+| `core.fct_trip.service_type_key` | the model declares `trips_to_service_type` to `dim_service_type.service_type_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
+
+### A composite unique key ODCS cannot state
+
+`the canonical model declares the composite unique key (fare_component, applies_to_fleet, valid_from_date)`. ODCS states uniqueness per property, so no contract edit can express a
+multi-column key. The question is whether the contract should reference the document's key in prose, or
+whether the model should state it as separate `unique` properties instead.
+
+### Two requirement criteria deliberately left open
+
+- **R-14** — the quality rules trace to dbt tests, but a contract cites its canonical document rather than each
+  rule citing its ADR. Deciding whether per-rule ADR citations are worth the prose is a review call.
+- **R-17** — the 1,501 findings above are queued and none is triaged. That is this artifact's own purpose.
+
+### Deferred, each one line
+
+- `tests/test_maps.py` still says "the map declares no gold layers, so the tool infers them"; the tool no longer infers.
+- This artifact's `type: contracts` is outside `.agents/skills/reviewing/templates/review.md`'s enum.
+- A `relationships` test targeting a `source()` renders as `ref()` in the generated dbt test.
+- A corrupt catalog tracebacks with empty stdout instead of reporting `relations/*`.
+- `data-contract`'s "the enforced contract proves it at the build" is true for a dbt model only; 30 of 93 relations are seeds or dlt-loaded.
+- A single-column `unique_keys` entry is skipped although ODCS can express it as `unique: true`.
