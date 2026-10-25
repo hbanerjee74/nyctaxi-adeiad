@@ -41,9 +41,15 @@ def _doc(table, **overrides):
     return doc
 
 
-def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None):
-    """A minimal repo: layers, seeds, a source's resource docs and a canonical model."""
-    artifacts = {"data_contract": "contracts/{schema}/{table}.odcs.yaml"}
+def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None, files=None):
+    """A minimal repo: layers, seeds, a source's resource docs and a canonical model.
+
+    `files` writes hand-written properties files, as `{relative path: text or document}`.
+    """
+    artifacts = {
+        "data_contract": "contracts/{schema}/{table}.odcs.yaml",
+        "ingestion_root": "ingestion/",
+    }
     if logical_model is not None:
         artifacts["logical_model"] = "logical-model/*.ossie.yaml"
         target = tmp_path / "logical-model" / "model.ossie.yaml"
@@ -52,6 +58,7 @@ def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None):
     repo_map = {
         "artifact_paths": artifacts,
         "layers": {
+            "bronze": {"schema": "bronze", "path": "ingestion/", "built_by": "dlt"},
             "core": {"schema": "core", "path": "models/core/", "built_by": "dbt"},
             "seeds": {"schema": "seeds", "path": "seeds/", "built_by": "dbt"},
         },
@@ -79,6 +86,10 @@ def _repo(tmp_path, models=(), seeds=(), sources=None, logical_model=None):
             "docs": f"ingestion/docs/{name}.yml",
         }
     (tmp_path / "repo-map.json").write_text(json.dumps(repo_map))
+    for relative, content in (files or {}).items():
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content if isinstance(content, str) else yaml.safe_dump(content))
     return tmp_path
 
 
@@ -293,3 +304,204 @@ def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
     repo_map["artifact_paths"]["logical_model"] = "logical-model/*.ossie.yaml"
     map_path.write_text(json.dumps(repo_map))
     assert _run("check", "--root", str(elsewhere)) == (0, [])
+
+
+CORE_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    description: >
+      Hand-written prose the generator must not touch.
+    columns:
+      - name: trip_key
+        description: '{{ doc("trip_key") }}'
+        tests: [unique, not_null]
+      - name: total_amount
+        description: The fare total, as billed.
+"""
+
+SEED_PROPERTIES = """version: 2
+
+seeds:
+  - name: band
+    description: Fare banding.
+    columns:
+      - name: band_order
+        tests: [unique, not_null]
+"""
+
+
+def _entries(path, section="models"):
+    """A properties file's entries, by the name dbt resolves them with."""
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return doc, {entry["name"]: entry for entry in doc[section]}
+
+
+def _rule(metric, **overrides):
+    rule = {"type": "library", "metric": metric, "mustBe": 0}
+    rule.update(overrides)
+    return rule
+
+
+def test_generate_writes_the_contract_and_a_data_type_per_column(tmp_path):
+    """The generator augments the hand-written file: dbt rejects a second entry for one model."""
+    _repo(tmp_path, models=["a_model", "b_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model",
+        _prop("trip_key", "string", physicalType="VARCHAR", primaryKey=True),
+        _prop("total_amount", "number", physicalType="DECIMAL(10,2)")))
+    _contract(tmp_path, "core", "b_model", schema=_element(
+        "b_model", _prop("vendor_id", "integer", physicalType="BIGINT")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    doc, entries = _entries(tmp_path / "models" / "core" / "_core.yml")
+    assert [entry["name"] for entry in doc["models"]] == ["a_model"]
+    model = entries["a_model"]
+    assert model["contract"] == {"enforced": True}
+    assert model["description"] == "Hand-written prose the generator must not touch.\n"
+    columns = {column["name"]: column for column in model["columns"]}
+    assert columns["trip_key"]["data_type"] == "VARCHAR"
+    assert columns["trip_key"]["description"] == '{{ doc("trip_key") }}'
+    assert columns["trip_key"]["tests"] == ["unique", "not_null"]
+    assert columns["total_amount"]["data_type"] == "DECIMAL(10,2)"
+    assert columns["total_amount"]["description"] == "The fare total, as billed."
+
+    generated = _entries(tmp_path / "models" / "core" / "_generated.yml")[1]
+    assert generated["b_model"]["contract"] == {"enforced": True}
+    assert generated["b_model"]["columns"] == [
+        {"name": "vendor_id", "data_type": "BIGINT"}
+    ]
+
+
+def test_generate_adds_an_entry_for_a_column_the_file_lacks(tmp_path):
+    """`contract: enforced` fails on an output column with no entry, so one is added."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model",
+        _prop("trip_key", "string", physicalType="VARCHAR"),
+        _prop("pickup_date", "date", physicalType="DATE")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    model = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]
+    assert model["columns"][-1] == {"name": "pickup_date", "data_type": "DATE"}
+    assert [column["name"] for column in model["columns"]] == [
+        "trip_key", "total_amount", "pickup_date"
+    ]
+
+
+def test_generate_writes_data_tests_for_a_seed_and_no_contract(tmp_path):
+    """A seed cannot carry a contract; its enforcement is the generated tests list."""
+    _repo(tmp_path, seeds=["band"], files={"seeds/seeds.yml": SEED_PROPERTIES})
+    _contract(tmp_path, "seeds", "band", schema=_element(
+        "band",
+        _prop("band_order", "integer", physicalType="INTEGER",
+              quality=[_rule("duplicateValues")]),
+        _prop("band_label", "string", physicalType="VARCHAR",
+              quality=[_rule("nullValues")])))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    seed = _entries(tmp_path / "seeds" / "seeds.yml", "seeds")[1]["band"]
+    assert "contract" not in seed
+    columns = {column["name"]: column for column in seed["columns"]}
+    assert columns["band_order"]["data_tests"] == ["unique"]
+    assert columns["band_order"]["tests"] == ["unique", "not_null"]
+    assert columns["band_label"] == {"name": "band_label", "data_tests": ["not_null"]}
+
+
+def test_generate_writes_the_dlt_column_hints(tmp_path):
+    """One hints module for every dlt-loaded table, typed from the contract's `physicalType`."""
+    _repo(tmp_path, sources={"tlc": ("bronze", ["tripdata"])})
+    _contract(tmp_path, "bronze", "tripdata", schema=_element(
+        "tripdata",
+        _prop("vendor_id", "integer", physicalType="BIGINT", required=True),
+        _prop("fare", "number", physicalType="DECIMAL(10,2)"),
+        _prop("pickup", "date", physicalType="DATE"),
+        _prop("loaded_at", "timestamp", physicalType="TIMESTAMP WITH TIME ZONE")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    module = tmp_path / "ingestion" / "contracts.py"
+    namespace: dict = {}
+    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)
+    assert namespace["COLUMNS"] == {
+        "tripdata": {
+            "vendor_id": {"data_type": "bigint", "nullable": False},
+            "fare": {"data_type": "decimal", "nullable": True},
+            "pickup": {"data_type": "date", "nullable": True},
+            "loaded_at": {"data_type": "timestamp", "nullable": True},
+        }
+    }
+
+
+def test_generate_twice_changes_nothing(tmp_path):
+    """A re-run reproduces every generated file byte for byte."""
+    _repo(tmp_path, models=["a_model"], sources={"tlc": ("bronze", ["tripdata"])},
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    _contract(tmp_path, "bronze", "tripdata", schema=_element(
+        "tripdata", _prop("vendor_id", "integer", physicalType="BIGINT")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+
+    written = [tmp_path / "models" / "core" / "_core.yml",
+               tmp_path / "ingestion" / "contracts.py"]
+    first = [path.read_text(encoding="utf-8") for path in written]
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+    assert [path.read_text(encoding="utf-8") for path in written] == first
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_check_reports_a_generated_key_removed_by_hand(tmp_path):
+    """One computation: `check` diffs exactly what `generate` would write."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model",
+        _prop("trip_key", "string", physicalType="VARCHAR"),
+        _prop("total_amount", "number", physicalType="DECIMAL(10,2)")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+    path = tmp_path / "models" / "core" / "_core.yml"
+    doc, _ = _entries(path)
+    model = doc["models"][0]
+    del model["contract"]
+    del model["columns"][1]["data_type"]
+    path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale", "generated/stale"])
+    assert all("_core.yml" in diag["message"] for diag in diags)
+    assert any("a_model.contract" in diag["message"] for diag in diags)
+    assert any("a_model.columns.total_amount.data_type" in diag["message"] for diag in diags)
+
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+    assert _run("check", "--root", str(tmp_path)) == (0, [])
+
+
+def test_generate_says_so_when_the_map_declares_no_contract_path(tmp_path):
+    """A repo that has not adopted contracts gets a diagnosis, not a traceback."""
+    (tmp_path / "repo-map.json").write_text(json.dumps({"artifact_paths": {}, "layers": {}}))
+    code, diags = _run("generate", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["contract/unconfigured"])
+
+
+def test_generate_refuses_a_contract_whose_servers_disagree_with_the_map(tmp_path):
+    """Write nothing from a contract that is already inconsistent with the map."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": CORE_PROPERTIES})
+    servers = [{"type": "duckdb", "database": "domain.duckdb", "schema": "staging"}]
+    _contract(tmp_path, "core", "a_model", servers=servers, schema=_element(
+        "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+
+    code, diags = _run("generate", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["contract/servers-mismatch"])
+    assert "'staging'" in diags[0]["message"] and "'core'" in diags[0]["message"]
+    assert (tmp_path / "models" / "core" / "_core.yml").read_text() == CORE_PROPERTIES
+
+    _contract(tmp_path, "core", "a_model", servers=[{**servers[0], "schema": "core"}],
+              schema=_element(
+                  "a_model", _prop("trip_key", "string", physicalType="VARCHAR")))
+    assert _run("generate", "--root", str(tmp_path)) == (0, [])
+

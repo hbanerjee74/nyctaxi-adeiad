@@ -15,12 +15,14 @@ warehouse is consulted only by `--relations`.
 
 Usage:
   python3 scripts/odcs.py check [--root PATH] [--relations]
+  python3 scripts/odcs.py generate [--root PATH]
 
 JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
 Exit 0 when no errors (warnings allowed), 1 otherwise.
 """
 
 import json
+import ast
 import re
 from pathlib import Path
 
@@ -55,11 +57,42 @@ LOGICAL_TYPES = {
     "Opaque": None,
 }
 
+# dbt reads a model's properties under `models:` and a seed's under `seeds:`.
+PROPERTIES_SECTION = {"model": "models", "seed": "seeds"}
+
+# Files that carry sources, unit tests or semantics; a generated key has no home in them.
+RESERVED_PROPERTIES = ("_sources.yml", "_unit_tests.yml", "_semantic.yml")
+
+# A DuckDB physical type reduced to the dlt column type that lands the same value.
+DLT_TYPES = {
+    "VARCHAR": "text",
+    "DOUBLE": "double",
+    "DECIMAL": "decimal",
+    "BIGINT": "bigint",
+    "INTEGER": "bigint",
+    "HUGEINT": "bigint",
+    "BOOLEAN": "bool",
+    "DATE": "date",
+    "TIMESTAMP": "timestamp",
+    "TIMESTAMP WITH TIME ZONE": "timestamp",
+}
+
+# The quality metrics that reduce to a generic dbt test, and the test each becomes.
+QUALITY_TESTS = {"duplicateValues": "unique", "nullValues": "not_null"}
+
 app = typer.Typer(add_completion=False)
 
 
 def _diag(severity: str, code: str, message: str) -> dict:
     return {"severity": severity, "code": code, "message": message}
+
+
+class _Refused(Exception):
+    """A contract the tool will not write from, carrying the diagnostic that says why."""
+
+    def __init__(self, diag: dict):
+        super().__init__(diag["message"])
+        self.diag = diag
 
 
 def _repo_root(start: Path) -> Path:
@@ -158,6 +191,16 @@ def _contract_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], Pat
             continue
         found[(relative.parts[0], relative.stem.split(".")[0])] = path
     return found
+
+
+def _committed_contracts(root: Path, repo_map: dict) -> dict[tuple[str, str], Path]:
+    """Every committed contract, or a refusal when the map declares no place to keep them."""
+    if not (repo_map.get("artifact_paths") or {}).get("data_contract"):
+        raise _Refused(_diag(
+            "error", "contract/unconfigured",
+            "repo-map.json declares no artifact_paths.data_contract, so no contract can be found",
+        ))
+    return _contract_relations(root, repo_map)
 
 
 def _empty_sections(doc: dict, path: Path) -> list[dict]:
@@ -289,12 +332,462 @@ def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
     return diags
 
 
+def _layer_for(repo_map: dict, schema: str) -> dict | None:
+    """The layer that declares a schema; the map is the only place a schema is named."""
+    for layer in (repo_map.get("layers") or {}).values():
+        if layer.get("schema") == schema:
+            return layer
+    return None
+
+
+def _hints_module(root: Path, repo_map: dict) -> Path:
+    """`contracts.py` under the ingestion root the map declares."""
+    raw = (repo_map.get("artifact_paths") or {}).get("ingestion_root")
+    if not raw:
+        raise _Refused(_diag("error", "contract/unconfigured",
+                             "repo-map.json declares no artifact_paths.ingestion_root, so no "
+                             "dlt hints module can be placed"))
+    return _declared(root, raw) / "contracts.py"
+
+
+def _properties_file(root: Path, layer: dict, table: str, section: str) -> Path:
+    """The layer file that already names this relation, or the one this tool creates."""
+    directory = root / layer["path"]
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.yml")) + sorted(directory.glob("*.yaml")):
+            if path.name in RESERVED_PROPERTIES:
+                continue
+            try:
+                doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except (yaml.YAMLError, OSError):
+                continue
+            if _document_entry(doc, section, table) is not None:
+                return path
+    return directory / "_generated.yml"
+
+
+def _document_entry(doc: dict, section: str, table: str) -> dict | None:
+    """The properties entry named `table` under `section`."""
+    for entry in doc.get(section) or []:
+        if isinstance(entry, dict) and entry.get("name") == table:
+            return entry
+    return None
+
+
+def _target(root: Path, repo_map: dict, relation: tuple[str, str]) -> tuple[str, Path] | None:
+    """What kind of relation this is and which generated artifact its keys belong to."""
+    layer = _layer_for(repo_map, relation[0])
+    if layer is None:
+        return None
+    if layer.get("built_by") == "dlt":
+        return "dlt", _hints_module(root, repo_map)
+    kind = "seed" if (root / layer["path"] / f"{relation[1]}.csv").is_file() else "model"
+    return kind, _properties_file(root, layer, relation[1], PROPERTIES_SECTION[kind])
+
+
+def _dlt_type(physical: str) -> str | None:
+    """A DuckDB type reduced to the dlt column type that lands the same value."""
+    return DLT_TYPES.get(physical.split("(", 1)[0].strip().upper())
+
+
+def _data_tests(prop: dict) -> list:
+    """The generic dbt tests the contract's quality rules reduce to."""
+    tests: list = []
+    for rule in prop.get("quality") or []:
+        if not isinstance(rule, dict) or rule.get("type") != "library":
+            continue
+        if rule.get("mustBe") != 0:
+            continue
+        metric = rule.get("metric")
+        if metric in QUALITY_TESTS:
+            if QUALITY_TESTS[metric] not in tests:
+                tests.append(QUALITY_TESTS[metric])
+        elif metric == "invalidValues":
+            values = (rule.get("arguments") or {}).get("valid_values")
+            if values and not any(isinstance(test, dict) for test in tests):
+                tests.append({"accepted_values": {"arguments": {"values": values}}})
+    return tests
+
+
+def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
+    """The keys `generate` owns for one contract, and nothing else.
+
+    A model carries the enforced contract and a `data_type` per property; a seed carries only
+    the generated tests, since dbt's contract is model-only; a dlt table carries its hints.
+    A key the contract cannot ground is a refusal, never a guess.
+    """
+    for server in contract.get("servers") or []:
+        stated = (server or {}).get("schema") if isinstance(server, dict) else None
+        if stated and stated != relation[0]:
+            raise _Refused(_diag("error", "contract/servers-mismatch",
+                                 f"{relation[0]}.{relation[1]}: `servers[].schema` says "
+                                 f"{stated!r}, the map declares {relation[0]!r}"))
+    owned: dict = {"columns": {}}
+    if kind == "model":
+        owned["contract"] = {"enforced": True}
+    for name, prop in _properties(contract).items():
+        where = f"{relation[0]}.{relation[1]}.{name}"
+        keys: dict = {}
+        if kind == "seed":
+            tests = _data_tests(prop)
+            if not tests:
+                continue
+            keys["data_tests"] = tests
+        else:
+            physical = str(prop.get("physicalType") or "").strip()
+            if kind == "dlt":
+                mapped = _dlt_type(physical) if physical else None
+                if mapped is None:
+                    raise _Refused(_diag("error", "contract/unmapped-type",
+                                         f"{where}: `{physical or 'no physicalType'}` has no dlt "
+                                         f"column type"))
+                keys["data_type"] = mapped
+                keys["nullable"] = not prop.get("required", False)
+            elif physical:
+                keys["data_type"] = physical
+            else:
+                raise _Refused(_diag("error", "contract/unmapped-type",
+                                     f"{where}: no `physicalType`, so no dbt `data_type`"))
+        owned["columns"][name] = keys
+    return owned
+
+
+ITEM = re.compile(r"^(\s*)- name:\s*(.+?)\s*$")
+KEY = re.compile(r"^(\s*)([A-Za-z_][\w-]*):\s*(.*)$")
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _block_end(lines: list[str], index: int, indent: int) -> int:
+    """The line after the block that the `key:` or `- name:` line at `indent` opens."""
+    for other in range(index + 1, len(lines)):
+        text = lines[other].strip()
+        if text and not text.startswith("#") and _indent(lines[other]) <= indent:
+            return other
+    return len(lines)
+
+
+def _content_end(lines: list[str], start: int, end: int) -> int:
+    """The span without its trailing blank lines."""
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return end
+
+
+def _section(lines: list[str], key: str) -> tuple[int, int] | None:
+    """The line span that a top-level `key:` opens."""
+    for index, line in enumerate(lines):
+        match = KEY.match(line)
+        if match and _indent(line) == 0 and match.group(2) == key and not match.group(3):
+            return index + 1, _block_end(lines, index, 0)
+    return None
+
+
+def _entry(lines: list[str], name: str, lo: int, hi: int) -> tuple[int, int] | None:
+    """The `- name: <name>` item inside lines[lo:hi]."""
+    for index in range(lo, hi):
+        match = ITEM.match(lines[index])
+        if match and _scalar(match.group(2)) == name:
+            return index, _block_end(lines, index, len(match.group(1)))
+    return None
+
+
+def _scalar(text: str):
+    try:
+        return yaml.safe_load(text)
+    except yaml.YAMLError:
+        return text
+
+
+def _key_indent(lines: list[str], start: int, end: int) -> int:
+    """The indent of the mapping keys belonging to the item that starts at `start`."""
+    for index in range(start + 1, end):
+        if lines[index].strip() and not lines[index].lstrip().startswith("#"):
+            return _indent(lines[index])
+    return _indent(lines[start]) + 2
+
+
+def _key_span(lines: list[str], start: int, end: int, key: str) -> tuple[int, int] | None:
+    """(line, span end) of `key:` among the item's own keys."""
+    indent = _key_indent(lines, start, end)
+    for index in range(start + 1, end):
+        match = KEY.match(lines[index])
+        if match and _indent(lines[index]) == indent and match.group(2) == key:
+            return index, _block_end(lines, index, indent)
+    return None
+
+
+def _put(lines: list[str], start: int, end: int, key: str, value: str,
+         before: str = "") -> list[str]:
+    """Set `key: value` on the item, appended last or ahead of `before`; sibling keys keep order."""
+    span = _key_span(lines, start, end, key)
+    rendered = f"{' ' * _key_indent(lines, start, end)}{key}: {value}"
+    if span is not None:
+        return [*lines[:span[0]], rendered, *lines[span[1]:]]
+    at = _content_end(lines, start, end)
+    anchor = _key_span(lines, start, end, before) if before else None
+    at = anchor[0] if anchor else at
+    return [*lines[:at], rendered, *lines[at:]]
+
+
+def _column_lines(name: str, keys: dict, indent: int) -> list[str]:
+    """A `columns[]` entry at `indent`, with its keys one level in."""
+    pad = " " * indent
+    return [f"{pad}- name: {name}",
+            *(f"{pad}  {key}: {value}" for key, value in keys.items())]
+
+
+def _first_item_indent(lines: list[str], lo: int, hi: int, default: int) -> int:
+    for index in range(lo, hi):
+        match = ITEM.match(lines[index])
+        if match:
+            return len(match.group(1))
+    return default + 2
+
+
+def _set_column(lines: list[str], start: int, end: int, column: str, key: str,
+                value: str) -> list[str]:
+    """Put `key: value` on a column entry, adding the entry when the model has none."""
+    span = _key_span(lines, start, end, "columns")
+    if span is None:
+        at = _content_end(lines, start, end)
+        indent = _key_indent(lines, start, end)
+        return [*lines[:at], f"{' ' * indent}columns:",
+                *_column_lines(column, {key: value}, indent + 2), *lines[at:]]
+    index, columns_end = span
+    item = _entry(lines, column, index + 1, columns_end)
+    if item is not None:
+        return _put(lines, item[0], item[1], key, value)
+    at = _content_end(lines, index + 1, columns_end)
+    indent = _first_item_indent(lines, index + 1, columns_end, _indent(lines[index]))
+    return [*lines[:at], *_column_lines(column, {key: value}, indent), *lines[at:]]
+
+
+def _entry_lines(table: str, owned: dict, indent: int) -> list[str]:
+    """A whole properties entry, for a file that has none for this relation."""
+    pad = " " * indent
+    lines = [f"{pad}- name: {table}"]
+    if "contract" in owned:
+        lines.append(f"{pad}  contract: {_flow(owned['contract'])}")
+    if owned["columns"]:
+        lines.append(f"{pad}  columns:")
+        for column, keys in owned["columns"].items():
+            lines.extend(_column_lines(column, {k: _flow(v) for k, v in keys.items()},
+                                       indent + 4))
+    return lines
+
+
+def _flow(value) -> str:
+    """One line of YAML: a scalar, or a collection in flow style."""
+    return yaml.safe_dump(value, default_flow_style=True).removesuffix("\n...\n").strip()
+
+
+def _apply(text: str, section: str, table: str, owned: dict) -> str:
+    """The properties file with this relation's owned keys written in; everything else intact."""
+    lines = text.splitlines()
+    span = _section(lines, section)
+    if span is None:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.append(f"{section}:")
+        span = (len(lines), len(lines))
+    found = _entry(lines, table, *span)
+    if found is None:
+        at = _content_end(lines, *span)
+        lines[at:at] = _entry_lines(table, owned, _first_item_indent(lines, *span, 0))
+        return _joined(lines)
+    # Re-found after every insertion: the file is small and the line numbers move.
+    start, end = found
+    for column, keys in owned["columns"].items():
+        for key, value in keys.items():
+            lines = _set_column(lines, start, end, column, key, _flow(value))
+            start, end = _entry(lines, table, *_section(lines, section))
+    if "contract" in owned:
+        lines = _put(lines, start, end, "contract", _flow(owned["contract"]), before="columns")
+    return _joined(lines)
+
+
+def _joined(lines: list[str]) -> str:
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _base(path: Path) -> str:
+    """A properties file's text; one to be created starts as a bare dbt properties document."""
+    return path.read_text(encoding="utf-8") if path.is_file() else "version: 2\n"
+
+
+def _module_text(tables: dict[str, dict[str, dict]]) -> str:
+    """The dlt hints module, written deterministically so a re-run is byte-identical."""
+    lines = [
+        '"""dlt column hints, generated from the data contracts.',
+        "",
+        "Do not edit: `generate` owns this file and `check` fails when it is stale.",
+        '"""',
+        "",
+        "COLUMNS: dict[str, dict[str, dict]] = {",
+    ]
+    for table in sorted(tables):
+        lines.append(f'    "{table}": {{')
+        for column, hint in tables[table].items():
+            kind = hint["data_type"]
+            nullable = hint["nullable"]
+            lines.append(f'        "{column}": {{"data_type": "{kind}", '
+                         f'"nullable": {nullable}}},')
+        lines.append("    },")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def _columns_module(path: Path) -> dict:
+    """The generated module's COLUMNS, read without importing it."""
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign):
+            target = node.targets[0]
+        elif isinstance(node, ast.AnnAssign):
+            target = node.target
+        else:
+            continue
+        if getattr(target, "id", "") == "COLUMNS" and node.value is not None:
+            return ast.literal_eval(node.value)
+    return {}
+
+
+def _display(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def _stale(path: Path, root: Path, key: str) -> dict:
+    return _diag("error", "generated/stale",
+                 f"{_display(path, root)}: {key} is stale; run generate")
+
+
+def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
+                       docs: dict) -> list[dict]:
+    """What `generate` would write, against what is on disk: one computation, no second copy.
+
+    A target file that does not exist is not stale: nothing there claims to be generated.
+    Every file that does exist must agree with the contracts it serves.
+    """
+    targets: dict[Path, list[tuple[tuple[str, str], dict, str]]] = {}
+    diags: list[dict] = []
+    for relation, _ in sorted(contracts.items()):
+        doc = docs.get(relation)
+        if doc is None:
+            continue
+        try:
+            target = _target(root, repo_map, relation)
+        except _Refused as refusal:
+            diags.append(refusal.diag)
+            continue
+        if target is None or not target[1].is_file():
+            continue
+        targets.setdefault(target[1], []).append((relation, doc, target[0]))
+
+    hints: dict[str, dict[str, dict]] = {}
+    module: Path | None = None
+    on_disk_module: dict = {}
+    for path, entries in sorted(targets.items()):
+        if entries[0][2] == "dlt":
+            module, on_disk_module = path, _columns_module(path)
+        else:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for relation, contract, kind in entries:
+            try:
+                owned = _owned(relation, contract, kind)
+            except _Refused as refusal:
+                diags.append(refusal.diag)
+                continue
+            if kind == "dlt":
+                hints[relation[1]] = owned["columns"]
+                continue
+            table, section = relation[1], PROPERTIES_SECTION[kind]
+            found = _document_entry(doc, section, table)
+            if found is None:
+                diags.append(_stale(path, root, f"{section}.{table}"))
+                continue
+            if "contract" in owned and found.get("contract") != owned["contract"]:
+                diags.append(_stale(path, root, f"{table}.contract"))
+            columns = {column.get("name"): column
+                       for column in found.get("columns") or [] if isinstance(column, dict)}
+            for column, keys in owned["columns"].items():
+                for key, value in keys.items():
+                    if (columns.get(column) or {}).get(key) != value:
+                        diags.append(_stale(path, root, f"{table}.columns.{column}.{key}"))
+
+    if hints and module is not None:
+        for table in sorted(set(hints) | set(on_disk_module)):
+            want, got = hints.get(table) or {}, on_disk_module.get(table) or {}
+            for column in sorted(set(want) | set(got)):
+                if want.get(column) != got.get(column):
+                    diags.append(_stale(module, root, f'COLUMNS["{table}"]["{column}"]'))
+    return diags
+
+
 @app.command()
 def version():
     """Pin report: tool, standard version and the vendored upstream commit, as JSON."""
     # Also forces Typer group mode so `check` keeps its subcommand name once
     # `reverse` and `generate` land beside it.
     print(json.dumps({"tool": "odcs", "spec": SPEC_VERSION, "upstream_commit": UPSTREAM_COMMIT}))
+
+
+@app.command()
+def generate(root: str = ""):
+    """Write the dbt contract keys and dlt column hints that the contracts own.
+
+    Only the keys this tool owns are written, and nothing is written at all when a contract
+    already disagrees with the map: a contract set that is inconsistent is not a source.
+    """
+    repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
+    repo_map = _repo_map(repo_root)
+    try:
+        contracts = _committed_contracts(repo_root, repo_map)
+    except _Refused as refusal:
+        print(json.dumps([refusal.diag]))
+        raise typer.Exit(1)
+
+    texts: dict[Path, str] = {}
+    hints: dict[str, dict[str, dict]] = {}
+    diags: list[dict] = []
+    for relation, path in sorted(contracts.items()):
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if not isinstance(doc, dict):
+                raise _Refused(_diag("error", "schema/invalid", f"{path}: not a mapping"))
+            target = _target(repo_root, repo_map, relation)
+            if target is None:
+                continue
+            kind, file = target
+            owned = _owned(relation, doc, kind)
+        except _Refused as refusal:
+            diags.append(refusal.diag)
+            continue
+        except yaml.YAMLError as exc:
+            diags.append(_diag("error", "schema/invalid", f"{path}: {exc}"))
+            continue
+        if kind == "dlt":
+            hints[relation[1]] = owned["columns"]
+        else:
+            texts[file] = _apply(texts.get(file) or _base(file), PROPERTIES_SECTION[kind],
+                                 relation[1], owned)
+
+    if diags:
+        print(json.dumps(diags))
+        raise typer.Exit(1)
+
+    for file, text in texts.items():
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(text, encoding="utf-8")
+    if hints:
+        module = _hints_module(repo_root, repo_map)
+        module.parent.mkdir(parents=True, exist_ok=True)
+        module.write_text(_module_text(hints), encoding="utf-8")
+    print(json.dumps([]))
 
 
 @app.command()
@@ -309,18 +802,17 @@ def check(root: str = "", relations: bool = False):
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
 
-    if not (repo_map.get("artifact_paths") or {}).get("data_contract"):
-        print(json.dumps([_diag(
-            "error", "contract/unconfigured",
-            "repo-map.json declares no artifact_paths.data_contract, so no contract can be found",
-        )]))
+    try:
+        contracts = _committed_contracts(repo_root, repo_map)
+    except _Refused as refusal:
+        print(json.dumps([refusal.diag]))
         raise typer.Exit(1)
 
     expected = expected_relations(repo_root, repo_map)
-    contracts = _contract_relations(repo_root, repo_map)
     documents = _canonical_datasets(repo_root, repo_map)
     gold = _gold_schemas(repo_map, expected) if documents else set()
     diags: list[dict] = []
+    parsed: dict[tuple[str, str], dict] = {}
 
     for relation, declarer in sorted(expected.items()):
         if relation not in contracts:
@@ -340,11 +832,14 @@ def check(root: str = "", relations: bool = False):
         if not isinstance(doc, dict):
             diags.append(_diag("error", "schema/invalid", f"{path}: not a mapping"))
             continue
+        parsed[relation] = doc
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
         diags.extend(_grain(doc, path))
         if documents:
             diags.extend(_gold_agreement(relation, path, doc, documents, gold))
+
+    diags.extend(_stale_diagnostics(repo_root, repo_map, contracts, parsed))
 
     if relations:
         diags.append(_diag("error", "relations/not-implemented",
