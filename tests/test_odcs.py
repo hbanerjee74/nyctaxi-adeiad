@@ -31,6 +31,18 @@ def _generated(tmp_path):
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
 
 
+def _reversed(tmp_path, *args):
+    """`reverse` writes its drafts and reports what it could not settle; it must still succeed.
+
+    Findings are the expected output of a pass over a warehouse, so the assertion is the exit
+    code and the absence of errors, never an empty diagnostic list.
+    """
+    code, diags = _run("reverse", "--root", str(tmp_path), *args)
+    assert code == 0
+    assert all(diag["severity"] != "error" for diag in diags)
+    return diags
+
+
 def _codes(diags):
     return [d["code"] for d in diags]
 
@@ -942,7 +954,7 @@ def test_reverse_drafts_a_grounded_contract_from_the_catalog(tmp_path):
     _warehouse(tmp_path, {("core", "a_model"): [
         ("trip_key", "VARCHAR", True), ("fare", "DOUBLE", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     doc = _written(tmp_path, "core", "a_model")
     assert (doc["apiVersion"], doc["kind"]) == ("v3.2.0", "DataContract")
@@ -972,7 +984,7 @@ def test_reverse_carries_a_generic_test_as_a_quality_rule(tmp_path):
         ("service_type", "VARCHAR", True),
         ("fare", "DOUBLE", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     props = _properties_by_name(_written(tmp_path, "core", "a_model"))
     assert props["trip_key"]["quality"] == [_rule("nullValues"), _rule("duplicateValues")]
@@ -994,7 +1006,7 @@ def test_reverse_takes_the_timezone_option_from_the_model(tmp_path):
         ("loaded_at", "TIMESTAMP", True),
         ("booked_at", "TIMESTAMP WITH TIME ZONE", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     props = _properties_by_name(_written(tmp_path, "core", "a_model"))
     assert props["loaded_at"]["logicalTypeOptions"] == {"timezone": True}
@@ -1008,7 +1020,7 @@ def test_reverse_grounds_a_gold_contract_in_its_canonical_document(tmp_path):
     _warehouse(tmp_path, {("core", "a_model"): [
         ("trip_key", "VARCHAR", False), ("total_amount", "VARCHAR", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     doc = _written(tmp_path, "core", "a_model")
     props = _properties_by_name(doc)
@@ -1027,10 +1039,10 @@ def test_reverse_reproduces_its_files_byte_for_byte(tmp_path):
     _warehouse(tmp_path, {("core", "a_model"): [
         ("trip_key", "VARCHAR", False), ("total_amount", "DECIMAL(10,2)", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
     path = tmp_path / "contracts" / "core" / "a_model.odcs.yaml"
     first = path.read_bytes()
-    assert _run("reverse", "--root", str(tmp_path), "--force") == (0, [])
+    _reversed(tmp_path, "--force")
     assert path.read_bytes() == first
 
 
@@ -1044,7 +1056,7 @@ def test_reverse_contracts_the_loader_audit_relations_and_skips_the_rest(tmp_pat
         ("main", "metricflow_time_spine"): [("date_day", "DATE", True)],
     })
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     written = sorted(path.relative_to(tmp_path).as_posix()
                      for path in (tmp_path / "contracts").rglob("*.odcs.yaml"))
@@ -1117,7 +1129,7 @@ def test_reverse_drops_the_loader_columns_from_a_dlt_relation(tmp_path):
         ("_dlt_load_id", "VARCHAR", False),
         ("_dlt_id", "VARCHAR", False)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     properties = _written(tmp_path, "bronze", "tripdata")["schema"][0]["properties"]
     assert [prop["name"] for prop in properties] == ["vendor_id"]
@@ -1167,7 +1179,7 @@ def test_reverse_omits_a_dbt_doc_reference_instead_of_copying_it(tmp_path):
     _warehouse(tmp_path, {("core", "a_model"): [
         ("trip_key", "VARCHAR", False), ("fare", "DOUBLE", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     doc = _written(tmp_path, "core", "a_model")
     assert "dataGranularityDescription" not in doc["schema"][0]
@@ -1196,7 +1208,7 @@ def test_reverse_leaves_an_existing_contract_alone_unless_forced(tmp_path):
     """The review edits a draft; a second pass must not quietly revert it."""
     _repo(tmp_path, models=["a_model"])
     _warehouse(tmp_path, {("core", "a_model"): [("trip_key", "VARCHAR", True)]})
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     path = tmp_path / "contracts" / "core" / "a_model.odcs.yaml"
     written = path.read_text(encoding="utf-8")
@@ -1204,11 +1216,13 @@ def test_reverse_leaves_an_existing_contract_alone_unless_forced(tmp_path):
     path.write_text(reviewed, encoding="utf-8")
 
     code, diags = _run("reverse", "--root", str(tmp_path))
-    assert code == 0 and _codes(diags) == ["contract/exists"]
-    assert diags[0]["severity"] == "warning" and "1" in diags[0]["message"]
+    assert code == 0
+    exists = _findings(diags, "contract/exists")
+    assert len(exists) == 1 and exists[0]["severity"] == "warning"
+    assert "1" in exists[0]["message"]
     assert path.read_text(encoding="utf-8") == reviewed
 
-    assert _run("reverse", "--root", str(tmp_path), "--force") == (0, [])
+    _reversed(tmp_path, "--force")
     assert path.read_text(encoding="utf-8") == written
 
 
@@ -1229,11 +1243,202 @@ def test_reverse_carries_a_relationships_test_as_a_property_relationship(tmp_pat
           files={"models/core/_core.yml": RELATIONSHIP_PROPERTIES})
     _warehouse(tmp_path, {("core", "a_model"): [("zone_key", "VARCHAR", True)]})
 
-    assert _run("reverse", "--root", str(tmp_path)) == (0, [])
+    _reversed(tmp_path)
 
     prop = _properties_by_name(_written(tmp_path, "core", "a_model"))["zone_key"]
     assert prop["relationships"] == [{"to": "dim_zone.zone_key"}]
     assert "quality" not in prop
+
+
+def _findings(diags, code):
+    return [diag for diag in diags if diag["code"] == code]
+
+
+def _finding_codes(diags):
+    return [diag["code"] for diag in diags if diag["code"].startswith("finding/")]
+
+
+def _load(tmp_path, schema_name, table_name, columns, rows):
+    """Insert `rows` into a table `_warehouse` created, one list of values per row."""
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / WAREHOUSE))
+    try:
+        placeholders = ", ".join("?" for _ in columns)
+        con.executemany(
+            f'insert into {schema_name}."{table_name}" values ({placeholders})', rows)
+    finally:
+        con.close()
+
+
+def test_reverse_reports_a_table_with_no_grain(tmp_path):
+    """The question the review must answer before a contract can present itself as complete."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=[{
+        "name": "a_model",
+        "properties": [_prop("fare", "number", description="The fare total.")]}])
+    _warehouse(tmp_path, {("core", "a_model"): [("fare", "DOUBLE", True)]})
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    findings = _findings(diags, "finding/no-grain")
+    assert len(findings) == 1
+    assert findings[0]["severity"] == "warning"
+    assert findings[0]["message"].startswith("core.a_model: ")
+    assert "one row" in findings[0]["message"]
+
+
+def test_reverse_settles_a_nullable_column_the_data_never_nulls(tmp_path):
+    """A null rate of zero is evidence: the question is answered, not queued."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("fare", "number", description="The fare total.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("fare", "DOUBLE", True)]})
+    _load(tmp_path, "core", "a_model", ["fare"], [[1.0], [2.0]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _findings(diags, "finding/unproven-nullable") == []
+
+
+def test_reverse_asks_about_a_nullable_column_the_data_fills_with_nulls(tmp_path):
+    """Nulls present, no rule either way: the contract has not decided what null means."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("fare", "number", description="The fare total.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("fare", "DOUBLE", True)]})
+    _load(tmp_path, "core", "a_model", ["fare"], [[1.0], [None]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    findings = _findings(diags, "finding/unproven-nullable")
+    assert len(findings) == 1
+    assert findings[0]["message"].startswith("core.a_model.fare: ")
+    assert "null" in findings[0]["message"] and findings[0]["message"].endswith("?")
+
+
+def test_reverse_asks_what_a_reference_shaped_column_points_at(tmp_path):
+    """`zone_key` names a reference; without a `relationships` test nothing states its target."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("zone_key", "string", description="The pickup zone.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("zone_key", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["zone_key"], [["z1"], ["z2"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    findings = _findings(diags, "finding/undeclared-foreign-key")
+    assert len(findings) == 1
+    assert findings[0]["message"].startswith("core.a_model.zone_key: ")
+    assert "relationships" in findings[0]["message"]
+
+
+def test_reverse_leaves_a_reference_shaped_column_that_declares_its_target(tmp_path):
+    """A declared relationship is the answer the class asks for; nothing is queued twice."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("zone_key", "string", description="The pickup zone.",
+                         relationships=[{"to": "core.dim_zone.zone_key"}])))
+    _warehouse(tmp_path, {("core", "a_model"): [("zone_key", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["zone_key"], [["z1"], ["z2"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _findings(diags, "finding/undeclared-foreign-key") == []
+
+
+def test_reverse_asks_whether_a_low_cardinality_column_is_a_closed_set(tmp_path):
+    """Few distinct values is the shape of an enum; only a rule says its set is closed."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("service_type", "string", description="Yellow or green.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("service_type", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["service_type"],
+          [["yellow"], ["green"], ["yellow"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    findings = _findings(diags, "finding/open-enum")
+    assert len(findings) == 1
+    assert findings[0]["message"].startswith("core.a_model.service_type: ")
+    assert "accepted_values" in findings[0]["message"]
+
+
+def test_reverse_leaves_an_enum_alone_when_a_rule_closes_it(tmp_path):
+    """`accepted_values` is the evidence that the value set is not open."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("service_type", "string", description="Yellow or green.",
+                         quality=[_rule("invalidValues",
+                                        arguments={"valid_values": ["yellow", "green"]})])))
+    _warehouse(tmp_path, {("core", "a_model"): [("service_type", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["service_type"],
+          [["yellow"], ["green"], ["yellow"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _findings(diags, "finding/open-enum") == []
+
+
+def test_reverse_reports_a_key_shaped_column_the_data_repeats(tmp_path):
+    """A key that repeats is not the row's key: one doubt, asked once, not twice."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("trip_key", "string", description="Trip key.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("trip_key", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["trip_key"], [["a"], ["a"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _finding_codes(diags) == ["finding/key-repeats"]
+    assert _findings(diags, "finding/key-repeats")[0]["message"].startswith(
+        "core.a_model.trip_key: ")
+
+
+def test_reverse_findings_are_unique_and_identical_on_a_second_run(tmp_path):
+    """Deterministic on the same warehouse, and one finding per relation, column and class."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=[{
+        "name": "a_model",
+        "properties": [
+            _prop("trip_key", "string"),
+            _prop("fare", "number", description="The fare total."),
+            _prop("service_type", "string", description="Yellow or green."),
+            _prop("zone_key", "string", description="The pickup zone."),
+        ]}])
+    _warehouse(tmp_path, {("core", "a_model"): [
+        ("trip_key", "VARCHAR", True),
+        ("fare", "DOUBLE", True),
+        ("service_type", "VARCHAR", True),
+        ("zone_key", "VARCHAR", True),
+    ]})
+    _load(tmp_path, "core", "a_model",
+          ["trip_key", "fare", "service_type", "zone_key"],
+          [["t", None, "yellow", "z1"], ["t", 2.0, "green", "z1"]])
+
+    first = _run("reverse", "--root", str(tmp_path))
+    second = _run("reverse", "--root", str(tmp_path))
+
+    assert first == second
+    code, diags = first
+    assert code == 0
+    keys = [(diag["code"], diag["message"].split(": ", 1)[0])
+            for diag in diags if diag["code"].startswith("finding/")]
+    assert len(keys) == len(set(keys))
+    declared = {"trip_key", "fare", "service_type", "zone_key"}
+    for _, location in keys:
+        parts = location.split(".")
+        assert len(parts) in (2, 3), location
+        if len(parts) == 3:
+            assert parts[2] in declared, location
 
 
 

@@ -3,7 +3,8 @@
 Commands: `check` (schema and structure of the committed contracts, and their agreement
 with the canonical model that names each gold relation), `check --relations` (adds the
 comparison against the built relation), `reverse` (draft contracts from an existing
-warehouse), `generate` (write the dbt keys and dlt hints from the contracts).
+warehouse, with the questions neither the warehouse nor the model can settle), `generate`
+(write the dbt keys and dlt hints from the contracts).
 
 This script proves shape and reports facts. It never judges meaning: the grain, whether a
 `required` is honest, and whether a quality rule encodes the real business answer are the
@@ -109,6 +110,24 @@ RULE_METRICS = {"not_null": "nullValues", "unique": "duplicateValues",
 # A dbt `relationships` test names its target as a rendered reference.
 REF_REFERENCE = re.compile(r"ref\(\s*['\"]([^'\"]+)['\"]\s*\)")
 SOURCE_REFERENCE = re.compile(r"source\(\s*['\"][^'\"]+['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)")
+
+# What `reverse` could not settle, queued for the review instead of guessed. A finding is a
+# warning: the tool reports the doubt and the run still succeeds.
+NO_GRAIN = "finding/no-grain"
+UNDESCRIBED = "finding/undescribed"
+UNPROVEN_NULLABLE = "finding/unproven-nullable"
+KEY_REPEATS = "finding/key-repeats"
+OPEN_ENUM = "finding/open-enum"
+UNDECLARED_FOREIGN_KEY = "finding/undeclared-foreign-key"
+
+# A name that reads as the relation's own key, and one that reads as a reference to another
+# relation's. The shape is the evidence; only a declaration or the data can settle it.
+KEY_SHAPED = re.compile(r"_(key|natural_key)$")
+REFERENCE_SHAPED = re.compile(r"_(key|id)$")
+
+# At most this many distinct values is the shape of an enum; above it a column reads as free
+# text, a name or a code. A judgement, stated here so a review can argue with the number.
+ENUM_MAX_DISTINCT = 12
 
 # Authored once, for the relations no declared resource in this repo builds.
 AUDIT_PURPOSE = (
@@ -1092,6 +1111,126 @@ def _catalog_relations(catalog: Path, repo_map: dict,
     return relations
 
 
+def _identifier(name: str) -> str:
+    """A column name as a quoted identifier, so a reserved word or a space still resolves."""
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _relation_sql(relation: tuple[str, str]) -> str:
+    return f"{_identifier(relation[0])}.{_identifier(relation[1])}"
+
+
+def _relation_evidence(con, relation: tuple[str, str], columns: list[dict]) -> dict:
+    """Rows, nulls and distinct values per column, from the warehouse itself.
+
+    One aggregate per relation: a finding is a claim about the data, so the data is what
+    settles it, and an aggregate is the same answer on every run.
+    """
+    select = ["count(*) as total"]
+    for index, column in enumerate(columns):
+        name = _identifier(column["name"])
+        select.append(f"count(*) filter (where {name} is null) as nulls_{index}")
+        select.append(f"count(distinct {name}) as distinct_{index}")
+    row = con.execute(f"select {', '.join(select)} from {_relation_sql(relation)}").fetchone()
+    evidence = {"rows": row[0], "columns": {}}
+    for index, column in enumerate(columns):
+        evidence["columns"][column["name"]] = {
+            "nulls": row[1 + 2 * index], "distinct": row[2 + 2 * index],
+        }
+    return evidence
+
+
+def _evidence(catalog: Path, relations: dict[tuple[str, str], list[dict]]) -> dict:
+    """The data behind every relation a contract is owed for."""
+    import duckdb
+
+    evidence: dict[tuple[str, str], dict] = {}
+    try:
+        con = duckdb.connect(str(catalog), read_only=True)
+        try:
+            for relation, columns in sorted(relations.items()):
+                evidence[relation] = _relation_evidence(con, relation, columns)
+        finally:
+            con.close()
+    except duckdb.Error as exc:
+        raise _Refused(_diag("error", "catalog/unreadable", f"{catalog}: {exc}"))
+    return evidence
+
+
+def _settled_metrics(prop: dict) -> set[str]:
+    """The rules that assert zero violations: only those settle a doubt."""
+    return {
+        rule.get("metric")
+        for rule in prop.get("quality") or []
+        if isinstance(rule, dict) and rule.get("type") == "library" and rule.get("mustBe") == 0
+    }
+
+
+def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statistics: dict,
+                       keys: set[str]) -> list[dict]:
+    """The doubts one contract property leaves open, each with the evidence gathered so far."""
+    name = prop["name"]
+    where = f"{relation[0]}.{relation[1]}.{name}"
+    nulls, distinct = statistics["nulls"], statistics["distinct"]
+    non_null = rows - nulls
+    settled = _settled_metrics(prop)
+    diags = []
+    if not _prose(prop.get("description")):
+        diags.append(_diag("warning", UNDESCRIBED,
+                           f"{where}: no description; what does {name} mean?"))
+    if nulls and not prop.get("required") and "nullValues" not in settled:
+        diags.append(_diag("warning", UNPROVEN_NULLABLE,
+                           f"{where}: {nulls} of {rows} rows are null and no rule settles whether "
+                           f"that is allowed; is {name} required, or is a null a real state?"))
+    repeats = rows > 0 and distinct < non_null
+    candidate_key = name in keys or KEY_SHAPED.search(name) is not None
+    if candidate_key and repeats:
+        diags.append(_diag("warning", KEY_REPEATS,
+                           f"{where}: {non_null - distinct} duplicate value(s) across {non_null} "
+                           f"non-null rows under a key name; which column(s) identify one row of "
+                           f"{relation[1]}, and is {name} one of them or a repeated reference?"))
+    if (rows and 1 < distinct <= ENUM_MAX_DISTINCT and distinct < rows
+            and prop.get("logicalType") == "string" and "invalidValues" not in settled):
+        diags.append(_diag("warning", OPEN_ENUM,
+                           f"{where}: {distinct} distinct values and no accepted_values test; "
+                           f"which values are valid, and is the set closed?"))
+    if (REFERENCE_SHAPED.search(name) is not None and not name.startswith("_dlt")
+            and not prop.get("relationships") and not prop.get("primaryKey")
+            and not (candidate_key and repeats)):
+        diags.append(_diag("warning", UNDECLARED_FOREIGN_KEY,
+                           f"{where}: the name reads as a reference and no relationships test "
+                           f"states its target; what does {name} reference?"))
+    return diags
+
+
+def _findings(relation: tuple[str, str], contract: dict, evidence: dict,
+              keys: set[str]) -> list[dict]:
+    """Every doubt one contract leaves open, as the question that would settle it.
+
+    A finding is raised only where neither the contract, the canonical model, the dbt tests nor
+    the data settle the point: what is already answered is not queued, and nothing is guessed.
+    """
+    label = f"{relation[0]}.{relation[1]}"
+    elements = [element for element in contract.get("schema") or [] if isinstance(element, dict)]
+    element = elements[0] if elements else {}
+    description = contract.get("description")
+    purpose = description.get("purpose") if isinstance(description, dict) else description
+    diags = []
+    if not _prose(element.get("dataGranularityDescription")):
+        diags.append(_diag("warning", NO_GRAIN,
+                           f"{label}: no grain statement; what does one row of "
+                           f"{relation[1]} represent?"))
+    if not any(_prose(prose) for prose in
+               (purpose, element.get("description"), element.get("dataGranularityDescription"))):
+        diags.append(_diag("warning", UNDESCRIBED,
+                           f"{label}: nothing describes this table; what is {relation[1]} for?"))
+    for name, prop in sorted(_properties(contract).items()):
+        diags.extend(_property_findings(
+            relation, prop, evidence["rows"],
+            evidence["columns"].get(name) or {"nulls": 0, "distinct": 0}, keys))
+    return diags
+
+
 def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[dict],
            documents: dict[tuple[str, str], tuple[dict, Path]]) -> dict:
     """One contract, holding only what the catalog, the canonical model and dbt already state."""
@@ -1158,6 +1297,22 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
     return doc
 
 
+def _reviewed(target: Path, draft: dict, existing: bool) -> dict:
+    """The contract a reader would find: the committed one, unless it cannot be read.
+
+    `reverse` leaves a reviewed file alone, so the findings triage what is on disk rather than
+    the draft it would have written. A file that does not parse contributes the draft; `check`
+    is where a broken contract fails.
+    """
+    if not existing:
+        return draft
+    try:
+        doc = yaml.safe_load(target.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError):
+        return draft
+    return doc if isinstance(doc, dict) else draft
+
+
 def _dump(doc: dict) -> str:
     """One contract as YAML: the order it was built in, never wrapped, so a re-run is identical.
 
@@ -1188,6 +1343,11 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
 
     An existing contract is a draft the review already worked on, so this leaves it alone and
     reports how many it skipped; `--force` rewrites them all.
+
+    Every relation also yields its open questions as `finding/*` warnings, computed against the
+    contract on disk (or the draft, where there is none): a doubt the model, the tests or the
+    data already settles is not raised, and one nothing settles is, naming the relation, the
+    column and the question that would close it.
     """
     repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
     repo_map = _repo_map(repo_root)
@@ -1205,6 +1365,7 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
         documents = _canonical_datasets(repo_root, repo_map)
         relations = _catalog_relations(
             warehouse, repo_map, expected_relations(repo_root, repo_map))
+        evidence = _evidence(warehouse, relations)
     except _Refused as refusal:
         print(json.dumps([refusal.diag]))
         raise typer.Exit(1)
@@ -1221,21 +1382,31 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
         raise typer.Exit(1)
 
     base = _declared(repo_root, raw)
+    keys = {
+        relation: set(dataset.get("primary_key") or [])
+        for relation, (dataset, _) in documents.items()
+    }
+    findings: list[dict] = []
     skipped = 0
     for relation, doc in drafts:
         target = base / relation[0] / f"{relation[1]}.odcs.yaml"
-        if target.exists() and not force:
+        existing = target.is_file() and not force
+        if existing:
             skipped += 1
+        findings.extend(_findings(
+            relation, _reviewed(target, doc, existing), evidence[relation],
+            keys.get(relation, set())))
+        if existing:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_dump(doc), encoding="utf-8")
+    findings.sort(key=lambda diag: (diag["message"].split(": ", 1)[0], diag["code"]))
     if skipped:
-        print(json.dumps([_diag(
+        findings.append(_diag(
             "warning", "contract/exists",
             f"{skipped} contract(s) already exist and were left alone; pass --force to rewrite "
-            f"them")]))
-        return
-    print(json.dumps([]))
+            f"them"))
+    print(json.dumps(findings))
 
 
 @app.command()
