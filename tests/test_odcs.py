@@ -391,6 +391,24 @@ seeds:
         data_tests: [unique]
 """
 
+SEED_WITH_LEFTOVER = """version: 2
+
+seeds:
+  - name: band
+    columns:
+      - name: band_order
+        data_tests: [unique]
+"""
+
+MODEL_WITH_DATA_TYPE = """version: 2
+
+models:
+  - name: a_model
+    columns:
+      - name: trip_key
+        data_type: VARCHAR
+"""
+
 
 def _entries(path, section="models"):
     """A properties file's entries, by the name dbt resolves them with."""
@@ -686,5 +704,29 @@ def test_generate_augments_a_zero_indent_properties_file(tmp_path):
     assert model["columns"] == [
         {"name": "trip_key", "description": "kept", "data_type": "VARCHAR"}
     ]
+
+
+def test_check_reports_a_seed_data_tests_the_contract_cannot_translate(tmp_path):
+    """`generate` never deletes: a rule it cannot translate yet must not hide the leftover."""
+    _repo(tmp_path, seeds=["band"], files={"seeds/seeds.yml": SEED_WITH_LEFTOVER})
+    _contract(tmp_path, "seeds", "band", schema=_element(
+        "band", _prop("band_order", "integer", quality=[_rule("nullValues", mustBe=100)])))
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "band.columns.band_order.data_tests" in diags[0]["message"]
+
+
+def test_check_reports_a_data_type_when_the_contract_declares_no_properties(tmp_path):
+    """A model element with no properties yields no column vocabulary; the absence half still runs."""
+    _repo(tmp_path, models=["a_model"],
+          files={"models/core/_core.yml": MODEL_WITH_DATA_TYPE})
+    _contract(tmp_path, "core", "a_model")
+    _generated(tmp_path)
+
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (1, ["generated/stale"])
+    assert "a_model.columns.trip_key.data_type" in diags[0]["message"]
+
 
 

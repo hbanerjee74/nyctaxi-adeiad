@@ -687,15 +687,22 @@ def _stale(path: Path, root: Path, key: str) -> dict:
                  f"{_display(path, root)}: {key} is stale; run generate")
 
 
-def _stale_keys(found: dict, owned: dict, table: str) -> list[str]:
-    """Owned keys on disk that `_owned` does not produce here.
+# The column keys `_owned` produces per kind, used only when a contract yields none of its own.
+FALLBACK_KEYS = {"model": ("data_type",), "seed": ("data_tests",)}
 
-    The vocabulary comes from `_owned`'s own output for this contract, so the two cannot
-    disagree: a key `generate` never writes for this kind is not stale, because `generate`
-    could never clear it, and a key it does write on a column the contract does not declare is.
+
+def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:
+    """Owned column keys on disk that `_owned` does not produce here.
+
+    The vocabulary is `_owned`'s own output for this contract, so the two cannot disagree.
+    It falls back to the kind's own key when a contract yields none (`_owned` writes no column
+    key for a seed whose rule is not translatable yet, or for a model element with no
+    properties): `generate` never deletes a key it stopped writing, so a key left behind must
+    still be reported rather than disappear with the vocabulary.
     """
     stale = [f"{table}.contract"] if "contract" in found and "contract" not in owned else []
-    column_keys = {key for keys in owned["columns"].values() for key in keys}
+    column_keys = sorted({key for keys in owned["columns"].values() for key in keys}
+                         or FALLBACK_KEYS.get(kind, ()))
     for column in found.get("columns") or []:
         if not isinstance(column, dict):
             continue
@@ -751,7 +758,7 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                 continue
             if "contract" in owned and found.get("contract") != owned["contract"]:
                 diags.append(_stale(path, root, f"{table}.contract"))
-            for key in _stale_keys(found, owned, table):
+            for key in _stale_keys(found, owned, kind, table):
                 diags.append(_stale(path, root, key))
             columns = {column.get("name"): column
                        for column in found.get("columns") or [] if isinstance(column, dict)}
