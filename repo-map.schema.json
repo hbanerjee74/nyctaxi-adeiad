@@ -195,6 +195,13 @@
         }
       }
     },
+    "gold_layers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Layer names that hold gold relations. A tool that gates gold agreement reads this instead of carrying a list of non-gold names of its own, because another Domain names its layers differently. A map that omits the list leaves the reader to the shape: a dbt layer that builds models is gold, a seed or raw layer is not."
+    },
     "sources": {
       "type": "object",
       "description": "Each raw source loaded by dlt.",

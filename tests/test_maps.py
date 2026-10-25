@@ -74,6 +74,30 @@ def test_the_ontology_is_declared_and_gated():
         "the ontology has no validation skill of its own"
 
 
+def test_the_contracts_are_declared_and_gated():
+    """Every repo has contracts beside its maps, whatever its layers."""
+    assert REPO_MAP["artifact_paths"]["data_contract"].endswith(".odcs.yaml")
+    assert "contracts" in REPO_MAP["modules"], "the contracts module has no path"
+    assert (ROOT / REPO_MAP["modules"]["contracts"]["path"]).is_dir()
+    assert "contracts/" in REPO_MAP["key_directories"]
+    assert "contracts" in TEST_MAP["modules"], "the contracts have no test-map module"
+    gate = REPO_MAP["commands"]["odcs_check"]
+    assert "odcs.py check" in gate, gate
+    assert REPO_MAP["commands"]["odcs_check_relations"] == f"{gate} --relations", (
+        "the relations check is not the registered check with its flag"
+    )
+    assert TEST_MAP["modules"]["contracts"]["commands"]["structural"] == gate, (
+        "the test map gates the contracts with a different command than the map registers"
+    )
+
+
+def test_the_gold_layers_are_declared_and_exist():
+    """Gold is a declaration in the map, not a fixed list of non-gold names inside the tool."""
+    assert "gold_layers" in REPO_MAP, "the map declares no gold layers, so the tool infers them"
+    unknown = set(REPO_MAP["gold_layers"]) - set(REPO_MAP["layers"])
+    assert unknown == set(), f"gold layers the map does not declare: {sorted(unknown)}"
+
+
 def test_source_artifact_patterns_resolve_for_every_source():
     for name in REPO_MAP["sources"]:
         for key in ("source_module", "source_tests", "pipeline", "resource_docs", "design_record_pipeline"):

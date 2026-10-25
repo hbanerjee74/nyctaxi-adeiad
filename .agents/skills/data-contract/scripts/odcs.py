@@ -42,10 +42,6 @@ UPSTREAM_COMMIT = "8b551607aad6801979bf4c209385e78fc4d029e5"
 # Sections that assert something. A present-but-empty one claims a promise nobody made.
 ROOT_SECTIONS = ("servers", "authoritativeDefinitions", "tags")
 
-# Gold is every dbt layer that is neither staging, intermediate nor a seed. Raw layers are
-# excluded by `built_by`, and this list is the one place the three names appear.
-NON_GOLD_LAYERS = ("staging", "intermediate", "seeds")
-
 # Ossie `DataType` reduced to the ODCS `logicalType` it states; `Opaque` states none.
 LOGICAL_TYPES = {
     "String": "string",
@@ -348,15 +344,30 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tup
     return datasets
 
 
-def _gold_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
-    """Schemas holding gold relations: a dbt layer the map builds, past raw and staging."""
+def _gold_schemas(root: Path, repo_map: dict,
+                  expected: dict[tuple[str, str], str]) -> set[str]:
+    """Schemas holding gold relations: the layers the map declares gold, where they are built.
+
+    The declaration is the map's, because another Domain names its layers differently and only
+    its map knows which of them are gold. A map that declares none is read by shape instead —
+    a dbt layer that builds a model is gold, a seed or raw layer is not — so a contract set on
+    such a map still gates agreement rather than passing for want of a declaration. That
+    reading cannot tell a staging layer from a mart, so a map that wants an exact answer
+    declares the list.
+    """
+    layers = repo_map.get("layers") or {}
+    declared = repo_map.get("gold_layers")
+    if declared is None:
+        declared = [
+            name for name, layer in layers.items()
+            if layer.get("built_by") == "dbt" and layer.get("path")
+            and any((root / layer["path"]).rglob("*.sql"))
+        ]
     built = {schema for schema, _ in expected}
     return {
-        layer["schema"]
-        for name, layer in (repo_map.get("layers") or {}).items()
-        if name not in NON_GOLD_LAYERS
-        and layer.get("built_by") == "dbt"
-        and layer.get("schema") in built
+        layers[name]["schema"]
+        for name in declared
+        if name in layers and layers[name]["schema"] in built
     }
 
 
@@ -1490,7 +1501,7 @@ def check(root: str = "", relations: bool = False):
 
     expected = expected_relations(repo_root, repo_map)
     documents = _canonical_datasets(repo_root, repo_map)
-    gold = _gold_schemas(repo_map, expected) if documents else set()
+    gold = _gold_schemas(repo_root, repo_map, expected) if documents else set()
     # A schema the canonical model documents no relation in is not yet modelled: the review
     # asks for a document, the gate does not fail a relation that never had one to agree with.
     modelled = gold & {schema for schema, _ in documents}

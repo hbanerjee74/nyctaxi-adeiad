@@ -125,6 +125,12 @@
       "notes": "Analyst-owned banding tables, loaded by dbt seed into their own schema. Not a medallion layer."
     }
   },
+  "gold_layers": [
+    "core",
+    "agg",
+    "finance",
+    "ops"
+  ],
   "sources": {
     "tlc": {
       "kind": "dlt",
@@ -284,6 +290,10 @@
     "ontology": {
       "path": "ontology/",
       "description": "Business ontology, Apache Ossie 0.2.0.dev0: the CONTEXT.md vocabulary as entity and value types with their relationships, plus one mapping per canonical document that concepts reach. Authored under the ontology skill and gated by validating-ontology (its own step: structure, then coverage, then content). Declarations only: nothing parses or executes a mapping."
+    },
+    "contracts": {
+      "path": "contracts/",
+      "description": "ODCS v3.2.0 data contracts, one per relation the layers and sources declare, at `{schema}/{table}.odcs.yaml`. Authored with the data-contract skill, drafted by `odcs.py reverse`, and gated by `odcs.py check`: the schema, the structure, agreement with the canonical document that names a gold relation, and its own generated dbt keys and dlt hints. The contract is the authored artifact; the enforcement generated from it is not."
     }
   },
   "key_directories": {
@@ -298,7 +308,8 @@
     ".github/": "Domain CI workflows and scripts",
     "docs/setup/": "Repo maintenance: how this repo was built, its decisions, the data-provenance notes, the skill changes it implies and the script that seeds the Studio Domain database. Not for ingestion or transformation tasks; do not read it for them, and do not maintain it.",
     "docs/review/": "Review findings for triage. Not read during build tasks.",
-    "docs/proposal/": "Proposals that become intents. Read one only when the intent links to it."
+    "docs/proposal/": "Proposals that become intents. Read one only when the intent links to it.",
+    "contracts/": "ODCS data contracts, one per declared relation. Read one before changing the relation it names."
   },
   "commands": {
     "all": "python3 orchestration/run_all.py",
@@ -314,7 +325,9 @@
     "python_lint": "ruff check .",
     "sqlfluff_lint": "sqlfluff lint transformation/models",
     "adr_lint": "python3 .github/scripts/adr_lint.py",
-    "ossie_lint": "python3 tools/ossie_lint.py"
+    "ossie_lint": "python3 tools/ossie_lint.py",
+    "odcs_check": "python3 .agents/skills/data-contract/scripts/odcs.py check",
+    "odcs_check_relations": "python3 .agents/skills/data-contract/scripts/odcs.py check --relations"
   },
   "key_references": {
     "agents": "AGENTS.md",
