@@ -1188,9 +1188,13 @@ def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statist
         diags.append(_diag("warning", KEY_REPEATS,
                            f"{where}: {non_null - distinct} duplicate value(s) across {non_null} "
                            f"non-null rows under a key name; which column(s) identify one row of "
-                           f"{relation[1]}, and is {name} one of them or a repeated reference?"))
+                           f"{relation[1]}, and is {name} one of them or a repeated reference — if "
+                           f"a reference, what does it target?"))
+    # An identifier's value set is not a domain: "which values are valid" has a false premise for
+    # a key, whose own question (class 6) asks what it points at instead.
     if (rows and 1 < distinct <= ENUM_MAX_DISTINCT and distinct < rows
-            and prop.get("logicalType") == "string" and "invalidValues" not in settled):
+            and prop.get("logicalType") == "string" and "invalidValues" not in settled
+            and REFERENCE_SHAPED.search(name) is None):
         diags.append(_diag("warning", OPEN_ENUM,
                            f"{where}: {distinct} distinct values and no accepted_values test; "
                            f"which values are valid, and is the set closed?"))
@@ -1199,7 +1203,8 @@ def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statist
             and not (candidate_key and repeats)):
         diags.append(_diag("warning", UNDECLARED_FOREIGN_KEY,
                            f"{where}: the name reads as a reference and no relationships test "
-                           f"states its target; what does {name} reference?"))
+                           f"states its target; what does {name} reference, or is it this "
+                           f"relation's own identifier?"))
     return diags
 
 

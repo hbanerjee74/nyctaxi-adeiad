@@ -15,11 +15,14 @@ Not queued, because something already settled it:
 
 - a nullable column the data never nulls — a null rate of zero is the answer to "can it be null";
 - an enum-shaped column carrying an `accepted_values` test, or any rule that asserts zero violations;
+- an enum-shaped column whose name ends in `_key` or `_id` — a key is an identifier, not a value set, and class 6 asks what it is;
 - a reference-shaped column that declares a `relationships` target;
 - a `*_key` column the contract declares `primaryKey` — it states row identity, not a reference;
 - an empty relation, whose data settles nothing and so is only asked about where the contract is silent.
 
 The reverse pass is deterministic: the same warehouse yields the same findings in the same order, and `reverse --force` on this tree reproduces all 93 contracts byte for byte. The findings are computed against the contract on disk, so this queue describes the reviewed contracts and not a fresh draft.
+
+`domain.duckdb` is gitignored and rebuilt — `orchestration/run_all.py` runs ingest and then the dbt build over it. The data behind classes 3–6 is therefore this build's, and the counts move when the warehouse is rebuilt; classes 1 and 2 read the contracts and the canonical model, so a rebuild leaves them alone.
 
 ## Findings
 
@@ -28,11 +31,11 @@ The reverse pass is deterministic: the same warehouse yields the same findings i
 | R-1 | gap | 27 relations state no grain, so nothing in the contract says what one row is. | `reverse` reports them as `finding/no-grain`; `check` warns about the same relations | One sentence per relation in `dataGranularityDescription`. Start here: the grain answers class 4. | open |
 | R-2 | gap | 1035 contract entries — 21 tables and 1014 of 1170 declared columns — carry no description. | sections 2a and 2b | One pass per table in the dbt properties file; `generate` carries the enforceable half into the tests. | open |
 | R-3 | gap | 127 nullable columns hold nulls with no rule saying whether a null is allowed. | section 3, with the null count per column | A `nullValues` rule where null is a defect, a description sentence where it is a state. | open |
-| R-4 | gap | 45 key-shaped columns repeat, so none of them is the row key on its own. | section 4, with the duplicate count per column | Name the identifying combination in the grain, and drop the key claim from the rest. | open |
-| R-5 | gap | 166 string columns are enum-shaped with nothing closing their value set. | section 5, with the distinct count per column | An `accepted_values` rule where the set is closed, a description where it is a lookup. | open |
+| R-4 | gap | 45 key-shaped columns repeat, so none of them is the row key on its own. | section 4, with the duplicate count per column | Name the identifying combination in the grain, and for each column that is a repeated reference, the target it points at. | open |
+| R-5 | gap | 155 string columns are enum-shaped with nothing closing their value set. | section 5, with the distinct count per column | An `accepted_values` rule where the set is closed, a description where it is a lookup. | open |
 | R-6 | gap | 112 reference-shaped columns declare no `relationships` target. | section 6 | A `relationships` entry per column; `generate` writes the dbt test it reduces to. | open |
 
-**1512 findings across the six classes below.** The table is the class-level view the triage works from; each section that follows lists the rows it counts, and every row carries the evidence gathered so far and the question that closes it. A finding here is a question, not a defect: the contract cannot answer it for itself, and no other artifact in the repository can answer it either.
+**1501 findings across the six classes below.** The table is the class-level view the triage works from; each section that follows lists the rows it counts, and every row carries the evidence gathered so far and the question that closes it. A finding here is a question, not a defect: the contract cannot answer it for itself, and no other artifact in the repository can answer it either.
 
 ## 1. No grain statement
 
@@ -327,59 +330,59 @@ One row per table; every column named in it is one finding, and one answer in th
 
 ## 4. Candidate key that repeats in the data
 
-45 columns are named or declared as a key — a `_key` or `_natural_key` suffix, or the canonical model's `primary_key` — and hold duplicate values. Either the relation's grain is a combination these columns are only part of, or the column is a repeated reference. The data answers which combination is unique; the model answers what to call it.
+45 columns are named or declared as a key — a `_key` or `_natural_key` suffix, or the canonical model's `primary_key` — and hold duplicate values. Either the relation's grain is a combination these columns are only part of, or the column is a repeated reference. The data answers which combination is unique; the model answers what to call it. A repeated reference is also a foreign key nobody declared, so each row asks what it targets as well.
 
 | Column | Evidence | Question | Status |
 | --- | --- | --- | --- |
-| `agg.agg_driver_daily.date_key` | 32,061 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is date_key one of them or a repeated reference? | open |
-| `agg.agg_driver_daily.driver_key` | 31,393 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is driver_key one of them or a repeated reference? | open |
-| `agg.agg_driver_daily.garage_key` | 32,147 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is garage_key one of them or a repeated reference? | open |
-| `agg.agg_driver_monthly.driver_key` | 1,594 duplicate value(s) across 2,354 non-null rows under a key name | Which column(s) identify one row of agg_driver_monthly, and is driver_key one of them or a repeated reference? | open |
-| `agg.agg_driver_monthly.garage_key` | 2,348 duplicate value(s) across 2,354 non-null rows under a key name | Which column(s) identify one row of agg_driver_monthly, and is garage_key one of them or a repeated reference? | open |
-| `agg.agg_garage_monthly.garage_key` | 18 duplicate value(s) across 24 non-null rows under a key name | Which column(s) identify one row of agg_garage_monthly, and is garage_key one of them or a repeated reference? | open |
-| `agg.agg_trip_band_profile.service_type_key` | 4,575 duplicate value(s) across 4,577 non-null rows under a key name | Which column(s) identify one row of agg_trip_band_profile, and is service_type_key one of them or a repeated reference? | open |
-| `agg.agg_trip_zone_daily.pickup_date_key` | 6,985 duplicate value(s) across 7,017 non-null rows under a key name | Which column(s) identify one row of agg_trip_zone_daily, and is pickup_date_key one of them or a repeated reference? | open |
-| `agg.agg_trip_zone_daypart_dow.service_type_key` | 14,444 duplicate value(s) across 14,446 non-null rows under a key name | Which column(s) identify one row of agg_trip_zone_daypart_dow, and is service_type_key one of them or a repeated reference? | open |
-| `agg.agg_vehicle_daily.date_key` | 33,801 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is date_key one of them or a repeated reference? | open |
-| `agg.agg_vehicle_daily.garage_key` | 33,887 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is garage_key one of them or a repeated reference? | open |
-| `agg.agg_vehicle_daily.vehicle_key` | 33,473 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is vehicle_key one of them or a repeated reference? | open |
-| `agg.agg_vehicle_monthly.garage_key` | 1,370 duplicate value(s) across 1,376 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_monthly, and is garage_key one of them or a repeated reference? | open |
-| `agg.agg_vehicle_monthly.vehicle_key` | 956 duplicate value(s) across 1,376 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_monthly, and is vehicle_key one of them or a repeated reference? | open |
-| `core.bridge_zone_poi.zone_natural_key` | 99 duplicate value(s) across 272 non-null rows under a key name | Which column(s) identify one row of bridge_zone_poi, and is zone_natural_key one of them or a repeated reference? | open |
-| `core.dim_driver.garage_key` | 754 duplicate value(s) across 760 non-null rows under a key name | Which column(s) identify one row of dim_driver, and is garage_key one of them or a repeated reference? | open |
-| `core.dim_vehicle.garage_key` | 414 duplicate value(s) across 420 non-null rows under a key name | Which column(s) identify one row of dim_vehicle, and is garage_key one of them or a repeated reference? | open |
-| `core.dim_vendor.vendor_natural_key` | 1 duplicate value(s) across 5 non-null rows under a key name | Which column(s) identify one row of dim_vendor, and is vendor_natural_key one of them or a repeated reference? | open |
-| `core.dim_zone.zone_natural_key` | 7 duplicate value(s) across 272 non-null rows under a key name | Which column(s) identify one row of dim_zone, and is zone_natural_key one of them or a repeated reference? | open |
-| `core.fct_maintenance.garage_key` | 842 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is garage_key one of them or a repeated reference? | open |
-| `core.fct_maintenance.started_date_key` | 758 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is started_date_key one of them or a repeated reference? | open |
-| `core.fct_maintenance.vehicle_key` | 437 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is vehicle_key one of them or a repeated reference? | open |
-| `core.fct_shift.driver_key` | 37,445 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is driver_key one of them or a repeated reference? | open |
-| `core.fct_shift.garage_key` | 38,199 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is garage_key one of them or a repeated reference? | open |
-| `core.fct_shift.shift_date_key` | 38,113 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is shift_date_key one of them or a repeated reference? | open |
-| `core.fct_shift.vehicle_key` | 37,785 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is vehicle_key one of them or a repeated reference? | open |
-| `core.fct_status_interval.driver_key` | 1,806,357 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is driver_key one of them or a repeated reference? | open |
-| `core.fct_status_interval.interval_date_key` | 1,807,024 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is interval_date_key one of them or a repeated reference? | open |
-| `core.fct_status_interval.vehicle_key` | 1,806,697 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is vehicle_key one of them or a repeated reference? | open |
-| `core.fct_status_interval.zone_key` | 1,692,861 duplicate value(s) across 1,693,120 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is zone_key one of them or a repeated reference? | open |
-| `core.fct_status_interval.zone_natural_key` | 1,692,861 duplicate value(s) across 1,693,120 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is zone_natural_key one of them or a repeated reference? | open |
-| `core.fct_trip.driver_key` | 146,681 duplicate value(s) across 147,434 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is driver_key one of them or a repeated reference? | open |
-| `core.fct_trip.dropoff_zone_key` | 3,020,909 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is dropoff_zone_key one of them or a repeated reference? | open |
-| `core.fct_trip.payment_method_key` | 3,017,754 duplicate value(s) across 3,017,760 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is payment_method_key one of them or a repeated reference? | open |
-| `core.fct_trip.pickup_date_key` | 3,021,137 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is pickup_date_key one of them or a repeated reference? | open |
-| `core.fct_trip.pickup_zone_key` | 3,020,910 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is pickup_zone_key one of them or a repeated reference? | open |
-| `core.fct_trip.rate_plan_key` | 2,877,591 duplicate value(s) across 2,877,598 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is rate_plan_key one of them or a repeated reference? | open |
-| `core.fct_trip.service_type_key` | 3,021,173 duplicate value(s) across 3,021,175 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is service_type_key one of them or a repeated reference? | open |
-| `core.fct_trip.trip_quality_key` | 3,021,086 duplicate value(s) across 3,021,175 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is trip_quality_key one of them or a repeated reference? | open |
-| `core.fct_trip.vehicle_key` | 147,014 duplicate value(s) across 147,434 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is vehicle_key one of them or a repeated reference? | open |
-| `core.fct_trip.vendor_key` | 3,021,167 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is vendor_key one of them or a repeated reference? | open |
-| `finance.mart_revenue_component_bridge.service_type_key` | 160 duplicate value(s) across 162 non-null rows under a key name | Which column(s) identify one row of mart_revenue_component_bridge, and is service_type_key one of them or a repeated reference? | open |
-| `ops.mart_driver_scorecard.garage_key` | 754 duplicate value(s) across 760 non-null rows under a key name | Which column(s) identify one row of mart_driver_scorecard, and is garage_key one of them or a repeated reference? | open |
-| `ops.mart_trip_quality_scorecard.service_type_key` | 4 duplicate value(s) across 6 non-null rows under a key name | Which column(s) identify one row of mart_trip_quality_scorecard, and is service_type_key one of them or a repeated reference? | open |
-| `ops.mart_vehicle_utilisation.garage_key` | 414 duplicate value(s) across 420 non-null rows under a key name | Which column(s) identify one row of mart_vehicle_utilisation, and is garage_key one of them or a repeated reference? | open |
+| `agg.agg_driver_daily.date_key` | 32,061 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_driver_daily.driver_key` | 31,393 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is driver_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_driver_daily.garage_key` | 32,147 duplicate value(s) across 32,153 non-null rows under a key name | Which column(s) identify one row of agg_driver_daily, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_driver_monthly.driver_key` | 1,594 duplicate value(s) across 2,354 non-null rows under a key name | Which column(s) identify one row of agg_driver_monthly, and is driver_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_driver_monthly.garage_key` | 2,348 duplicate value(s) across 2,354 non-null rows under a key name | Which column(s) identify one row of agg_driver_monthly, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_garage_monthly.garage_key` | 18 duplicate value(s) across 24 non-null rows under a key name | Which column(s) identify one row of agg_garage_monthly, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_trip_band_profile.service_type_key` | 4,575 duplicate value(s) across 4,577 non-null rows under a key name | Which column(s) identify one row of agg_trip_band_profile, and is service_type_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_trip_zone_daily.pickup_date_key` | 6,985 duplicate value(s) across 7,017 non-null rows under a key name | Which column(s) identify one row of agg_trip_zone_daily, and is pickup_date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_trip_zone_daypart_dow.service_type_key` | 14,444 duplicate value(s) across 14,446 non-null rows under a key name | Which column(s) identify one row of agg_trip_zone_daypart_dow, and is service_type_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_vehicle_daily.date_key` | 33,801 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_vehicle_daily.garage_key` | 33,887 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_vehicle_daily.vehicle_key` | 33,473 duplicate value(s) across 33,893 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_daily, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_vehicle_monthly.garage_key` | 1,370 duplicate value(s) across 1,376 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_monthly, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `agg.agg_vehicle_monthly.vehicle_key` | 956 duplicate value(s) across 1,376 non-null rows under a key name | Which column(s) identify one row of agg_vehicle_monthly, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.bridge_zone_poi.zone_natural_key` | 99 duplicate value(s) across 272 non-null rows under a key name | Which column(s) identify one row of bridge_zone_poi, and is zone_natural_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.dim_driver.garage_key` | 754 duplicate value(s) across 760 non-null rows under a key name | Which column(s) identify one row of dim_driver, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.dim_vehicle.garage_key` | 414 duplicate value(s) across 420 non-null rows under a key name | Which column(s) identify one row of dim_vehicle, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.dim_vendor.vendor_natural_key` | 1 duplicate value(s) across 5 non-null rows under a key name | Which column(s) identify one row of dim_vendor, and is vendor_natural_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.dim_zone.zone_natural_key` | 7 duplicate value(s) across 272 non-null rows under a key name | Which column(s) identify one row of dim_zone, and is zone_natural_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_maintenance.garage_key` | 842 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_maintenance.started_date_key` | 758 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is started_date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_maintenance.vehicle_key` | 437 duplicate value(s) across 848 non-null rows under a key name | Which column(s) identify one row of fct_maintenance, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_shift.driver_key` | 37,445 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is driver_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_shift.garage_key` | 38,199 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_shift.shift_date_key` | 38,113 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is shift_date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_shift.vehicle_key` | 37,785 duplicate value(s) across 38,205 non-null rows under a key name | Which column(s) identify one row of fct_shift, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_status_interval.driver_key` | 1,806,357 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is driver_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_status_interval.interval_date_key` | 1,807,024 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is interval_date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_status_interval.vehicle_key` | 1,806,697 duplicate value(s) across 1,807,117 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_status_interval.zone_key` | 1,692,861 duplicate value(s) across 1,693,120 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is zone_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_status_interval.zone_natural_key` | 1,692,861 duplicate value(s) across 1,693,120 non-null rows under a key name | Which column(s) identify one row of fct_status_interval, and is zone_natural_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.driver_key` | 146,681 duplicate value(s) across 147,434 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is driver_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.dropoff_zone_key` | 3,020,909 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is dropoff_zone_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.payment_method_key` | 3,017,754 duplicate value(s) across 3,017,760 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is payment_method_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.pickup_date_key` | 3,021,137 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is pickup_date_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.pickup_zone_key` | 3,020,910 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is pickup_zone_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.rate_plan_key` | 2,877,591 duplicate value(s) across 2,877,598 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is rate_plan_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.service_type_key` | 3,021,173 duplicate value(s) across 3,021,175 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is service_type_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.trip_quality_key` | 3,021,086 duplicate value(s) across 3,021,175 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is trip_quality_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.vehicle_key` | 147,014 duplicate value(s) across 147,434 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is vehicle_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `core.fct_trip.vendor_key` | 3,021,167 duplicate value(s) across 3,021,170 non-null rows under a key name | Which column(s) identify one row of fct_trip, and is vendor_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `finance.mart_revenue_component_bridge.service_type_key` | 160 duplicate value(s) across 162 non-null rows under a key name | Which column(s) identify one row of mart_revenue_component_bridge, and is service_type_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `ops.mart_driver_scorecard.garage_key` | 754 duplicate value(s) across 760 non-null rows under a key name | Which column(s) identify one row of mart_driver_scorecard, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `ops.mart_trip_quality_scorecard.service_type_key` | 4 duplicate value(s) across 6 non-null rows under a key name | Which column(s) identify one row of mart_trip_quality_scorecard, and is service_type_key one of them or a repeated reference — if a reference, what does it target? | open |
+| `ops.mart_vehicle_utilisation.garage_key` | 414 duplicate value(s) across 420 non-null rows under a key name | Which column(s) identify one row of mart_vehicle_utilisation, and is garage_key one of them or a repeated reference — if a reference, what does it target? | open |
 
 ## 5. Enum-shaped column whose set may be open
 
-166 string columns hold between two and twelve distinct values and repeat them, with no `accepted_values` test. That is the shape of an enum and equally the shape of a small lookup — a borough name, a garage name, a classification that may grow. The twelve-value bound is a judgement, not a fact: above it a column reads as free text, a name or a code, and below it the question is worth asking. `open by design` is a complete answer.
+155 string columns hold between two and twelve distinct values and repeat them, with no `accepted_values` test. That is the shape of an enum and equally the shape of a small lookup — a borough name, a garage name, a classification that may grow. The twelve-value bound is a judgement, not a fact: above it a column reads as free text, a name or a code, and below it the question is worth asking. `open by design` is a complete answer. A column whose name ends in `_key` or `_id` is not listed: an identifier's value set is not a domain, and class 6 asks the question that settles it.
 
 | Column | Evidence | Question | Status |
 | --- | --- | --- | --- |
@@ -396,14 +399,12 @@ One row per table; every column named in it is one finding, and one answer in th
 | `agg.agg_trip_band_profile.duration_band` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_band_profile.fare_band` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_band_profile.pickup_borough` | 8 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `agg.agg_trip_band_profile.service_type_key` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daily.borough_name` | 8 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.borough_name` | 8 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.day_name` | 7 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.daypart_code` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.daypart_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.reporting_region` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `agg.agg_trip_zone_daypart_dow.service_type_key` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_trip_zone_daypart_dow.zone_class` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_vehicle_daily.fuel_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `agg.agg_vehicle_daily.make_model` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
@@ -428,7 +429,6 @@ One row per table; every column named in it is one finding, and one answer in th
 | `core.dim_daypart.daypart_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_driver.driver_status` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_driver.engagement_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.dim_driver.garage_key` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_driver.home_garage_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_driver.lease_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_fare_regime.fare_component` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
@@ -436,38 +436,31 @@ One row per table; every column named in it is one finding, and one answer in th
 | `core.dim_payment_method.settlement_class` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_rate_plan.pricing_model` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vehicle.fuel_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.dim_vehicle.garage_key` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vehicle.garage_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vehicle.make` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vehicle.make_model` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vehicle.model` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_vendor.contract_tier` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.dim_vendor.vendor_natural_key` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_zone.borough_code` | 7 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_zone.demand_tier` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_zone.reporting_region` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_zone.tlc_service_zone` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.dim_zone.zone_class` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.fct_maintenance.garage_key` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_maintenance.maintenance_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_shift.engagement_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.fct_shift.garage_key` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_shift.lease_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_shift.telematics_source` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_status_interval.daypart_code` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_trip.airport_fee_status` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_trip.assignment_method` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_trip.daypart_code` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.fct_trip.service_type_key` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `core.fct_trip.store_and_fwd_flag` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `core.fct_trip.vendor_key` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_daily_zone_revenue.borough` | 8 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_daily_zone_revenue.reporting_region` | 4 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_monthly_service_summary.payment_method_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_monthly_service_summary.settlement_class` | 5 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_revenue_component_bridge.borough_name` | 8 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `finance.mart_revenue_component_bridge.component_name` | 9 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `finance.mart_revenue_component_bridge.service_type_key` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `intermediate.int_shift_economics.engagement_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `intermediate.int_shift_economics.lease_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `intermediate.int_shift_occupancy.telematics_source` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
@@ -501,7 +494,6 @@ One row per table; every column named in it is one finding, and one answer in th
 | `mdm_raw.zone_poi.poi_category_name` | 10 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `ops.mart_driver_scorecard.engagement_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `ops.mart_driver_scorecard.home_garage_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
-| `ops.mart_trip_quality_scorecard.service_type_key` | 2 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `ops.mart_trip_quality_scorecard.vendor_legal_name` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `ops.mart_vehicle_utilisation.fuel_type` | 3 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
 | `ops.mart_vehicle_utilisation.garage_name` | 6 distinct values and no accepted_values test | Which values are valid, and is the set closed? | open |
@@ -552,122 +544,122 @@ One row per table; every column named in it is one finding, and one answer in th
 
 ## 6. Reference-shaped column with no `relationships` test
 
-112 columns end in `_key` or `_id`, repeat their values, and declare no `relationships` target. A `primaryKey` column is not listed — it states row identity — a repeating key-shaped column is asked once, under class 4, because that question already covers whether it is a key or a reference, and a `_dlt_*` bookkeeping column is not asked about at all: the loader owns both the column and whatever it points at.
+112 columns end in `_key` or `_id`, repeat their values, and declare no `relationships` target. A `primaryKey` column is not listed — it states row identity — a repeating key-shaped column is asked once, under class 4, because that question asks whether it is a key and, if it is a repeated reference, what it targets; a `_dlt_*` bookkeeping column is not asked about at all, because the loader owns both the column and whatever it points at.
 
 | Column | Evidence | Question | Status |
 | --- | --- | --- | --- |
-| `agg.agg_od_flow_matrix.dest_location_id` | the name reads as a reference and no relationships test states its target | What does dest_location_id reference? | open |
-| `agg.agg_od_flow_matrix.origin_location_id` | the name reads as a reference and no relationships test states its target | What does origin_location_id reference? | open |
-| `agg.agg_trip_zone_daily.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `agg.agg_trip_zone_daypart_dow.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `agg.agg_zone_occupancy_hourly.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `bronze.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `bronze.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `core.dim_driver.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference? | open |
-| `core.dim_driver.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference? | open |
-| `core.fct_status_interval.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `core.fct_trip.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `core.fct_trip.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `core.fct_trip.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `intermediate.int_shift_economics.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `intermediate.int_shift_economics.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `intermediate.int_shift_economics.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `intermediate.int_shift_occupancy.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `intermediate.int_shift_occupancy.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `intermediate.int_shift_occupancy.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `intermediate.int_status_intervals.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `intermediate.int_status_intervals.interval_id` | the name reads as a reference and no relationships test states its target | What does interval_id reference? | open |
-| `intermediate.int_status_intervals.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `intermediate.int_status_intervals.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `intermediate.int_status_intervals.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference? | open |
-| `intermediate.int_trip_fare_components.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `intermediate.int_trip_quality_flags.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `intermediate.int_trips_conformed.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `intermediate.int_trips_conformed.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `intermediate.int_trips_conformed.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference? | open |
-| `intermediate.int_trips_conformed.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `intermediate.int_trips_conformed.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `intermediate.int_trips_enriched.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `intermediate.int_trips_enriched.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `intermediate.int_trips_enriched.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference? | open |
-| `intermediate.int_trips_enriched.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `intermediate.int_trips_enriched.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `intermediate.int_zone_attributes.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `mdm_raw.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `mdm_raw.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `mdm_raw.vendor_master.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `mdm_raw.weather_daily.observation_id` | the name reads as a reference and no relationships test states its target | What does observation_id reference? | open |
-| `mdm_raw.zone_master.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `mdm_raw.zone_poi.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `mdm_raw.zone_poi.poi_id` | the name reads as a reference and no relationships test states its target | What does poi_id reference? | open |
-| `ops.mart_driver_scorecard.driver_key` | the name reads as a reference and no relationships test states its target | What does driver_key reference? | open |
-| `ops.mart_trip_quality_scorecard.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `ops.mart_vehicle_utilisation.vehicle_key` | the name reads as a reference and no relationships test states its target | What does vehicle_key reference? | open |
-| `ops_raw.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `ops_raw.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference? | open |
-| `ops_raw.driver.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `ops_raw.driver.home_garage_id` | the name reads as a reference and no relationships test states its target | What does home_garage_id reference? | open |
-| `ops_raw.driver_status_event.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `ops_raw.driver_status_event.event_id` | the name reads as a reference and no relationships test states its target | What does event_id reference? | open |
-| `ops_raw.driver_status_event.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `ops_raw.driver_status_event.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `ops_raw.driver_status_event.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference? | open |
-| `ops_raw.garage.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference? | open |
-| `ops_raw.lease_agreement.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `ops_raw.lease_agreement.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference? | open |
-| `ops_raw.lease_agreement.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference? | open |
-| `ops_raw.maintenance_event.maintenance_id` | the name reads as a reference and no relationships test states its target | What does maintenance_id reference? | open |
-| `ops_raw.maintenance_event.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `ops_raw.shift.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `ops_raw.shift.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `ops_raw.shift.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `ops_raw.trip_assignment.assignment_id` | the name reads as a reference and no relationships test states its target | What does assignment_id reference? | open |
-| `ops_raw.trip_assignment.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `ops_raw.trip_assignment.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `ops_raw.trip_assignment.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `ops_raw.trip_assignment.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `ops_raw.trip_assignment.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `ops_raw.trip_assignment.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `ops_raw.vehicle.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference? | open |
-| `ops_raw.vehicle.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_mdm__rate_plans.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference? | open |
-| `staging.stg_mdm__vendors.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `staging.stg_mdm__weather.observation_id` | the name reads as a reference and no relationships test states its target | What does observation_id reference? | open |
-| `staging.stg_mdm__zone_poi.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `staging.stg_mdm__zone_poi.poi_id` | the name reads as a reference and no relationships test states its target | What does poi_id reference? | open |
-| `staging.stg_mdm__zones.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference? | open |
-| `staging.stg_ops__drivers.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `staging.stg_ops__drivers.home_garage_id` | the name reads as a reference and no relationships test states its target | What does home_garage_id reference? | open |
-| `staging.stg_ops__garages.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference? | open |
-| `staging.stg_ops__leases.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `staging.stg_ops__leases.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference? | open |
-| `staging.stg_ops__leases.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference? | open |
-| `staging.stg_ops__maintenance.maintenance_id` | the name reads as a reference and no relationships test states its target | What does maintenance_id reference? | open |
-| `staging.stg_ops__maintenance.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_ops__shifts.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `staging.stg_ops__shifts.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `staging.stg_ops__shifts.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_ops__status_events.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `staging.stg_ops__status_events.event_id` | the name reads as a reference and no relationships test states its target | What does event_id reference? | open |
-| `staging.stg_ops__status_events.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference? | open |
-| `staging.stg_ops__status_events.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_ops__status_events.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference? | open |
-| `staging.stg_ops__trip_assignments.assignment_id` | the name reads as a reference and no relationships test states its target | What does assignment_id reference? | open |
-| `staging.stg_ops__trip_assignments.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference? | open |
-| `staging.stg_ops__trip_assignments.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `staging.stg_ops__trip_assignments.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_ops__vehicles.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference? | open |
-| `staging.stg_tlc__green_trip_extras.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `staging.stg_tlc__green_tripdata.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `staging.stg_tlc__green_tripdata.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `staging.stg_tlc__green_tripdata.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference? | open |
-| `staging.stg_tlc__green_tripdata.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
-| `staging.stg_tlc__yellow_trip_extras.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `staging.stg_tlc__yellow_trip_extras.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference? | open |
-| `staging.stg_tlc__yellow_tripdata.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference? | open |
-| `staging.stg_tlc__yellow_tripdata.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference? | open |
-| `staging.stg_tlc__yellow_tripdata.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference? | open |
-| `staging.stg_tlc__yellow_tripdata.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference? | open |
+| `agg.agg_od_flow_matrix.dest_location_id` | the name reads as a reference and no relationships test states its target | What does dest_location_id reference, or is it this relation's own identifier? | open |
+| `agg.agg_od_flow_matrix.origin_location_id` | the name reads as a reference and no relationships test states its target | What does origin_location_id reference, or is it this relation's own identifier? | open |
+| `agg.agg_trip_zone_daily.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `agg.agg_trip_zone_daypart_dow.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `agg.agg_zone_occupancy_hourly.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `bronze.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `bronze.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `core.dim_driver.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference, or is it this relation's own identifier? | open |
+| `core.dim_driver.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference, or is it this relation's own identifier? | open |
+| `core.fct_status_interval.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `core.fct_trip.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `core.fct_trip.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `core.fct_trip.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_economics.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_economics.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_economics.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_occupancy.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_occupancy.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_shift_occupancy.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_status_intervals.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_status_intervals.interval_id` | the name reads as a reference and no relationships test states its target | What does interval_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_status_intervals.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_status_intervals.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_status_intervals.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trip_fare_components.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trip_quality_flags.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_conformed.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_conformed.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_conformed.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_conformed.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_conformed.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_enriched.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_enriched.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_enriched.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_enriched.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `intermediate.int_trips_enriched.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `intermediate.int_zone_attributes.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.vendor_master.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.weather_daily.observation_id` | the name reads as a reference and no relationships test states its target | What does observation_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.zone_master.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.zone_poi.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `mdm_raw.zone_poi.poi_id` | the name reads as a reference and no relationships test states its target | What does poi_id reference, or is it this relation's own identifier? | open |
+| `ops.mart_driver_scorecard.driver_key` | the name reads as a reference and no relationships test states its target | What does driver_key reference, or is it this relation's own identifier? | open |
+| `ops.mart_trip_quality_scorecard.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `ops.mart_vehicle_utilisation.vehicle_key` | the name reads as a reference and no relationships test states its target | What does vehicle_key reference, or is it this relation's own identifier? | open |
+| `ops_raw.audit_runs.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.audit_table_loads.load_id` | the name reads as a reference and no relationships test states its target | What does load_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver.home_garage_id` | the name reads as a reference and no relationships test states its target | What does home_garage_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver_status_event.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver_status_event.event_id` | the name reads as a reference and no relationships test states its target | What does event_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver_status_event.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver_status_event.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.driver_status_event.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.garage.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.lease_agreement.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.lease_agreement.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.lease_agreement.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.maintenance_event.maintenance_id` | the name reads as a reference and no relationships test states its target | What does maintenance_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.maintenance_event.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.shift.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.shift.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.shift.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.assignment_id` | the name reads as a reference and no relationships test states its target | What does assignment_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.trip_assignment.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.vehicle.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference, or is it this relation's own identifier? | open |
+| `ops_raw.vehicle.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__rate_plans.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__vendors.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__weather.observation_id` | the name reads as a reference and no relationships test states its target | What does observation_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__zone_poi.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__zone_poi.poi_id` | the name reads as a reference and no relationships test states its target | What does poi_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_mdm__zones.location_id` | the name reads as a reference and no relationships test states its target | What does location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__drivers.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__drivers.home_garage_id` | the name reads as a reference and no relationships test states its target | What does home_garage_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__garages.garage_id` | the name reads as a reference and no relationships test states its target | What does garage_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__leases.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__leases.lease_id` | the name reads as a reference and no relationships test states its target | What does lease_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__leases.primary_vehicle_id` | the name reads as a reference and no relationships test states its target | What does primary_vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__maintenance.maintenance_id` | the name reads as a reference and no relationships test states its target | What does maintenance_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__maintenance.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__shifts.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__shifts.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__shifts.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__status_events.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__status_events.event_id` | the name reads as a reference and no relationships test states its target | What does event_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__status_events.shift_id` | the name reads as a reference and no relationships test states its target | What does shift_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__status_events.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__status_events.zone_id` | the name reads as a reference and no relationships test states its target | What does zone_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__trip_assignments.assignment_id` | the name reads as a reference and no relationships test states its target | What does assignment_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__trip_assignments.driver_id` | the name reads as a reference and no relationships test states its target | What does driver_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__trip_assignments.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__trip_assignments.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_ops__vehicles.vehicle_id` | the name reads as a reference and no relationships test states its target | What does vehicle_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__green_trip_extras.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__green_tripdata.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__green_tripdata.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__green_tripdata.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__green_tripdata.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_trip_extras.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_trip_extras.trip_key` | the name reads as a reference and no relationships test states its target | What does trip_key reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_tripdata.dropoff_location_id` | the name reads as a reference and no relationships test states its target | What does dropoff_location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_tripdata.pickup_location_id` | the name reads as a reference and no relationships test states its target | What does pickup_location_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_tripdata.rate_code_id` | the name reads as a reference and no relationships test states its target | What does rate_code_id reference, or is it this relation's own identifier? | open |
+| `staging.stg_tlc__yellow_tripdata.vendor_id` | the name reads as a reference and no relationships test states its target | What does vendor_id reference, or is it this relation's own identifier? | open |
 
 ## Triage
 
@@ -675,10 +667,10 @@ Every row is `open`. The status vocabulary is the one the other reviews use: `in
 
 Order matters, because answers feed each other:
 
-1. **Grain (1), then key repeats (4).** A grain statement names the columns that identify a row, and that is exactly the class-4 question. Answering 27 grains is likely to close most of the 45 repeats — and where it does not, the data has found a duplicate the contract must explain.
+1. **Grain (1), then key repeats (4).** A grain statement names the columns that identify a row, and that is exactly the class-4 question. Answering 27 grains is likely to close most of the 45 repeats — and where it does not, the column is a repeated reference, so its row also names the target it points at and the relationship to declare.
 2. **Descriptions (2), in one pass per table.** A description gives a nullable column its meaning, which is most of the answer to whether null is legal. Answering the 86 tables in 2b closes 1014 columns at the widths listed.
 3. **Nullability (3).** For each column, either a `nullValues` rule with `mustBe: 0` (the column is required) or a sentence in the description saying what a null means. Widening `required` where the data never nulls is a separate decision and not asked here.
 4. **Enums (5).** An `accepted_values` rule where the set is closed; a note in the description where it is a lookup. The observed distinct values are in the evidence column, so a reviewer can propose the set without querying again.
-5. **References (6).** A `relationships` entry on the property names the target and generates the dbt test; where the column references something outside this Domain, the answer is a description sentence instead.
+5. **References (6).** A `relationships` entry on the property names the target and generates the dbt test; where the column is the relation's own identifier rather than a reference, say so in the contract; where it references something outside this Domain, the answer is a description sentence instead.
 
 Nothing here asks for a new pipeline, a new model or a schema change. Each answer is a line in a contract, and `generate` carries the enforceable half of it into the dbt tests and the dlt hints.

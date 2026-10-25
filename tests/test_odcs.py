@@ -1403,6 +1403,59 @@ def test_reverse_reports_a_key_shaped_column_the_data_repeats(tmp_path):
         "core.a_model.trip_key: ")
 
 
+def test_reverse_asks_a_repeating_key_what_it_targets(tmp_path):
+    """A repeating key-shaped column is asked once, and the question must name its target.
+
+    Class 4 already asks whether the column is a key or a repeated reference; a repeated
+    reference is still a foreign key with no declared target, so the same question carries both.
+    """
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("driver_key", "string", description="The driver.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("driver_key", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["driver_key"], [["d1"], ["d1"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _finding_codes(diags) == ["finding/key-repeats"]
+    message = _findings(diags, "finding/key-repeats")[0]["message"]
+    assert "identify one row" in message
+    assert "what does it target" in message
+
+
+def test_reverse_keeps_a_key_shaped_column_out_of_the_value_set_question(tmp_path):
+    """A key is an identifier; "which values are valid" is a question it cannot answer."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("garage_key", "string", description="The garage.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("garage_key", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["garage_key"], [["g1"], ["g2"], ["g1"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    assert _findings(diags, "finding/open-enum") == []
+    assert "finding/key-repeats" in _finding_codes(diags)
+
+
+def test_reverse_asks_whether_an_identifier_is_the_relations_own(tmp_path):
+    """A raw relation declares no primary key, so `garage_id` may name its own row, not another's."""
+    _repo(tmp_path, models=["a_model"])
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("garage_id", "string", description="The garage.")))
+    _warehouse(tmp_path, {("core", "a_model"): [("garage_id", "VARCHAR", True)]})
+    _load(tmp_path, "core", "a_model", ["garage_id"], [["g1"], ["g2"]])
+
+    code, diags = _run("reverse", "--root", str(tmp_path))
+
+    assert code == 0
+    findings = _findings(diags, "finding/undeclared-foreign-key")
+    assert len(findings) == 1
+    assert findings[0]["message"].startswith("core.a_model.garage_id: ")
+    assert "own identifier" in findings[0]["message"]
+
+
 def test_reverse_findings_are_unique_and_identical_on_a_second_run(tmp_path):
     """Deterministic on the same warehouse, and one finding per relation, column and class."""
     _repo(tmp_path, models=["a_model"])
