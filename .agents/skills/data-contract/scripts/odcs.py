@@ -465,7 +465,7 @@ def _declared_relationships(relation: tuple[str, str], path: Path, dataset: dict
     shape a consumer cannot join on, and nothing else compares the two.
     """
     targets = {
-        str(doc.get("name")): str(doc.get("source")).split(".")[-1]
+        str(doc.get("name")): str(doc.get("source")).split(".", 1)[-1]
         for doc, _path in documents.values()
         if doc.get("name") and doc.get("source")
     }
