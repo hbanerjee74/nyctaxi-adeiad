@@ -28,7 +28,7 @@ Two orders, and never the other way round:
 | Is this `_dlt_*` column mine? | Not on a relation the loader creates. Yes on one a dbt model selects it through |
 | No grain statement available? | Omit it; `check` warns and the review queues it. Never invent the sentence |
 | The only description is `{{ doc(...) }}`? | Omit it. A pointer is not prose |
-| Which type string? | `physicalType`, verbatim from the built relation, on every property |
+| Which type string? | `physicalType` on every property: the built relation's own type, or the profiled expression's before the column exists. Never a normalized type |
 | A type the mapper does not know? | A refusal, not a guess. Report it |
 | Nothing to say in a section? | Omit the key. An empty one claims a promise nobody made, and `check` fails it |
 | Where does an unsettled doubt go? | The review artifact at `artifact_paths.review`, as a question |
@@ -50,7 +50,7 @@ Two orders, and never the other way round:
 
 The column is the smallest part of it. Decide these in order:
 
-1. **What it holds.** `physicalType` from the built relation; `logicalType` as the next section says; `required` only when null is impossible or forbidden.
+1. **What it holds.** `physicalType` from the built relation — or, before the column exists, from the profiled expression; `logicalType` as the next section says; `required` only when null is impossible or forbidden.
 2. **What it promises.** A `description` a consumer can act on; a `quality` rule, or the stated reason there is none; a `relationships` entry where it points into another relation. `required: true` declares that a null is not allowed but renders no test: when a null must fail the build, add `nullValues` `mustBe: 0` too.
 3. **Whether the grain moved.** A new relation needs `dataGranularityDescription`. A new column on an existing one leaves the grain alone unless it changes what one row is.
 4. **The version.** A property added, a rule added, a relationship declared: minor. A property removed or renamed, a `logicalType` or `physicalType` changed, the grain changed, a rule withdrawn, or `required` newly disallowing a value a consumer may already receive: major. A description or `authoritativeDefinitions` edit: patch. `1.0.0` is a version, not a placeholder; a `1.0.0` contract that gains a column becomes `1.1.0`.
@@ -64,7 +64,7 @@ schema:
     properties:
       - name: <property>
         logicalType: boolean      # the model's datatype where it declares the field
-        physicalType: BOOLEAN     # the built relation's own type
+        physicalType: BOOLEAN     # the expression's profiled type; the build proves it
         description: <what true means to a consumer>
         quality:
           - type: library
@@ -98,7 +98,7 @@ A relation dlt creates owns its own bookkeeping. A `_dlt_*` column is added by t
 
 **The grain is one sentence about a row.** It lives in `dataGranularityDescription` and comes from a description that already states it — a blurb that describes the relation without saying what one row is does not. When none exists, omit it: `check` warns `contract/no-grain` and the review carries the question. An invented sentence is worse than the warning, because nothing downstream can tell it is wrong.
 
-**`physicalType` on every property, verbatim.** It is the built relation's own type string, not a normalized one: `generate` writes the dbt `data_type` from it and maps it to a dlt column type. A property without one, or a type the mapper does not know, is a refusal (`contract/unmapped-type`). The nearest known type is a lie the build will enforce.
+**`physicalType` on every property, verbatim.** It is the warehouse's type string, never a normalized one: `generate` writes the dbt `data_type` from it and maps it to a dlt column type. Read it from the built relation where the column exists. A property the change adds has no column to read yet, and `generate` needs the type before the build, so profile the expression — `typeof`, `DESCRIBE`, or the type the query returns against the warehouse — and author that; the enforced contract proves it at the build. Never build first to read the type, because that inverts the authored-first order this skill enforces. A property without one, or a type the mapper does not know, is a refusal (`contract/unmapped-type`); the nearest known type is a lie the build will enforce.
 
 ## Absence is the only honest no promise
 
