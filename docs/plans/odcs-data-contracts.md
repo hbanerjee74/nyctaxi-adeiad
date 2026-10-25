@@ -156,6 +156,17 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 **REQUIRED BACKGROUND:** the `writing-skills` skill. No skill text until the baseline is recorded and kept. One skill at a time — Task 9 does not start until this one is verified.
 
+**What Tasks 1–4 proved, and the skill must carry** — each was a real failure or a near miss in this repo:
+
+- `reverse` is a **draft for an adopted repo**, never a refresh. Plain `reverse` leaves an existing contract alone and `--force` replaces it, because the contract is the authored artifact and a reverse pass over hand edits silently reverts a version bump.
+- Rebuild the warehouse with `--full-refresh` before reversing. An incremental build on a copied warehouse leaves the fact ahead of its rebuilt dimensions, and the contract then records a shape the models do not produce.
+- **Loader columns are not the table's shape.** Do not contract a `_dlt_*` column the loader adds to a raw relation; do declare one a dbt model deliberately propagates, because an enforced contract rejects an undeclared output column. `check` enforces the distinction as `contract/loader-column`, and an agent that "fixes" the five propagating models by dropping the column breaks the build.
+- A **`{{ doc("...") }}` reference is not a description** — omit the property description rather than copy dbt syntax into a vendor-neutral document, and a templated grain counts as no grain.
+- The **grain** lives in `dataGranularityDescription`, taken from a description that states it, never from a table blurb. Omitted grain is a warning plus a review finding, never an invented sentence.
+- **Order matters across Task 5**: `reverse` grounds `quality` in the existing dbt tests, and the migration then deletes those lists. Reverse first, triage, then move the rules — a reverse run after the migration drafts contracts with no quality at all.
+- `physicalType` is required on every property because dbt's `data_type` is generated from it, and a type the mapper does not know is a refusal (`contract/unmapped-type`), not a guess.
+- The **published standard wins over the JSON schema where they disagree**, but do not assume the schema is silent: it constrains `logicalTypeOptions` per logical type (`timeZone` is rejected, `timezone` accepted). Do not build a second allow-list.
+
 - [ ] **Step 0: RED — baseline.** Dispatch a subagent to "add a `tip_is_captured` flag to `dim_payment_method` and ship it", using the repo as it stands with no `data-contract` skill. Record verbatim how it fails: edits the SQL and the properties file, writes no contract, never regenerates, and if told "the tests enforce the contract" hand-writes a dbt test instead of a `quality` rule.
 - [ ] **Step 1: Micro-test the wording** if the runtime allows single-shot calls: the scenario prompt against a no-guidance control, 5+ reps, every flagged output read manually. If it does not, say so and rely on Step 3's rerun.
 - [ ] **Step 2: GREEN — write the minimal skill** that addresses exactly those failures. Description is triggers only — a new or changed relation, a quality expectation, a breaking shape change, adoption of an existing repo — never a summary of the workflow. Body covers the forward order (profile → contract → generate → code), the onboarding order (reverse → review → triage), the owned-versus-generated split, what may never be invented, version bumping, the no-empty-section rule, the review finding format, and that the published standard wins over the JSON schema.
@@ -170,6 +181,15 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 
 **Interfaces:** It owns judgement only — quality, completeness, correctness — and never re-runs what `check` already proves. Every item must be one a script cannot decide.
 
+**What this repo's own review loop caught must be in the checklist**, because each was found by a human-grade reviewer and none by `check`:
+
+- A contract that passes every structural check and **promises nothing** beyond its grain. On the 76 relations with no canonical document this is the first question, and the 17 marts are the ones a consumer reads.
+- A **hand-edited generated key** (`data_type`, `data_tests`) — `check` proves the generated keys are current, so the review asks whether the *authored* half was also changed for the right reason.
+- A **version not bumped** on a breaking shape change, when `status` stayed `active`.
+- A rule that **encodes a narrower population** than the ADR it cites — the red-flag trap the semantic-model skill documents, in contract form.
+- A **grain that is true but not the table's grain** (a row description, a blurb copied from the model).
+- A **`_dlt_` column** on a raw relation's contract, which the schema accepts and the requirement forbids.
+
 - [ ] **Step 0: RED — baseline.** Dispatch a subagent to review three contracts against their models: one with a stated grain that is wrong, one with `required: true` on a mostly-null column, one whose rule encodes a narrower population than its ADR. Record verbatim which it misses and why — the expected baseline is that it re-reports what `check` prints and approves the rest.
 - [ ] **Step 1: Micro-test the wording** as in Task 8, Step 1.
 - [ ] **Step 2: GREEN — write the minimal skill** that catches those three. Items: is the grain stated and true; is `required` honest against the profile; does each rule encode the standing business answer rather than a convenient filter; **does the contract promise anything at all** — the one question no structural check can ask on a relation with no canonical document; is a declared change actually breaking for a consumer; does a gold contract mean what its document means, not merely resolve; is every finding answered or still visibly open; does any rule pass vacuously.
@@ -183,7 +203,9 @@ Scope: **93 relations** — 63 dbt models, 4 seeds, 26 dlt-loaded raw tables acr
 **Files:** Modify `.agents/skills/onboarding/SKILL.md` (Build row), `references/base-setup.md`, `references/greenfield.md`
 
 - [ ] **Step 0: Baseline.** Ask a subagent to onboard a repo with gold marts using the onboarding skill as it stands. Record that it creates no `contracts/` and registers neither artifact path.
-- [ ] **Step 1: Add the step** — declare `contracts/` in both maps, seed both skills with their scripts, run `reverse`, write the review artifact, and state that the contracts are partial until the findings are triaged.
+- [ ] **Step 1: Add the step** — declare `contracts/` in both maps, seed both skills with their scripts and the vendored schema, **rebuild the warehouse with `--full-refresh`**, run `reverse`, write the review artifact, and state that the contracts are partial until the findings are triaged. The reverse pass is `reverse` with no flag: it must leave any contract the repo already has alone.
+- [ ] **Step 1b: Derive the loader-column boundary, do not hard-code it.** Onboarding meets repos whose dlt version differs, so it must ask the catalog which relations the loader created and whether a dbt model propagates `_dlt_*`, rather than assuming this repo's five models. The skill says where to look, not what to find.
+- [ ] **Step 1c: State the two things onboarding cannot settle** — a relation with no existing description has no grain, and a rule the existing tests do not express has no `quality`. Both are review findings, not invented content, and the review artifact carries them.
 - [ ] **Step 2: Extend the seeded-skills paragraph** — both skills are always seeded; a repo with no gold marts still has raw and staging relations to contract.
 - [ ] **Step 3: Re-run the Step 0 scenario** — onboarding must create `contracts/`, register both paths, and write a review artifact with at least one finding.
 - [ ] **Step 4: Commit** `docs: onboarding declares the contracts and queues what it cannot settle`.
