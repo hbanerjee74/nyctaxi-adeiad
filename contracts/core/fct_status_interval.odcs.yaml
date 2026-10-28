@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 18a03801-8362-5453-8397-f3d2d7e073a5
 name: fct_status_interval
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -46,11 +46,11 @@ schema:
         physicalType: VARCHAR
         description: Shift the interval belongs to.
       - name: driver_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Driver the interval is attributed to.
       - name: vehicle_key
-        logicalType: string
+        logicalType: integer
         physicalType: INTEGER
         description: Vehicle the driver was in during the interval.
       - name: interval_date_key

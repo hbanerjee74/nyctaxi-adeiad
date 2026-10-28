@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 2b07e811-f17f-5272-aae8-1fe29c31de24
 name: fct_shift
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -26,13 +26,13 @@ schema:
             metric: nullValues
             mustBe: 0
       - name: driver_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Driver who signed on.
         relationships:
           - to: dim_driver.driver_key
       - name: vehicle_key
-        logicalType: string
+        logicalType: integer
         physicalType: INTEGER
         description: Vehicle operated during the shift.
         relationships:
@@ -49,7 +49,7 @@ schema:
         physicalType: DATE
         description: Calendar date of sign-on.
       - name: garage_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Driver's home garage at sign-on, carried from dim_driver; not the vehicle's garage.
       - name: engagement_type

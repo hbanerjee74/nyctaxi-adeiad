@@ -346,7 +346,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: vendor_natural_key
-        datatype: String
+        datatype: Integer
         description: Source vendor identifier.
       - name: valid_from_date
         expression:

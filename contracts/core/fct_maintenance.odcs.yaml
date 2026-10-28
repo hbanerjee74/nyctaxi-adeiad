@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 97947e8f-11d3-5e7f-8778-c53e454545fa
 name: fct_maintenance
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -26,11 +26,11 @@ schema:
             metric: nullValues
             mustBe: 0
       - name: vehicle_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Vehicle that was in the shop.
       - name: garage_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Garage the vehicle belongs to, carried from dim_vehicle.
       - name: started_date_key

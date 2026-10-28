@@ -21,6 +21,7 @@ select
     improvement_surcharge,
     congestion_surcharge,
     total_amount,
-    "Airport_fee" as airport_fee,
+    -- + 0: DuckDB 2 DESCRIBE keeps "Airport_fee" for a case-only alias, failing the contract preflight.
+    "Airport_fee" + 0 as airport_fee,
     _dlt_load_id
 from {{ source('bronze', 'yellow_tripdata') }}
