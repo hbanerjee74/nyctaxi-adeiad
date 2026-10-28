@@ -40,7 +40,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: applies_to_fleet
-        datatype: Boolean
+        datatype: String
         description: Whether the regime applies to the fleet service types.
       - name: valid_from_date
         expression:

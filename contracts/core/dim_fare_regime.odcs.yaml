@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 97033d74-7cba-5638-a216-b2c914855977
 name: dim_fare_regime
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -34,7 +34,7 @@ schema:
         physicalType: DECIMAL(3,2)
         description: Surcharge amount in effect for the interval.
       - name: applies_to_fleet
-        logicalType: boolean
+        logicalType: string
         physicalType: VARCHAR
         description: Whether the regime applies to the fleet service types.
       - name: valid_from_date

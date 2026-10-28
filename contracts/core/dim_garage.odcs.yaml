@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 74987f1a-e398-5566-8b82-35f2d97727e1
 name: dim_garage
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -14,7 +14,7 @@ schema:
     dataGranularityDescription: One row per garage with its capacity and the vehicles assigned to it.
     properties:
       - name: garage_key
-        logicalType: string
+        logicalType: integer
         physicalType: INTEGER
         primaryKey: true
         description: Garage identifier.

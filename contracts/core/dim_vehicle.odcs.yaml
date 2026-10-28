@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 262efed7-9487-51b8-b4e4-f7e83e0a5237
 name: dim_vehicle
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -14,7 +14,7 @@ schema:
     dataGranularityDescription: Type 1 vehicle dimension with maintenance downtime folded in, so a vehicle out of the shop is not read as an underperforming asset.
     properties:
       - name: vehicle_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         primaryKey: true
         description: Operator's vehicle identifier.
@@ -67,7 +67,7 @@ schema:
         physicalType: BOOLEAN
         description: Equipped for wheelchair access.
       - name: garage_key
-        logicalType: string
+        logicalType: integer
         physicalType: BIGINT
         description: Garage the vehicle is assigned to; not the driver's home garage.
       - name: garage_name

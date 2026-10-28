@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: ecfc3628-8ff7-5c01-9767-4244b85cbe7b
 name: audit_runs
-version: 1.0.0
+version: 1.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -73,5 +73,8 @@ schema:
       - name: total_rows_extracted
         logicalType: integer
         physicalType: BIGINT
+      - name: git_sha
+        logicalType: string
+        physicalType: VARCHAR
 description:
   purpose: Load audit relation, owned by the installed vibedata library. The loader writes its columns, so a change here follows a loader upgrade rather than a change in this repository's sources.

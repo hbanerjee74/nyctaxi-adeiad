@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 8a55813e-4ef7-5110-8a69-06f60a995cfa
 name: dim_vendor
-version: 1.0.0
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -26,7 +26,7 @@ schema:
             metric: nullValues
             mustBe: 0
       - name: vendor_natural_key
-        logicalType: string
+        logicalType: integer
         physicalType: INTEGER
         description: Source vendor identifier.
         quality:
