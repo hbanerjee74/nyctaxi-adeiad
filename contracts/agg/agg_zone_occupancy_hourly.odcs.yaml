@@ -1,0 +1,60 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 354be355-0612-5027-9d8f-125d777a3421
+name: agg_zone_occupancy_hourly
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_zone_occupancy_hourly
+    dataGranularityDescription: Where the fleet spends its time, by zone and hour, from the status stream rather than from trips. The gap between this map and the revenue map is the whole reason occupancy is collected.
+    properties:
+      - name: interval_date
+        logicalType: date
+        physicalType: DATE
+      - name: interval_hour
+        logicalType: integer
+        physicalType: BIGINT
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: zone_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_airport_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: interval_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: distinct_drivers
+        logicalType: integer
+        physicalType: BIGINT
+      - name: distinct_vehicles
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: on_trip_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: available_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: break_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: zone_occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE

@@ -1,0 +1,46 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 0012cefa-b0a4-5942-9979-aebde62d1457
+name: mart_revenue_component_bridge
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: finance
+schema:
+  - name: mart_revenue_component_bridge
+    dataGranularityDescription: 'The fare-to-total walk, unpivoted one component per row. The residual is its own component rather than being absorbed into a real one: if it is non-zero the walk does not balance, and that is a finding about the source.'
+    properties:
+      - name: component_name
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: trip_month
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: component_order
+        logicalType: integer
+        physicalType: INTEGER
+      - name: component_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: component_share
+        logicalType: number
+        physicalType: DOUBLE

@@ -1,0 +1,40 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 5f251b3f-38eb-5406-beb1-e1341cd878b8
+name: stg_mdm__zone_poi
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_mdm__zone_poi
+    dataGranularityDescription: Many-to-many zone to point-of-interest.
+    properties:
+      - name: poi_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: poi_category
+        logicalType: string
+        physicalType: VARCHAR
+      - name: poi_category_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: poi_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: demand_weight
+        logicalType: integer
+        physicalType: INTEGER

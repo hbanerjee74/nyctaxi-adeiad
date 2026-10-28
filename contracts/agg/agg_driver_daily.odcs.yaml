@@ -1,0 +1,84 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 3b4fef1f-3543-55af-9736-7dcb6f0b0425
+name: agg_driver_daily
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_driver_daily
+    dataGranularityDescription: Driver-day, the base of the driver pyramid. Rates are rebuilt from summed numerators and denominators, never averaged from shift rates -- the mean of two ratios is not the ratio anyone asked for.
+    properties:
+      - name: occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: shift_date
+        logicalType: date
+        physicalType: DATE
+      - name: date_key
+        logicalType: integer
+        physicalType: INTEGER
+      - name: driver_key
+        logicalType: integer
+        physicalType: BIGINT
+      - name: driver_ref
+        logicalType: string
+        physicalType: VARCHAR
+      - name: engagement_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: garage_key
+        logicalType: integer
+        physicalType: BIGINT
+      - name: home_garage_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: shift_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicles_driven
+        logicalType: integer
+        physicalType: BIGINT
+      - name: trip_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: online_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: on_trip_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: break_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: gross_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: airport_fee_collected
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_cost
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_margin
+        logicalType: number
+        physicalType: DOUBLE
+      - name: paid_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: unclosed_shift_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: revenue_per_online_hour
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_trip
+        logicalType: number
+        physicalType: DOUBLE

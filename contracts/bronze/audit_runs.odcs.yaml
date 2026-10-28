@@ -1,0 +1,80 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: ee1f213f-0382-5b75-a334-d8d0d9ccac8e
+name: audit_runs
+version: 1.1.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: bronze
+schema:
+  - name: audit_runs
+    properties:
+      - name: load_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pipeline_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: destination_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: dataset_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: first_run
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: status
+        logicalType: string
+        physicalType: VARCHAR
+      - name: started_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: finished_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: extract_started_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: extract_finished_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: normalize_started_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: normalize_finished_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: load_started_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: load_finished_at
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: total_rows_extracted
+        logicalType: integer
+        physicalType: BIGINT
+      - name: git_sha
+        logicalType: string
+        physicalType: VARCHAR
+description:
+  purpose: Load audit relation, owned by the installed vibedata library. The loader writes its columns, so a change here follows a loader upgrade rather than a change in this repository's sources.

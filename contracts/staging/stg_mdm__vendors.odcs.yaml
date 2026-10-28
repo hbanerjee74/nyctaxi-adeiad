@@ -1,0 +1,39 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 4c99018f-28ec-571d-8fed-d7571dde350c
+name: stg_mdm__vendors
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_mdm__vendors
+    dataGranularityDescription: Vendor master, kept versioned.
+    properties:
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: vendor_legal_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vendor_short_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: contract_tier
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_approved
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: valid_from_date
+        logicalType: date
+        physicalType: DATE
+      - name: valid_to_date
+        logicalType: date
+        physicalType: DATE
+      - name: source_version
+        logicalType: integer
+        physicalType: INTEGER

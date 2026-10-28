@@ -1,0 +1,43 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 0c3d6226-5367-5854-a2fb-47a8575ae078
+name: stg_mdm__rate_plans
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_mdm__rate_plans
+    dataGranularityDescription: One row per rate plan, as the master-data platform delivers it.
+    properties:
+      - name: rate_code_id
+        logicalType: integer
+        physicalType: INTEGER
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: rate_plan_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pricing_model
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_flat_fare
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: flat_fare_amount
+        logicalType: number
+        physicalType: DECIMAL(4,2)
+      - name: is_airport_plan
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_metered_baseline
+        logicalType: boolean
+        physicalType: BOOLEAN

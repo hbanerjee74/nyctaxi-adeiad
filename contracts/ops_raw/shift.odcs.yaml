@@ -1,0 +1,50 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 3605ca4d-30af-5507-aeb3-118a2bd6f417
+name: shift
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: shift
+    properties:
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: shift_start_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: shift_end_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: derived_end_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: reported_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: odometer_start
+        logicalType: number
+        physicalType: DOUBLE
+      - name: odometer_end
+        logicalType: number
+        physicalType: DOUBLE
+      - name: telematics_source
+        logicalType: string
+        physicalType: VARCHAR

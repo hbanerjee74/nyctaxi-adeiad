@@ -1,0 +1,45 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: f07bfaf1-bb39-55e1-9361-598ee7b456ea
+name: driver
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: driver
+    properties:
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: hack_licence_no
+        logicalType: string
+        physicalType: VARCHAR
+      - name: driver_ref
+        logicalType: string
+        physicalType: VARCHAR
+      - name: engagement_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: home_garage_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: hire_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: termination_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: is_wav_certified
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: driver_status
+        logicalType: string
+        physicalType: VARCHAR

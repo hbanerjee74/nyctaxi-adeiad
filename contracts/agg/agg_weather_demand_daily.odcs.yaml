@@ -1,0 +1,63 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 03545ed9-b13f-50d6-918e-6772d8f11853
+name: agg_weather_demand_daily
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_weather_demand_daily
+    dataGranularityDescription: Demand against weather, by borough and day. The spine is every borough crossed with every day in the window, so a borough-day with weather and no trips keeps a zero row, and a trip in an unresolved or non-weather borough keeps its row with null weather (ADR 0012) instead of disappearing. Trips are attributed through their own zone surrogate, the version resolved as of the trip's date (ADR 0009), not the borough's current version.
+    properties:
+      - name: obs_date
+        logicalType: date
+        physicalType: DATE
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: day_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_weekend
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_holiday
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: temp_avg_f
+        logicalType: number
+        physicalType: DOUBLE
+      - name: precip_inches
+        logicalType: number
+        physicalType: DOUBLE
+      - name: snow_inches
+        logicalType: number
+        physicalType: DOUBLE
+      - name: is_wet_day
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_snow_day
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: weather_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_fare
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_paid_hours_per_trip
+        logicalType: number
+        physicalType: DOUBLE

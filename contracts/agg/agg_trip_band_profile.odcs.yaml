@@ -1,0 +1,57 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 175967c6-9238-5978-8ae0-27e3fda308cf
+name: agg_trip_band_profile
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_trip_band_profile
+    dataGranularityDescription: 'Distance, duration and fare banding in one profile. Three independent range joins with half-open bands, so a trip of exactly three miles lands in "3 - 6" once rather than in two bands or none. The joins are LEFT joins: a refund or a negative duration falls outside every band and appears once as ''unbanded'' (order 0), so the profile covers every in-window trip and sum(trip_count) equals fct_trip''s count.'
+    properties:
+      - name: distance_band
+        logicalType: string
+        physicalType: VARCHAR
+      - name: distance_band_order
+        logicalType: integer
+        physicalType: INTEGER
+      - name: duration_band
+        logicalType: string
+        physicalType: VARCHAR
+      - name: duration_band_order
+        logicalType: integer
+        physicalType: INTEGER
+      - name: fare_band
+        logicalType: string
+        physicalType: VARCHAR
+      - name: fare_band_order
+        logicalType: integer
+        physicalType: INTEGER
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pickup_borough
+        logicalType: string
+        physicalType: VARCHAR
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_measurable_tip_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: non_billable_count
+        logicalType: integer
+        physicalType: BIGINT

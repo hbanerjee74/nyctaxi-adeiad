@@ -1,0 +1,45 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 4de99a24-a3a5-5762-9751-040be5789749
+name: driver_status_event
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: driver_status_event
+    properties:
+      - name: event_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: event_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: status_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: zone_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: received_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: source_system
+        logicalType: string
+        physicalType: VARCHAR

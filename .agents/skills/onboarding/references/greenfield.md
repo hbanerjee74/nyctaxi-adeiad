@@ -35,6 +35,7 @@ Write from [templates/](../templates/), filling the confirmed answers:
 | `AGENTS.md`, `ruff.toml`, `requirements-dev.txt`, `.gitignore` (`gitignore-fragment`) | `templates/repo/`, `<!-- onboarding -->` blocks removed |
 | `.sqlfluff` | `templates/repo/sqlfluff.cfg`; its profile comes from `.github/profiles/`, which `install-ci` writes |
 | `docs/adr/`, `docs/review/`, `docs/proposal/` | empty, with a `.gitkeep` |
+| `contracts/`, `.agents/skills/data-contract/`, `.agents/skills/validating-data-contract/` | `contracts/` empty with a `.gitkeep`; both skills seeded with their `scripts/`, by the Convention skills paragraph in [base-setup.md](base-setup.md). Declared in both maps, so the first contract has its path |
 | `.agents/skills/<name>/SKILL.md`, one per convention skill | `templates/skills/<name>.md`, with the confirmed answers in place of the placeholders and every `<!-- onboarding -->` block removed |
 | `CONTEXT.md` and any ADR a confirmed decision earns | `domain-modeling` |
 | CI, `.github/profiles/`, `.github/scripts/adr_lint.py` | `install-ci`. Not optional: `.sqlfluff` and the `adr_lint` command depend on it |
@@ -52,7 +53,7 @@ Fill the placeholders:
 | `<UTC timestamp>` | The time of writing, in both maps |
 | `orchestrators` | Keep the `run_ingest` entry the template ships (`kind: python`, `path: orchestration/run_ingest.py`, `runs: []`). The first source adds itself to `runs` and to `PIPELINES`; a runner outside the repo is a separate entry with `location` |
 
-Write no source, pipeline, model or design record: the first intent adds them. Write no review file: there is nothing to review.
+Write no source, pipeline, model, contract or design record: the first intent adds them, and a contract with the first relation that lands. Write no review file: there is nothing to review, and `reverse` has nothing to draft.
 
 ## Verify
 

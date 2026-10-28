@@ -1,0 +1,32 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 1fcb54f7-28a3-55d7-ba8b-dd79daee860e
+name: fare_regime_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: fare_regime_master
+    properties:
+      - name: regime_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: fare_component
+        logicalType: string
+        physicalType: VARCHAR
+      - name: rate_amount
+        logicalType: number
+        physicalType: DECIMAL(3,2)
+      - name: applies_to_fleet
+        logicalType: string
+        physicalType: VARCHAR
+      - name: valid_from_date
+        logicalType: date
+        physicalType: DATE
+      - name: valid_to_date
+        logicalType: date
+        physicalType: DATE

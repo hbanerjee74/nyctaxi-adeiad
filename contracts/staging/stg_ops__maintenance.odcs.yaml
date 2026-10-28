@@ -1,0 +1,47 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: fd002019-5457-56ff-9666-43720cd4f5cd
+name: stg_ops__maintenance
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_ops__maintenance
+    dataGranularityDescription: One row per maintenance event, with its end date.
+    properties:
+      - name: maintenance_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: started_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: down_days
+        logicalType: integer
+        physicalType: BIGINT
+      - name: ended_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: maintenance_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: cost_usd
+        logicalType: integer
+        physicalType: BIGINT

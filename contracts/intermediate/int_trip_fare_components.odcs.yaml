@@ -1,0 +1,82 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 06c87a6f-f0a7-530b-9470-81cab118cb9a
+name: int_trip_fare_components
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_trip_fare_components
+    dataGranularityDescription: Fare decomposition with an explicit residual.
+    properties:
+      - name: trip_key
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: service_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: pickup_date
+        logicalType: date
+        physicalType: DATE
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: airport_fee
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_surcharges
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_residual
+        logicalType: number
+        physicalType: DOUBLE
+      - name: has_unexplained_residual
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: tip_rate_on_fare
+        logicalType: number
+        physicalType: DOUBLE
+      - name: measurable_tip_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_is_captured
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: counts_as_revenue
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: settlement_class
+        logicalType: string
+        physicalType: VARCHAR

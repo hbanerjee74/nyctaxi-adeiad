@@ -1,0 +1,51 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 3d872971-69b6-5e26-8cb5-23e915b26be6
+name: vehicle
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: vehicle
+    properties:
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: medallion_number
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vin
+        logicalType: string
+        physicalType: VARCHAR
+      - name: make
+        logicalType: string
+        physicalType: VARCHAR
+      - name: model
+        logicalType: string
+        physicalType: VARCHAR
+      - name: model_year
+        logicalType: integer
+        physicalType: BIGINT
+      - name: fuel_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: wheelchair_accessible
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: garage_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: in_service_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: retired_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true

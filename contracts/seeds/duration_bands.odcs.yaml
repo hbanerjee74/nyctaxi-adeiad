@@ -1,0 +1,34 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: dcbeee4f-db58-557d-9a33-aa70fb146ea3
+name: duration_bands
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: seeds
+schema:
+  - name: duration_bands
+    dataGranularityDescription: Trip duration banding, in minutes.
+    properties:
+      - name: band_order
+        logicalType: integer
+        physicalType: INTEGER
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: duration_band
+        logicalType: string
+        physicalType: VARCHAR
+      - name: min_minutes
+        logicalType: integer
+        physicalType: INTEGER
+      - name: max_minutes
+        logicalType: integer
+        physicalType: INTEGER

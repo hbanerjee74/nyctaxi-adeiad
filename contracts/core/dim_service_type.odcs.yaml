@@ -1,0 +1,46 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 95a2769a-fcc4-583e-b30a-d338ede7d99e
+name: dim_service_type
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_service_type
+    dataGranularityDescription: One row per fleet service type, with its hail and airport rules.
+    properties:
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+        primaryKey: true
+        description: yellow or green; the fact carries the same value.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: service_type_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Service type display name.
+      - name: may_serve_airports
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True when the fleet may pick up at the airports.
+      - name: may_serve_manhattan_core
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True when the fleet may street-hail inside the Manhattan core.
+      - name: hail_rule
+        logicalType: string
+        physicalType: VARCHAR
+        description: Where the fleet may street-hail, in words.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_analytics.ossie.yaml
+    type: businessDefinition

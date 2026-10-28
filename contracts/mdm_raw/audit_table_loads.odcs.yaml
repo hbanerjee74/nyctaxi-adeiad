@@ -1,0 +1,37 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 1674e93d-782f-5827-b417-09656c957ecb
+name: audit_table_loads
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: audit_table_loads
+    properties:
+      - name: load_id
+        logicalType: string
+        physicalType: VARCHAR
+      - name: table_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: rows_extracted
+        logicalType: integer
+        physicalType: BIGINT
+      - name: rows_normalized
+        logicalType: integer
+        physicalType: BIGINT
+      - name: file_size
+        logicalType: integer
+        physicalType: BIGINT
+      - name: load_state
+        logicalType: string
+        physicalType: VARCHAR
+      - name: load_elapsed
+        logicalType: number
+        physicalType: DOUBLE
+description:
+  purpose: Load audit relation, owned by the installed vibedata library. The loader writes its columns, so a change here follows a loader upgrade rather than a change in this repository's sources.

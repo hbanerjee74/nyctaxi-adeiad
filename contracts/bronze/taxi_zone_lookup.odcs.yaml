@@ -1,0 +1,26 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: c08a9cfd-a552-5141-ac50-4b1d3a5b4f4c
+name: taxi_zone_lookup
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: bronze
+schema:
+  - name: taxi_zone_lookup
+    properties:
+      - name: LocationID
+        logicalType: integer
+        physicalType: BIGINT
+      - name: Borough
+        logicalType: string
+        physicalType: VARCHAR
+      - name: Zone
+        logicalType: string
+        physicalType: VARCHAR
+      - name: service_zone
+        logicalType: string
+        physicalType: VARCHAR

@@ -1,0 +1,103 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 262efed7-9487-51b8-b4e4-f7e83e0a5237
+name: dim_vehicle
+version: 2.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_vehicle
+    dataGranularityDescription: Type 1 vehicle dimension with maintenance downtime folded in, so a vehicle out of the shop is not read as an underperforming asset.
+    properties:
+      - name: vehicle_key
+        logicalType: integer
+        physicalType: BIGINT
+        primaryKey: true
+        description: Operator's vehicle identifier.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: medallion_number
+        logicalType: string
+        physicalType: VARCHAR
+        description: Medallion the vehicle operates under.
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: vin
+        logicalType: string
+        physicalType: VARCHAR
+      - name: make
+        logicalType: string
+        physicalType: VARCHAR
+      - name: model
+        logicalType: string
+        physicalType: VARCHAR
+      - name: make_model
+        logicalType: string
+        physicalType: VARCHAR
+        description: Reporting label for make and model.
+      - name: model_year
+        logicalType: integer
+        physicalType: BIGINT
+        description: Model year of the vehicle.
+      - name: vehicle_age_years
+        logicalType: integer
+        physicalType: BIGINT
+        description: Model age in years at the report end; restates with the reporting window.
+      - name: fuel_type
+        logicalType: string
+        physicalType: VARCHAR
+        description: Fuel or drivetrain type.
+      - name: is_low_emission
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: Hybrid or electric.
+      - name: wheelchair_accessible
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: Equipped for wheelchair access.
+      - name: garage_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: Garage the vehicle is assigned to; not the driver's home garage.
+      - name: garage_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Display name of the assigned garage.
+      - name: in_service_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: Date the vehicle entered service.
+      - name: retired_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: Date the vehicle left service; null while in service.
+      - name: is_in_service
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True while the vehicle is available to the fleet.
+      - name: maintenance_events
+        logicalType: integer
+        physicalType: BIGINT
+        description: Lifetime count of maintenance events.
+      - name: maintenance_down_days
+        logicalType: integer
+        physicalType: HUGEINT
+        description: Lifetime down-days across maintenance events; semi-additive.
+      - name: maintenance_cost_usd
+        logicalType: number
+        physicalType: HUGEINT
+        description: Lifetime maintenance cost in USD.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition

@@ -1,0 +1,85 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 60004733-9809-5ff1-8586-34e37aac8839
+name: int_shift_occupancy
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_shift_occupancy
+    properties:
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: online_seconds
+        logicalType: integer
+        physicalType: BIGINT
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: shift_date
+        logicalType: date
+        physicalType: DATE
+      - name: shift_start_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: effective_end_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: is_unclosed_shift
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: on_trip_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: available_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: break_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: dispatch_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: unaccounted_seconds
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: idle_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: event_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: negative_interval_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: had_open_interval
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: odometer_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: telematics_source
+        logicalType: string
+        physicalType: VARCHAR

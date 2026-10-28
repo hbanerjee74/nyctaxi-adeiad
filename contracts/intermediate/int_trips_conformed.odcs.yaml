@@ -1,0 +1,107 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: fd9ac493-7739-5729-89f6-3ef4c53451e3
+name: int_trips_conformed
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_trips_conformed
+    dataGranularityDescription: 'Yellow and green trips on one grain, one row per distinct trip, with the derived measures every downstream model would otherwise recompute. No filtering: refunds, zero-distance trips and out-of-window pickups survive.'
+    properties:
+      - name: trip_key
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: service_type
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: invalidValues
+            arguments:
+              valid_values:
+                - yellow
+                - green
+            mustBe: 0
+      - name: vendor_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: pickup_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: dropoff_datetime
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: pickup_date
+        logicalType: date
+        physicalType: DATE
+      - name: pickup_hour
+        logicalType: integer
+        physicalType: BIGINT
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: INTEGER
+        description: Joins the zone dimension.
+      - name: dropoff_location_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: rate_code_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: payment_type
+        logicalType: integer
+        physicalType: BIGINT
+      - name: passenger_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: store_and_fwd_flag
+        logicalType: string
+        physicalType: VARCHAR
+      - name: trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: extra
+        logicalType: number
+        physicalType: DOUBLE
+      - name: mta_tax
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tolls_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: improvement_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: congestion_surcharge
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_seconds
+        logicalType: integer
+        physicalType: BIGINT
+        description: Dropoff minus pickup. Negative on a handful of malformed records.
+      - name: avg_mph
+        logicalType: number
+        physicalType: DOUBLE
+      - name: _dlt_load_id
+        logicalType: string
+        physicalType: VARCHAR

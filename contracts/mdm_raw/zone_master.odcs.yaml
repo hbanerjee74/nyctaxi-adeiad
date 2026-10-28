@@ -1,0 +1,59 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: f77e9418-52bd-535e-99bb-91d1cb45fd7c
+name: zone_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: zone_master
+    properties:
+      - name: location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: zone_label
+        logicalType: string
+        physicalType: VARCHAR
+      - name: tlc_service_zone
+        logicalType: string
+        physicalType: VARCHAR
+      - name: centroid_lat
+        logicalType: number
+        physicalType: DOUBLE
+      - name: centroid_lon
+        logicalType: number
+        physicalType: DOUBLE
+      - name: area_sq_mi
+        logicalType: number
+        physicalType: DOUBLE
+      - name: resident_population
+        logicalType: integer
+        physicalType: BIGINT
+      - name: is_airport_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_congestion_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: zone_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: demand_tier
+        logicalType: string
+        physicalType: VARCHAR
+      - name: valid_from_date
+        logicalType: date
+        physicalType: DATE
+      - name: valid_to_date
+        logicalType: date
+        physicalType: DATE
+      - name: source_version
+        logicalType: integer
+        physicalType: INTEGER

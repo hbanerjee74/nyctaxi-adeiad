@@ -1,0 +1,49 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 3597eb16-a75c-561e-bad9-b4288ef06137
+name: stg_ops__trip_assignments
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_ops__trip_assignments
+    dataGranularityDescription: One row per trip assignment, with the warehouse's trip key derived from the operator's natural columns.
+    properties:
+      - name: assignment_id
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: trip_key
+        logicalType: string
+        physicalType: VARCHAR
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: shift_id
+        logicalType: string
+        physicalType: VARCHAR
+        relationships:
+          - to: stg_ops__shifts.shift_id
+      - name: driver_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: assigned_ts
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: assignment_method
+        logicalType: string
+        physicalType: VARCHAR

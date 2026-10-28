@@ -195,6 +195,17 @@
         }
       }
     },
+    "data_platform": {
+      "type": "string",
+      "description": "The Data Platform kind this Domain runs on, as the shared vocabulary names it. One Domain runs on one platform, so this is the only source for `servers[].type` in a data contract."
+    },
+    "gold_layers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Layer names that hold gold relations. A tool that gates gold agreement reads this instead of carrying a list of non-gold names of its own, because another Domain names its layers differently. The list is the only source: a map that omits it gates no gold relation, and the check warns about the gap rather than inferring a set."
+    },
     "sources": {
       "type": "object",
       "description": "Each raw source loaded by dlt.",

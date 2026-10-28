@@ -1,0 +1,106 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 81de3f5a-9664-5f68-b779-5b79dbdb222e
+name: agg_trip_zone_daypart_dow
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_trip_zone_daypart_dow
+    dataGranularityDescription: 'The demand cube: one row per pickup zone, day of week, non-working-day flag, daypart, peak flag and fleet. A holiday Monday and a working Monday are separate rows, and the early daypart splits into its off-peak and peak hours, so sum the rows to answer at zone x daypart x day of week. The grain most operational questions land on. Tip metrics are restricted to payment methods where the meter captures tips, and the covered share is published alongside so the reader can see how much traffic the rate speaks for.'
+    properties:
+      - name: avg_measurable_tip_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: trip_count
+        logicalType: integer
+        physicalType: BIGINT
+        quality:
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: pickup_location_id
+        logicalType: integer
+        physicalType: BIGINT
+      - name: zone_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: reporting_region
+        logicalType: string
+        physicalType: VARCHAR
+      - name: zone_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_airport_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: day_of_week
+        logicalType: integer
+        physicalType: BIGINT
+      - name: day_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_weekend
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_non_working_day
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: daypart_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_peak
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: service_type_key
+        logicalType: string
+        physicalType: VARCHAR
+      - name: billable_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: total_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: fare_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: tip_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: surcharge_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_miles
+        logicalType: number
+        physicalType: DOUBLE
+      - name: total_paid_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_trip_distance
+        logicalType: number
+        physicalType: DOUBLE
+      - name: avg_trip_minutes
+        logicalType: number
+        physicalType: DOUBLE
+      - name: median_total_amount
+        logicalType: number
+        physicalType: DOUBLE
+      - name: measurable_tip_trip_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: tip_measurable_share
+        logicalType: number
+        physicalType: DOUBLE

@@ -1,0 +1,35 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 36b36bff-8e5d-5198-ac2a-1bfc8d54f114
+name: borough_master
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: mdm_raw
+schema:
+  - name: borough_master
+    properties:
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: reporting_region
+        logicalType: string
+        physicalType: VARCHAR
+      - name: resident_population
+        logicalType: integer
+        physicalType: INTEGER
+      - name: area_sq_mi
+        logicalType: number
+        physicalType: DECIMAL(5,2)
+      - name: is_nyc
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_core_market
+        logicalType: boolean
+        physicalType: BOOLEAN

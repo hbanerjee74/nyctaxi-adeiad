@@ -1,0 +1,63 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 362fcfbe-00f9-5ff8-9bba-a806f90619a2
+name: agg_garage_monthly
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_garage_monthly
+    dataGranularityDescription: Garage-month. The top of the driver, vehicle and garage pyramid.
+    properties:
+      - name: month_start_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP
+      - name: garage_key
+        logicalType: integer
+        physicalType: INTEGER
+      - name: garage_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: bay_capacity
+        logicalType: integer
+        physicalType: INTEGER
+      - name: active_vehicles
+        logicalType: integer
+        physicalType: BIGINT
+      - name: shift_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: trip_count
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: online_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: on_trip_hours
+        logicalType: number
+        physicalType: DOUBLE
+      - name: gross_revenue
+        logicalType: number
+        physicalType: DOUBLE
+      - name: maintenance_cost
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: down_days
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE
+      - name: revenue_per_online_hour
+        logicalType: number
+        physicalType: DOUBLE
+      - name: bay_occupancy_rate
+        logicalType: number
+        physicalType: DOUBLE

@@ -1,0 +1,29 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 110e58e9-1977-5b36-8ed1-5b550bc1a1ca
+name: garage
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: ops_raw
+schema:
+  - name: garage
+    properties:
+      - name: garage_id
+        logicalType: integer
+        physicalType: INTEGER
+      - name: garage_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough
+        logicalType: string
+        physicalType: VARCHAR
+      - name: bay_capacity
+        logicalType: integer
+        physicalType: INTEGER
+      - name: opened_date
+        logicalType: date
+        physicalType: DATE

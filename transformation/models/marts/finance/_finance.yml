@@ -5,29 +5,82 @@ models:
     description: >
       Daily revenue by pickup zone. The billable rule (ADR 0003) is applied
       here and nowhere upstream.
+    contract: {enforced: true}
     columns:
       - name: trip_date
-        tests: [not_null]
+        data_type: DATE
+        data_tests: [not_null]
       - name: total_revenue
-        tests: [not_null]
+        data_type: DOUBLE
+        data_tests: [not_null]
       - name: pickup_location_id
-        tests:
-          - relationships: {arguments: {to: ref('dim_zone'), field: zone_natural_key}}
-
+        data_type: BIGINT
+        data_tests: [{relationships: {arguments: {field: zone_natural_key, to: ref('dim_zone')}}}]
+      - name: borough
+        data_type: VARCHAR
+      - name: zone_name
+        data_type: VARCHAR
+      - name: reporting_region
+        data_type: VARCHAR
+      - name: trip_count
+        data_type: BIGINT
+      - name: fare_revenue
+        data_type: DOUBLE
+      - name: tip_revenue
+        data_type: DOUBLE
+      - name: surcharge_revenue
+        data_type: DOUBLE
+      - name: toll_revenue
+        data_type: DOUBLE
   - name: mart_monthly_service_summary
     description: Monthly volume and revenue by fleet and payment method.
+    contract: {enforced: true}
     columns:
       - name: trip_month
-        tests: [not_null]
+        data_type: TIMESTAMP
+        data_tests: [not_null]
       - name: service_type
-        tests:
-          - accepted_values: {arguments: {values: ['yellow', 'green']}}
-
+        data_type: VARCHAR
+        data_tests: [{accepted_values: {arguments: {values: [yellow, green]}}}]
+      - name: payment_method_name
+        data_type: VARCHAR
+      - name: settlement_class
+        data_type: VARCHAR
+      - name: counts_as_revenue
+        data_type: BOOLEAN
+      - name: trip_count
+        data_type: BIGINT
+      - name: total_miles
+        data_type: DOUBLE
+      - name: total_revenue
+        data_type: DOUBLE
+      - name: avg_fare
+        data_type: DOUBLE
+      - name: est_processor_fees
+        data_type: DOUBLE
   - name: mart_revenue_component_bridge
     description: >
       The fare-to-total walk, unpivoted one component per row. The residual is
       its own component rather than being absorbed into a real one: if it is
       non-zero the walk does not balance, and that is a finding about the source.
+    contract: {enforced: true}
     columns:
       - name: component_name
-        tests: [not_null]
+        data_type: VARCHAR
+        data_tests: [not_null]
+      - name: trip_month
+        data_type: TIMESTAMP
+      - name: service_type_key
+        data_type: VARCHAR
+      - name: borough_name
+        data_type: VARCHAR
+      - name: trip_count
+        data_type: BIGINT
+      - name: total_amount
+        data_type: DOUBLE
+      - name: component_order
+        data_type: INTEGER
+      - name: component_amount
+        data_type: DOUBLE
+      - name: component_share
+        data_type: DOUBLE

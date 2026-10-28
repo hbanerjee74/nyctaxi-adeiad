@@ -1,0 +1,62 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 97947e8f-11d3-5e7f-8778-c53e454545fa
+name: fct_maintenance
+version: 2.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: fct_maintenance
+    dataGranularityDescription: One row per vehicle maintenance event. Semi-additive — down-days sum across vehicles but not across overlapping date ranges.
+    properties:
+      - name: maintenance_id
+        logicalType: string
+        physicalType: VARCHAR
+        primaryKey: true
+        description: Maintenance event identifier; the grain of the downtime fact.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: vehicle_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: Vehicle that was in the shop.
+      - name: garage_key
+        logicalType: integer
+        physicalType: BIGINT
+        description: Garage the vehicle belongs to, carried from dim_vehicle.
+      - name: started_date_key
+        logicalType: integer
+        physicalType: INTEGER
+        description: Surrogate key into date for the start date.
+      - name: started_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: First day of the downtime.
+      - name: ended_date
+        logicalType: date
+        physicalType: TIMESTAMP WITH TIME ZONE
+        description: Last day of the downtime; a range end, not a time dimension.
+      - name: down_days
+        logicalType: integer
+        physicalType: BIGINT
+        description: Days out of service for the event; semi-additive across overlapping ranges.
+      - name: maintenance_type
+        logicalType: string
+        physicalType: VARCHAR
+        description: Kind of work performed.
+      - name: cost_usd
+        logicalType: number
+        physicalType: BIGINT
+        description: Cost of the event in USD, row level.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition

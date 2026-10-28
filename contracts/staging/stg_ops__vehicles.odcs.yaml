@@ -1,0 +1,64 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: bfbecae7-6f3d-501d-a55b-e5e509e4e95c
+name: stg_ops__vehicles
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: staging
+schema:
+  - name: stg_ops__vehicles
+    dataGranularityDescription: One row per vehicle, with an in-service flag.
+    properties:
+      - name: vehicle_id
+        logicalType: integer
+        physicalType: BIGINT
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: medallion_number
+        logicalType: string
+        physicalType: VARCHAR
+      - name: vin
+        logicalType: string
+        physicalType: VARCHAR
+      - name: make
+        logicalType: string
+        physicalType: VARCHAR
+      - name: model
+        logicalType: string
+        physicalType: VARCHAR
+      - name: model_year
+        logicalType: integer
+        physicalType: BIGINT
+      - name: fuel_type
+        logicalType: string
+        physicalType: VARCHAR
+      - name: wheelchair_accessible
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: garage_id
+        logicalType: integer
+        physicalType: BIGINT
+        relationships:
+          - to: stg_ops__garages.garage_id
+      - name: in_service_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: retired_date
+        logicalType: timestamp
+        physicalType: TIMESTAMP WITH TIME ZONE
+        logicalTypeOptions:
+          timezone: true
+      - name: is_in_service
+        logicalType: boolean
+        physicalType: BOOLEAN

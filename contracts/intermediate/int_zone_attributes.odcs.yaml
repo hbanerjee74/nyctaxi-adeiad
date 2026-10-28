@@ -1,0 +1,86 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 6f525010-0349-5108-b462-48db0656fa93
+name: int_zone_attributes
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: intermediate
+schema:
+  - name: int_zone_attributes
+    dataGranularityDescription: 'Current-version zone attributes with borough rollup and a point-of-interest summary. The current-version filter is mandatory: zone_master is versioned at source, and without it every trip touching a re-designated zone doubles.'
+    properties:
+      - name: location_id
+        logicalType: integer
+        physicalType: BIGINT
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: is_unresolved_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: True for TLC codes 264 and 265. These join the lookup cleanly, which is precisely the hazard -- the failure mode is a meaningless borough, not an unmatched row.
+      - name: zone_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_name
+        logicalType: string
+        physicalType: VARCHAR
+      - name: borough_code
+        logicalType: string
+        physicalType: VARCHAR
+      - name: reporting_region
+        logicalType: string
+        physicalType: VARCHAR
+      - name: is_nyc
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_core_market
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: tlc_service_zone
+        logicalType: string
+        physicalType: VARCHAR
+      - name: zone_class
+        logicalType: string
+        physicalType: VARCHAR
+      - name: demand_tier
+        logicalType: string
+        physicalType: VARCHAR
+      - name: centroid_lat
+        logicalType: number
+        physicalType: DOUBLE
+      - name: centroid_lon
+        logicalType: number
+        physicalType: DOUBLE
+      - name: area_sq_mi
+        logicalType: number
+        physicalType: DOUBLE
+      - name: resident_population
+        logicalType: integer
+        physicalType: BIGINT
+      - name: is_airport_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: is_congestion_zone
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: poi_count
+        logicalType: integer
+        physicalType: BIGINT
+      - name: poi_demand_weight
+        logicalType: integer
+        physicalType: HUGEINT
+      - name: has_airport_poi
+        logicalType: boolean
+        physicalType: BOOLEAN
+      - name: poi_categories
+        logicalType: string
+        physicalType: VARCHAR

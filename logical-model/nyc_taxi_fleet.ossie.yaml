@@ -45,21 +45,21 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: driver_key
-        datatype: String
+        datatype: Integer
         description: Driver who signed on.
       - name: vehicle_key
         expression:
           dialects:
             - dialect: ANSI_SQL
               expression: vehicle_key
-        datatype: String
+        datatype: Integer
         description: Vehicle operated during the shift.
       - name: garage_key
         expression:
           dialects:
             - dialect: ANSI_SQL
               expression: garage_key
-        datatype: String
+        datatype: Integer
         description: Driver's home garage at sign-on, carried from dim_driver; not the vehicle's garage.
       - name: engagement_type
         expression:
@@ -148,14 +148,14 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: driver_key
-        datatype: String
+        datatype: Integer
         description: Driver the interval is attributed to.
       - name: vehicle_key
         expression:
           dialects:
             - dialect: ANSI_SQL
               expression: vehicle_key
-        datatype: String
+        datatype: Integer
         description: Vehicle the driver was in during the interval.
       - name: interval_date
         expression:
@@ -247,14 +247,14 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: vehicle_key
-        datatype: String
+        datatype: Integer
         description: Vehicle that was in the shop.
       - name: garage_key
         expression:
           dialects:
             - dialect: ANSI_SQL
               expression: garage_key
-        datatype: String
+        datatype: Integer
         description: Garage the vehicle belongs to, carried from dim_vehicle.
       - name: started_date
         expression:
@@ -319,7 +319,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: driver_key
-        datatype: String
+        datatype: Integer
         description: Operator's driver identifier.
       - name: driver_ref
         expression:
@@ -379,7 +379,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: garage_key
-        datatype: String
+        datatype: Integer
         description: Driver's home garage.
       - name: home_garage_name
         expression:
@@ -426,7 +426,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: vehicle_key
-        datatype: String
+        datatype: Integer
         description: Operator's vehicle identifier.
       - name: medallion_number
         expression:
@@ -482,7 +482,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: garage_key
-        datatype: String
+        datatype: Integer
         description: Garage the vehicle is assigned to; not the driver's home garage.
       - name: garage_name
         expression:
@@ -553,7 +553,7 @@ datasets:
           dialects:
             - dialect: ANSI_SQL
               expression: garage_key
-        datatype: String
+        datatype: Integer
         description: Garage identifier.
       - name: garage_name
         expression:

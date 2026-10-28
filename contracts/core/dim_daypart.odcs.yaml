@@ -1,0 +1,42 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 15ae98ac-718e-55b6-93e7-0a02cac8ff27
+name: dim_daypart
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: core
+schema:
+  - name: dim_daypart
+    dataGranularityDescription: One row per hour of the day, with its analyst-owned daypart band and peak flag.
+    properties:
+      - name: hour_of_day
+        logicalType: integer
+        physicalType: INTEGER
+        primaryKey: true
+        description: Hour of day (0-23); joins trips on pickup_hour.
+        quality:
+          - type: library
+            metric: duplicateValues
+            mustBe: 0
+          - type: library
+            metric: nullValues
+            mustBe: 0
+      - name: daypart_code
+        logicalType: string
+        physicalType: VARCHAR
+        description: 'Daypart band code from the daypart seed: LATE, EARLY, MID, AMPEAK, PMPEAK or EVE.'
+      - name: daypart_name
+        logicalType: string
+        physicalType: VARCHAR
+        description: Daypart label for the band.
+      - name: is_peak
+        logicalType: boolean
+        physicalType: BOOLEAN
+        description: Whether the hour is a peak hour in the seed's daypart bands.
+authoritativeDefinitions:
+  - url: logical-model/nyc_taxi_fleet.ossie.yaml
+    type: businessDefinition
