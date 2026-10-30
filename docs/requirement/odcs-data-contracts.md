@@ -16,7 +16,7 @@ The same work ships as a Domain convention skill so every customer repo inherits
 
 In scope: one contract per relation across the schemas `repo-map.json` declares; the generated dbt and dlt enforcement; `tools/odcs.py` with `check` and `check --relations`; the `data-contract` authoring skill and the `validating-data-contract` review; the vendored pinned schema; the `repo-map.json` and `test-map.json` registrations; the pre-commit and CI wiring; the reverse-engineered first pass; the forward demonstration and its cases.
 
-Out of scope: the ODCS sections that assert nothing here (`price`, `support`, `team`, `roles`, `slaProperties`); a contract UI, viewer or catalog sync; a converter from a contract into any format; a MetricFlow export; any change to the dbt models, seeds or macros beyond the enforcement the contracts generate.
+Out of scope: the ODCS sections that assert nothing here (`price`, `support`, `team`, `roles`, `slaProperties`); a contract UI, viewer or catalog sync; a converter from a contract into any format; any change to the dbt models, seeds or macros beyond the enforcement the contracts generate.
 
 ## Requirements
 
