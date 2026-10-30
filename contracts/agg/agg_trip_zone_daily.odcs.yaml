@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 6767ad11-6380-5435-8382-25fdafb31a75
 name: agg_trip_zone_daily
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_trip_zone_daily
-    dataGranularityDescription: 'Daily zone demand with period-over-period context. The window functions are the point: a raw count answers "how many", the lag and rolling average answer "is that normal".'
     properties:
       - name: pickup_date_key
         logicalType: integer

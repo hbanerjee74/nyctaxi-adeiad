@@ -1,36 +1,63 @@
-"""ODCS data-contract tooling for this repo.
+"""ODCS data-contract tooling, run from the data-contract skill against a Domain checkout.
 
-Commands: `check` (schema and structure of the committed contracts, and their agreement
-with the canonical model that names each gold relation), `check --relations` (adds the
-comparison against the built relation), `reverse` (draft contracts from an existing
-warehouse, with the questions neither the warehouse nor the model can settle), `generate`
-(write the dbt keys and dlt hints from the contracts).
+Commands: `check` (schema and structure of the committed contracts, one contract per
+boundary relation, and their agreement with the canonical model that names each gold
+relation), `check --relations` (adds the comparison against the built relation), `reverse`
+(draft the boundary's contracts from a built warehouse, with the questions neither the
+warehouse nor the model can settle), `generate` (write the dbt keys and dlt hints from the
+contracts), `diff` (classify each changed contract against a git base and require the version
+bump the change needs), `profile` (test each contract's key, `required` and value-set claims
+against the built relation), `results` (map a dbt run's test results to the contract
+assertions they enforce), `version`.
+
+The boundary is where a contract is owed: every relation a dlt source loads, and every
+relation a gold layer builds. A `contract_layers` list in `repo-map.json` replaces that
+default with the layers it names. A contract outside the boundary is checked like any other;
+it is never required.
+
+The canonical model owns what it declares. A gold contract's `primaryKey` properties and the
+model's `primary_key` must agree both ways (when the model declares one). A relation the model
+documents (a star member) states no `dataGranularityDescription` and no column descriptions:
+`reverse` drafts none and neither `check` nor the findings ask for them. `semantic_exclusions`
+in `repo-map.json` (`[{relation: "schema.table", reason}]`) names the relations the model
+deliberately leaves out: `check` reports `gold/excluded` (info) for them, not `gold/undeclared`.
+A contract with ODCS `status: proposed` is written before its table exists: it is still checked
+for shape, but is no orphan and `generate`, the stale check and `--relations` skip it.
 
 This script proves shape and reports facts. It never judges meaning: the grain, whether a
 `required` is honest, and whether a quality rule encodes the real business answer are the
 `validating-data-contract` review, not a pass/fail here.
 
 Every location resolves from `repo-map.json`: a layer's `path` for the dbt models it builds,
-the seeds layer for its CSVs, and a source's `docs` file for the resources it lands. The
-warehouse is consulted only by `--relations`.
+the seeds it holds, and a source's `docs` file for the resources it lands. The warehouse is
+consulted only by `check --relations`, `reverse` and `profile`, which read a local database
+file (`--catalog`, else the sandbox the Intent's platform names) and refuse rather than skip
+when none resolves. `check --relations` also reads dbt's `catalog.json`.
 
-Usage:
-  python3 scripts/odcs.py check [--root PATH] [--relations]
-  python3 scripts/odcs.py reverse [--root PATH] [--catalog PATH]
-  python3 scripts/odcs.py generate [--root PATH]
+Usage (from the Domain's repository root):
+  python3 odcs.py check [--root PATH] [--relations] [--catalog PATH]
+  python3 odcs.py reverse [--root PATH] [--catalog PATH] [--force]
+  python3 odcs.py generate [--root PATH]
+  python3 odcs.py diff <base-ref> [--root PATH]
+  python3 odcs.py profile [--root PATH] [--catalog PATH] [--relation SCHEMA.TABLE ...]
+  python3 odcs.py results <run_results.json> [--manifest PATH] [--root PATH]
+  python3 odcs.py version
 
-JSON diagnostics go to stdout (agent-parseable); human prose to stderr.
-Exit 0 when no errors (warnings allowed), 1 otherwise.
+JSON diagnostics go to stdout (agent- and CI-parseable): a list, except `results`, which
+prints one JSON record per line. Exit 0 when no errors (warnings allowed), 1 otherwise,
+including when an input cannot be read or a check crashes.
 """
 
-import json
 import ast
-import os
+import collections
+import functools
+import json
 import re
+import subprocess
+import sys
 import uuid
 from pathlib import Path
 
-import duckdb
 import jsonschema
 import typer
 import yaml
@@ -40,6 +67,9 @@ VENDOR_DIR = APP_DIR / "odcs_vendor"
 SCHEMA_FILE = VENDOR_DIR / "odcs-json-schema-v3.2.0.json"
 SPEC_VERSION = "v3.2.0"
 UPSTREAM_COMMIT = "8b551607aad6801979bf4c209385e78fc4d029e5"
+
+# The plugin's own scripts, where the platform modules and the Intent-context reader live.
+PLUGIN_SCRIPTS = APP_DIR.parents[2] / "scripts"
 
 # Sections that assert something. A present-but-empty one claims a promise nobody made.
 ROOT_SECTIONS = ("servers", "authoritativeDefinitions", "tags")
@@ -61,15 +91,12 @@ LOGICAL_TYPES = {
 # dbt reads a model's properties under `models:` and a seed's under `seeds:`.
 PROPERTIES_SECTION = {"model": "models", "seed": "seeds"}
 
-# Relations the installed loader library writes into every dlt schema; no dlt resource declares
-# them, and nothing is generated from their contracts.
+# Relations the installed loader library writes into every dlt schema. No dlt resource declares
+# them, so none is on the boundary, a contract on one is no orphan, and nothing is generated
+# from it.
 AUDIT_RELATIONS = ("audit_runs", "audit_table_loads")
 
-# The warehouse file at the repo root: what `servers[].database` names and what `reverse` reads
-# when no catalog is given.
-WAREHOUSE_FILE = "domain.duckdb"
-
-# A DuckDB column type reduced to the ODCS `logicalType` that states the same value.
+# A local database column type reduced to the ODCS `logicalType` that states the same value.
 PHYSICAL_LOGICAL = {
     "VARCHAR": "string",
     "CHAR": "string",
@@ -127,17 +154,10 @@ REFERENCE_SHAPED = re.compile(r"_(key|id)$")
 # text, a name or a code. A judgement, stated here so a review can argue with the number.
 ENUM_MAX_DISTINCT = 12
 
-# Authored once, for the relations no declared resource in this repo builds.
-AUDIT_PURPOSE = (
-    "Load audit relation, owned by the installed vibedata library. The loader writes its "
-    "columns, so a change here follows a loader upgrade rather than a change in this "
-    "repository's sources."
-)
-
 # Files that carry sources, unit tests or semantics; a generated key has no home in them.
 RESERVED_PROPERTIES = ("_sources.yml", "_unit_tests.yml", "_semantic.yml")
 
-# A DuckDB physical type reduced to the dlt column type that lands the same value.
+# A local database physical type reduced to the dlt column type that lands the same value.
 DLT_TYPES = {
     "VARCHAR": "text",
     "DOUBLE": "double",
@@ -157,8 +177,11 @@ QUALITY_TESTS = {"duplicateValues": "unique", "nullValues": "not_null"}
 app = typer.Typer(add_completion=False)
 
 
-def _diag(severity: str, code: str, message: str) -> dict:
-    return {"severity": severity, "code": code, "message": message}
+def _diag(severity: str, code: str, message: str, file: object = None) -> dict:
+    diag = {"severity": severity, "code": code, "message": message}
+    if file is not None:
+        diag["file"] = str(file)
+    return diag
 
 
 class _Refused(Exception):
@@ -170,18 +193,42 @@ class _Refused(Exception):
 
 
 class _IndentedDumper(yaml.SafeDumper):
-    """PyYAML puts a block sequence flush with its key; this repo's YAML indents it."""
+    """PyYAML puts a block sequence flush with its key; a Domain's YAML indents it."""
 
     def increase_indent(self, flow: bool = False, indentless: bool = False):
         return super().increase_indent(flow, False)
 
 
-def _repo_root(start: Path) -> Path:
-    """The repo root, found by the map rather than by depth, so a seeded skill still resolves."""
+def _fail(diag: dict):
+    """Print one error diagnostic as the command's JSON and exit 1."""
+    print(json.dumps([diag]))
+    raise typer.Exit(1)
+
+
+def _guarded(command):
+    """Keep stdout JSON and the exit code 1 when a check itself crashes."""
+    @functools.wraps(command)
+    def run(*args, **kwargs):
+        try:
+            return command(*args, **kwargs)
+        except (typer.Exit, typer.Abort):
+            raise
+        except _Refused as refusal:
+            _fail(refusal.diag)
+        except Exception as e:  # noqa: BLE001 - report, never traceback
+            _fail(_diag("error", "cli/check-crashed",
+                        f"{command.__name__} crashed: {type(e).__name__}: {e}"))
+    return run
+
+
+def _repo_root(root: str) -> Path:
+    """The Domain root: `--root`, else the nearest directory above the working one with a map."""
+    start = Path(root).resolve() if root else Path.cwd().resolve()
     for candidate in [start, *start.parents]:
         if (candidate / "repo-map.json").is_file():
             return candidate
-    raise typer.BadParameter(f"no repo-map.json above {start}")
+    raise _Refused(_diag("error", "map/missing",
+                         f"no repo-map.json at or above {start}; run from the Domain's root"))
 
 
 def _repo_map(root: Path) -> dict:
@@ -233,13 +280,12 @@ def _schema_diagnostics(doc: object, path: Path) -> list[dict]:
     return _one_per_defect(diags)
 
 
-def expected_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]:
+def declared_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]:
     """Every relation the map declares, as `(schema, table)` mapped to what declares it.
 
     dbt models and seeds come from the layer paths. Raw relations come from each source's
     resource docs. The loader's audit relations are written by the installed library and appear
-    in none of these, so only the catalog can see them: `reverse` contracts them and `check`
-    refuses to call their contracts orphans.
+    in none of these: a contract on one is no orphan, and none is owed.
     """
     expected: dict[tuple[str, str], str] = {}
     for name, layer in (repo_map.get("layers") or {}).items():
@@ -261,18 +307,137 @@ def expected_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]
     return expected
 
 
+def _unknown_contract_layers(repo_map: dict) -> list[dict]:
+    """A `contract_layers` entry that names no layer scopes nothing; saying so is the report."""
+    named = repo_map.get("contract_layers")
+    if named is None:
+        return []
+    if not isinstance(named, list):
+        return [_diag("error", "map/contract-layers",
+                      "repo-map.json `contract_layers` is not a list of layer names")]
+    layers = repo_map.get("layers") or {}
+    return [
+        _diag("error", "map/contract-layers",
+              f"repo-map.json `contract_layers` names `{name}`, which `layers` does not declare")
+        for name in named
+        if name not in layers
+    ]
+
+
+def _exclusions(repo_map: dict) -> tuple[dict[tuple[str, str], str], list[dict]]:
+    """The relations the canonical model deliberately leaves out, with the reason each states.
+
+    An entry the tool cannot read excludes nothing; saying so is the report.
+    """
+    entries = repo_map.get("semantic_exclusions")
+    if entries is None:
+        return {}, []
+    if not isinstance(entries, list):
+        return {}, [_diag("error", "map/semantic-exclusions",
+                          "repo-map.json `semantic_exclusions` is not a list of "
+                          "{relation, reason} entries")]
+    excluded: dict[tuple[str, str], str] = {}
+    diags = []
+    for entry in entries:
+        relation = entry.get("relation") if isinstance(entry, dict) else None
+        reason = entry.get("reason") if isinstance(entry, dict) else None
+        if (isinstance(relation, str) and relation.count(".") == 1 and all(relation.split("."))
+                and isinstance(reason, str) and reason.strip()):
+            schema, table = relation.split(".")
+            excluded[(schema, table)] = reason.strip()
+        else:
+            diags.append(_diag("error", "map/semantic-exclusions",
+                               f"repo-map.json `semantic_exclusions` entry {entry!r} needs a "
+                               f"`relation` as `schema.table` and a `reason`"))
+    return excluded, diags
+
+
+def _is_proposed(doc: object) -> bool:
+    """A contract written before its table exists: `status: proposed` binds nothing built yet."""
+    return isinstance(doc, dict) and doc.get("status") == "proposed"
+
+
+def _proposed_path(path: Path) -> bool:
+    """`_is_proposed` for a file not parsed yet; a file that does not parse is not proposed."""
+    try:
+        return _is_proposed(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except (yaml.YAMLError, OSError):
+        return False
+
+
+def boundary_relations(repo_map: dict,
+                       declared: dict[tuple[str, str], str]) -> dict[tuple[str, str], str]:
+    """The relations a contract is owed for: the inputs and outputs of the Domain.
+
+    By default, every relation a dlt source loads (a consumer of the load sees its shape first)
+    and every relation a gold layer builds (what a consumer outside the repo reads). Staging,
+    intermediate and seed layers are guarded by their dbt tests and owe none. `contract_layers`,
+    when the map declares it, replaces that default with the layers it names, a dlt layer
+    contributing the resources its sources land in that schema.
+    """
+    layers = repo_map.get("layers") or {}
+    named = repo_map.get("contract_layers")
+    if isinstance(named, list):
+        schemas = {layers[name]["schema"] for name in named if name in layers}
+        return {relation: by for relation, by in declared.items() if relation[0] in schemas}
+    gold = {layers[name]["schema"] for name in repo_map.get("gold_layers") or []
+            if name in layers}
+    return {
+        relation: by
+        for relation, by in declared.items()
+        if by.startswith("source ") or (relation[0] in gold and by.startswith("layer "))
+    }
+
+
+def _boundary_rank(relation: tuple[str, str], repo_map: dict,
+                   declared: dict[tuple[str, str], str]) -> int:
+    """Gold first, then inputs, then anything else: the order a reviewer triages in."""
+    layers = repo_map.get("layers") or {}
+    gold = {layers[name]["schema"] for name in repo_map.get("gold_layers") or []
+            if name in layers}
+    if relation[0] in gold:
+        return 0
+    if (declared.get(relation) or "").startswith("source "):
+        return 1
+    return 2
+
+
 def _contract_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], Path]:
     """Every committed contract, keyed by the relation its path names."""
-    base = _declared(root, repo_map["artifact_paths"]["data_contract"])
+    return _contracts_under(_declared(root, repo_map["artifact_paths"]["data_contract"]))
+
+
+CONTRACT_SUFFIX = ".odcs.yaml"
+
+
+def _relation_of(parts: tuple[str, ...]) -> tuple[str, str] | None:
+    """The relation a `{schema}/{table}.odcs.yaml` path names; a dotted table is its own name."""
+    if len(parts) != 2 or not parts[1].endswith(CONTRACT_SUFFIX):
+        return None
+    return parts[0], parts[1][:-len(CONTRACT_SUFFIX)]
+
+
+def _contracts_under(base: Path) -> dict[tuple[str, str], Path]:
+    """Every `{schema}/{table}.odcs.yaml` under `base`, keyed by the relation its path names."""
     found: dict[tuple[str, str], Path] = {}
     if not base.is_dir():
         return found
-    for path in sorted(base.rglob("*.odcs.yaml")):
-        relative = path.relative_to(base)
-        if len(relative.parts) != 2:
-            continue
-        found[(relative.parts[0], relative.stem.split(".")[0])] = path
+    for path in sorted(base.rglob(f"*{CONTRACT_SUFFIX}")):
+        relation = _relation_of(path.relative_to(base).parts)
+        if relation is not None:
+            found[relation] = path
     return found
+
+
+def _misplaced(base: Path, root: Path) -> list[dict]:
+    """A contract file off the `{schema}/{table}` layout names no relation, so nothing checks it."""
+    if not base.is_dir():
+        return []
+    return [_diag("warning", "contract/misplaced",
+                  f"{_display(path, root)}: not at <contracts>/<schema>/<table>{CONTRACT_SUFFIX}, "
+                  f"so no check reads it; move it or remove it", _display(path, root))
+            for path in sorted(base.rglob(f"*{CONTRACT_SUFFIX}"))
+            if _relation_of(path.relative_to(base).parts) is None]
 
 
 def _committed_contracts(root: Path, repo_map: dict) -> dict[tuple[str, str], Path]:
@@ -310,15 +475,25 @@ def _prose(text: object) -> str | None:
     return value
 
 
-def _grain(doc: dict, path: Path) -> list[dict]:
-    """A warning, not an error: an onboarding run may leave the grain to review."""
+def _keyed(element: dict) -> bool:
+    """True when a schema element declares a primary key property."""
+    return any(isinstance(prop, dict) and prop.get("primaryKey") is True
+               for prop in element.get("properties") or [])
+
+
+def _grain(doc: dict, path: Path, star: bool = False) -> list[dict]:
+    """A warning, not an error: an onboarding run may leave the grain to review.
+
+    A star member states none: the model's keys and levels are its grain.
+    """
+    if star:
+        return []
     elements = [e for e in (doc.get("schema") or []) if isinstance(e, dict)]
-    stated = [e for e in elements if _prose(e.get("dataGranularityDescription"))]
-    if stated:
+    if any(_prose(e.get("dataGranularityDescription")) or _keyed(e) for e in elements):
         return []
     return [_diag("warning", "contract/no-grain",
-                  f"{path}: no `dataGranularityDescription`; the review refuses a contract "
-                  f"a shipped intent presents as complete without one")]
+                  f"{path}: no `primaryKey` and no `dataGranularityDescription`; the grain "
+                  f"is stated by neither")]
 
 
 def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tuple[dict, Path]]:
@@ -344,6 +519,40 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tup
             if len(source) == 2:
                 datasets[(source[0], source[1])] = (dataset, path)
     return datasets
+
+
+def _vibedata(node: object) -> dict:
+    """The VIBEDATA payload on a model or dataset node; empty when absent or unreadable."""
+    for ext in (node.get("custom_extensions") if isinstance(node, dict) else None) or []:
+        if isinstance(ext, dict) and ext.get("vendor_name") == "VIBEDATA":
+            try:
+                payload = json.loads(ext.get("data"))
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                return payload
+    return {}
+
+
+def _documented(documents: dict[tuple[str, str], tuple[dict, Path]]) -> set[tuple[str, str]]:
+    """Every relation the canonical model names: a dataset's `source`, plus the `physical_tables`
+    sources (a logical source's `physical_table` is a handle into that list; an aggregate source
+    has no dataset of its own).
+
+    Only datasets carry fields and keys to agree with; this set says which contracts the model
+    owns, so they state no grain prose and are not asked for a document.
+    """
+    named = set(documents)
+    for path in {path for _, path in documents.values()}:
+        model = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        handles = [str(t.get("source")) for t in _vibedata(model).get("physical_tables") or []
+                   if isinstance(t, dict)]
+        for handle in handles:
+            # `catalog.schema.table` names the relation by its last two parts.
+            parts = handle.split(".")[-2:]
+            if len(parts) == 2 and all(parts):
+                named.add((parts[0], parts[1]))
+    return named
 
 
 def _gold_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
@@ -423,13 +632,23 @@ def _loader_columns(relation: tuple[str, str], contract: dict, repo_map: dict) -
 
 def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
                     documents: dict[tuple[str, str], tuple[dict, Path]],
-                    gold: set[str]) -> list[dict]:
+                    gold: set[str], excluded: dict[tuple[str, str], str],
+                    documented: set[tuple[str, str]]) -> list[dict]:
     """A gold contract against the canonical document that names its relation."""
     label = f"{relation[0]}.{relation[1]}"
     declared_document = documents.get(relation)
+    if relation in excluded and relation in documented:
+        return [_diag("warning", "gold/excluded-but-modelled",
+                      f"{label}: listed in semantic_exclusions yet the canonical model names it; "
+                      f"drop the exclusion or the modelling", path)]
     if declared_document is None:
-        if relation[0] not in gold:
+        # An aggregate source is named by the model but has no dataset fields to compare.
+        if relation[0] not in gold or relation in documented:
             return []
+        if relation in excluded:
+            return [_diag("info", "gold/excluded",
+                          f"{label}: excluded from the canonical model: {excluded[relation]}",
+                          path)]
         return [_diag("error", "gold/undeclared",
                       f"{path}: no canonical document names the gold relation {label}")]
     dataset = declared_document[0]
@@ -441,6 +660,13 @@ def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
     keys = set(dataset.get("primary_key") or [])
     props = _properties(contract)
     diags = []
+    # Both ways: a key the contract sets that the model never declares is as divergent as the
+    # reverse. A model that declares no key states none to compare.
+    for name, prop in props.items():
+        if keys and prop.get("primaryKey") is True and name not in keys:
+            diags.append(_diag("error", "gold/divergent",
+                               f"{label}.{name}: the property sets primaryKey true and the "
+                               f"canonical model's primary_key is {sorted(keys)}"))
     for name, field in declared.items():
         prop = props.get(name)
         if prop is None:
@@ -600,7 +826,7 @@ def _target(root: Path, repo_map: dict, relation: tuple[str, str]) -> tuple[str,
 
 
 def _dlt_type(physical: str) -> str | None:
-    """A DuckDB type reduced to the dlt column type that lands the same value."""
+    """A local database type reduced to the dlt column type that lands the same value."""
     return DLT_TYPES.get(physical.split("(", 1)[0].strip().upper())
 
 
@@ -608,7 +834,8 @@ def _relationship_test(where: str, to: str) -> dict:
     """One declared property relationship as the dbt test that enforces it.
 
     dbt resolves a target by `ref()`, which names a model rather than a schema-qualified
-    relation, so `core.dim_zone.zone_key` and `dim_zone.zone_key` both name `dim_zone`.
+    relation, so `core.dim_customer.customer_key` and `dim_customer.customer_key` both name
+    `dim_customer`.
     """
     relation, _, field = str(to).rpartition(".")
     table = relation.rpartition(".")[2]
@@ -618,9 +845,23 @@ def _relationship_test(where: str, to: str) -> dict:
     return {"relationships": {"arguments": {"to": f"ref('{table}')", "field": field}}}
 
 
-def _data_tests(prop: dict, where: str) -> list:
-    """The generic dbt tests a property's quality rules and relationships reduce to."""
+def _sole_key(contract: dict) -> str | None:
+    """The property that is the whole primary key, or None for none or a composite key.
+
+    A composite key has no generic per-column test; `profile` checks it against the data.
+    """
+    keys = [name for name, prop in _properties(contract).items() if prop.get("primaryKey") is True]
+    return keys[0] if len(keys) == 1 else None
+
+
+def _data_tests(prop: dict, where: str, sole_key: bool = False) -> list:
+    """The generic dbt tests a property's claims reduce to: `required` (not_null), a
+    single-column `primaryKey` (unique), its quality rules and its relationships."""
     tests: list = []
+    if prop.get("required") is True:
+        tests.append("not_null")
+    if sole_key:
+        tests.append("unique")
     for rule in prop.get("quality") or []:
         if not isinstance(rule, dict) or rule.get("type") != "library":
             continue
@@ -655,13 +896,14 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
                                  f"{relation[0]}.{relation[1]}: `servers[].schema` says "
                                  f"{stated!r}, the map declares {relation[0]!r}"))
     owned: dict = {"columns": {}}
+    sole = _sole_key(contract)
     if kind == "model":
         owned["contract"] = {"enforced": True}
     for name, prop in _properties(contract).items():
         where = f"{relation[0]}.{relation[1]}.{name}"
         keys: dict = {}
         if kind == "seed":
-            tests = _data_tests(prop, where)
+            tests = _data_tests(prop, where, name == sole)
             if not tests:
                 continue
             keys["data_tests"] = tests
@@ -681,7 +923,7 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
                 raise _Refused(_diag("error", "contract/unmapped-type",
                                      f"{where}: no `physicalType`, so no dbt `data_type`"))
             if kind == "model":
-                tests = _data_tests(prop, where)
+                tests = _data_tests(prop, where, name == sole)
                 if tests:
                     keys["data_tests"] = tests
         owned["columns"][name] = keys
@@ -1003,7 +1245,10 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
         try:
             target = _target(root, repo_map, relation)
         except _Refused as refusal:
-            diags.append(refusal.diag)
+            if not _is_proposed(doc):
+                diags.append(refusal.diag)
+            continue
+        if target is not None and _is_proposed(doc) and target[0] != "dlt":
             continue
         if target is not None:
             targets.setdefault(target[1], []).append((relation, doc, target[0]))
@@ -1054,18 +1299,22 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
     return diags
 
 
-# The `servers[].type` each platform kind maps to. A kind the standard names maps to itself; one
-# it does not is `custom`, the type the standard keeps for a technology it has no type for.
-SERVER_TYPES = {
-    "duckdb_local": "duckdb",
-    "motherduck": "duckdb",
-    "bigquery": "bigquery",
-    "databricks": "databricks",
-    "redshift": "redshift",
-    "snowflake": "snowflake",
-    "fabric_lakehouse": "custom",
-    "fabric_warehouse": "custom",
-}
+def _server_types() -> list[str]:
+    """The `servers[].type` values the vendored standard names."""
+    return list(_schema()["$defs"]["Server"]["properties"]["type"]["enum"])
+
+
+def _server_type(platform: str) -> str:
+    """The standard's server type for a platform: its own name, or the engine its name leads with.
+
+    A platform the standard has no type for is `custom`, the type the standard keeps for a
+    technology it does not name.
+    """
+    types = _server_types()
+    if platform in types:
+        return platform
+    engine = platform.split("_", 1)[0]
+    return engine if engine in types else "custom"
 
 
 def _platform(repo_map: dict) -> str:
@@ -1073,44 +1322,157 @@ def _platform(repo_map: dict) -> str:
     return str(repo_map.get("data_platform") or "")
 
 
-def _catalog_path(root: Path) -> Path | None:
-    """The warehouse `--relations` reads: the ephemeral path the platform sets, else the repo file."""
-    declared = os.environ.get("VD_EPHM_DUCKDB_LOCAL_PATH")
-    candidate = Path(declared) if declared else root / WAREHOUSE_FILE
-    return candidate if candidate.is_file() else None
+def _platform_destination(repo_map: dict) -> dict | None:
+    """What the plugin's platform module says the Intent's sandbox is; None outside a runtime.
+
+    The module owns the platform's facts, so this tool names none: it asks for the expected
+    destination and reads only whether that is a local database file.
+    """
+    if not (PLUGIN_SCRIPTS / "platforms").is_dir():
+        return None
+    if str(PLUGIN_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(PLUGIN_SCRIPTS))
+    try:
+        from intent_context import load_intent_context
+
+        context = dict(load_intent_context())
+    except Exception:  # noqa: BLE001 - no Intent context: the caller passes --catalog
+        return None
+    from platforms import UnknownPlatformError, load
+
+    platform = context.get("VD_DOMAIN_DATA_PLATFORM") or _platform(repo_map)
+    try:
+        return {**load(platform).expected_destination(context), "platform": platform}
+    except UnknownPlatformError:
+        return {"platform": platform}
+
+
+def _warehouse(command: str, repo_map: dict, catalog: str, json_catalog: bool = False) -> Path:
+    """The built warehouse a dynamic command reads, or the refusal that says why there is none.
+
+    `--catalog` wins. Otherwise the Intent's platform names its sandbox; only a local database
+    file is read here, so another platform is refused by name rather than skipped. Asking for a
+    check against data and getting silence is the false pass this exists to prevent.
+    """
+    if catalog:
+        path = Path(catalog).resolve()
+        if not path.is_file():
+            raise _Refused(_diag("error", "catalog/missing",
+                                 f"{path}: no such file; build the Domain or pass --catalog"))
+        return path
+    destination = _platform_destination(repo_map)
+    if destination is None:
+        raise _Refused(_diag("error", "catalog/missing",
+                             f"{command}: no Intent context names a warehouse; pass --catalog "
+                             f"with the built local database file"
+                             + (" or dbt's catalog.json" if json_catalog else "")))
+    local = destination.get("path") if destination.get("family") == "duckdb" else None
+    if not local:
+        raise _Refused(_diag(
+            "error", f"{command}/unsupported-platform",
+            f"{command}: the `{destination.get('platform')}` platform's sandbox is not a local "
+            f"database file, which is all {command} reads"
+            + ("; pass --catalog with dbt's catalog.json from `dbt docs generate`"
+               if json_catalog else "")))
+    path = Path(local)
+    if not path.is_file():
+        raise _Refused(_diag("error", "catalog/missing",
+                             f"{path}: the sandbox database does not exist yet; build the Domain "
+                             f"before {command}"))
+    return path
+
+
+def _duckdb():
+    """The local database driver, imported only by the commands that read a warehouse."""
+    import duckdb
+
+    return duckdb
+
+
+def _landed_columns(catalog: Path) -> dict[tuple[str, str], list[tuple[str, str, bool]]]:
+    """Every relation's `(column, physical type, nullable)` in the built warehouse, in order.
+
+    A `.json` catalog is dbt's `catalog.json`: its nodes and sources carry the same facts for any
+    platform, without nullability, which `check --relations` does not need.
+    """
+    found: dict[tuple[str, str], list[tuple[str, str, bool]]] = {}
+    if catalog.suffix == ".json":
+        try:
+            doc = json.loads(catalog.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise _Refused(_diag("error", "catalog/unreadable", f"{catalog}: {exc}"))
+        for section in ("nodes", "sources"):
+            for entry in (doc.get(section) or {}).values():
+                meta = entry.get("metadata") or {}
+                relation = (str(meta.get("schema") or ""), str(meta.get("name") or ""))
+                columns = sorted((entry.get("columns") or {}).values(),
+                                 key=lambda column: column.get("index") or 0)
+                found[relation] = [(str(c.get("name")), str(c.get("type") or ""), True)
+                                   for c in columns]
+        return found
+    duckdb = _duckdb()
+    try:
+        con = duckdb.connect(str(catalog), read_only=True)
+        try:
+            rows = con.execute(
+                """
+                select table_schema, table_name, column_name, data_type, is_nullable
+                from information_schema.columns
+                where table_schema not in ('information_schema', 'pg_catalog')
+                order by table_schema, table_name, ordinal_position
+                """
+            ).fetchall()
+        finally:
+            con.close()
+    except duckdb.Error as exc:
+        raise _Refused(_diag("error", "catalog/unreadable", f"{catalog}: {exc}"))
+    for schema, table, column, physical, nullable in rows:
+        found.setdefault((schema, table), []).append((column, physical, nullable != "NO"))
+    return found
+
+
+def _landed(relation: tuple[str, str], landed: dict) -> list[tuple[str, str, bool]] | None:
+    """The relation's landed columns; a catalog's identifier case is the platform's, not ours."""
+    if relation in landed:
+        return landed[relation]
+    folded = (relation[0].lower(), relation[1].lower())
+    for key, columns in landed.items():
+        if (key[0].lower(), key[1].lower()) == folded:
+            return columns
+    return None
 
 
 def _server_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
                         repo_map: dict, root: Path) -> list[dict]:
-    """A contract's `servers` against the platform the map declares."""
-    expected = _server(root, repo_map, relation)
+    """A contract's `servers` against the platform the map declares.
+
+    Two forms state the platform: `custom` carrying it as `customProperties.platform`, which is
+    what `reverse` drafts, or the standard's own type for it, which an author may use when they
+    fill in the coordinates that type requires (the schema checks those).
+    """
+    platform = _platform(repo_map)
+    typed = _server_type(platform)
     if "servers" not in doc:
         # An empty list is the empty-section check's finding, not a second one here.
         return [_diag("error", "servers/mismatch",
-                      f"{path}: no `servers`, and the map declares `{_platform(repo_map)}`; a "
-                      f"contract states the platform that serves it")]
+                      f"{path}: no `servers`, and the map declares `{platform}`; a contract "
+                      f"states the platform that serves it", path)]
     for server in doc.get("servers") or []:
         if not isinstance(server, dict):
             continue
-        wrong = [
-            f"`{field}` is {server.get(field)!r} and the map's `{_platform(repo_map)}` platform "
-            f"makes it {want!r}"
-            for field in ("type", "database")
-            if (want := expected.get(field)) is not None and server.get(field) != want
-        ]
-        want_platform = next(
-            (p.get("value") for p in expected.get("customProperties") or []
-             if p.get("property") == "platform"), None)
-        if want_platform is not None:
-            got_platform = next(
-                (p.get("value") for p in server.get("customProperties") or []
-                 if p.get("property") == "platform"), None)
-            if got_platform != want_platform:
-                wrong.append(
-                    f"`customProperties.platform` is {got_platform!r} and the map's platform "
-                    f"makes it {want_platform!r}")
-        if wrong:
-            return [_diag("error", "servers/mismatch", f"{path}: " + "; ".join(wrong))]
+        kind = server.get("type")
+        stated = next((p.get("value") for p in server.get("customProperties") or []
+                       if isinstance(p, dict) and p.get("property") == "platform"), None)
+        if kind == "custom" and stated == platform:
+            continue
+        if kind == typed and typed != "custom":
+            continue
+        want = f"`custom` with customProperties.platform {platform!r}"
+        if typed != "custom":
+            want += f", or `{typed}`"
+        return [_diag("error", "servers/mismatch",
+                      f"{path}: `type` is {kind!r} (platform {stated!r}) and the map's "
+                      f"`{platform}` platform makes it {want}", path)]
     return []
 
 
@@ -1131,64 +1493,51 @@ def _declared_name(relation: tuple[str, str], path: Path, doc: dict) -> list[dic
         return []
     return [_diag("error", "contract/misnamed",
                   f"{path}: `schema[].name` is {names[0]!r} and the path names "
-                  f"`{relation[1]}`; a contract states the relation it governs")]
+                  f"`{relation[1]}`; a contract states the relation it governs", path)]
 
 
 def _relation_diagnostics(relation: tuple[str, str], path: Path, doc: dict,
-                          catalog: Path, repo_map: dict) -> list[dict]:
+                          landed: dict, repo_map: dict) -> list[dict]:
     """The contract's columns against the columns the catalog holds for the relation.
 
     A column the catalog has and the contract does not is the drift this exists for: the
     contract states the shape, and the landed relation still carries a column it dropped.
     """
-    con = duckdb.connect(str(catalog), read_only=True)
-    try:
-        rows = con.execute(
-            "select column_name from information_schema.columns "
-            "where table_schema = ? and table_name = ?",
-            [relation[0], relation[1]],
-        ).fetchall()
-    finally:
-        con.close()
-    # A loader column is not the relation's shape, the same rule the contract side applies.
-    landed = {row[0] for row in rows if not _is_loader_column(relation, row[0], repo_map)}
-    if not rows:
+    label = f"{relation[0]}.{relation[1]}"
+    columns = _landed(relation, landed)
+    if not columns:
         return [_diag("error", "relations/mismatch",
-                      f"{relation[0]}.{relation[1]}: the catalog holds no such relation, so the "
-                      f"contract describes nothing; build it before comparing")]
-    declared = {
-        prop.get("name")
-        for element in doc.get("schema") or []
-        if isinstance(element, dict)
-        for prop in element.get("properties") or []
-        if isinstance(prop, dict) and prop.get("name")
-    }
+                      f"{label}: the catalog holds no such relation, so the contract describes "
+                      f"nothing; build it before comparing", path)]
+    # A loader column is not the relation's shape, the same rule the contract side applies.
+    built = {name.lower(): name for name, _type, _nullable in columns
+             if not _is_loader_column(relation, name, repo_map)}
+    declared = {name.lower(): name for name in _properties(doc)}
     diags = []
-    for name in sorted(declared - landed):
+    for key in sorted(set(declared) - set(built)):
         diags.append(_diag("error", "relations/mismatch",
-                           f"{relation[0]}.{relation[1]}: the contract declares `{name}` and the "
-                           f"built relation has no such column"))
-    for name in sorted(landed - declared):
+                           f"{label}: the contract declares `{declared[key]}` and the built "
+                           f"relation has no such column", path))
+    for key in sorted(set(built) - set(declared)):
         diags.append(_diag("error", "relations/mismatch",
-                           f"{relation[0]}.{relation[1]}: the built relation carries `{name}` and "
-                           f"the contract does not declare it"))
+                           f"{label}: the built relation carries `{built[key]}` and the contract "
+                           f"does not declare it", path))
     return diags
 
 
 def _server(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict:
-    """Where the relation lives: the Domain as the server, the platform as the type."""
-    platform = _platform(repo_map)
-    kind = SERVER_TYPES.get(platform, "custom")
-    server = {
+    """Where the relation lives: the Domain as the server, the platform it names as `custom`.
+
+    The standard's own type for a platform requires coordinates (a database file, a project, an
+    account) that live in the Intent's settings, never in the repository, so a draft cannot
+    ground them and states the platform instead.
+    """
+    return {
         "server": repo_map.get("repo_root") or root.name,
-        "type": kind,
+        "type": "custom",
+        "schema": relation[0],
+        "customProperties": [{"property": "platform", "value": _platform(repo_map) or "unknown"}],
     }
-    if platform == "duckdb_local":
-        server["database"] = WAREHOUSE_FILE
-    server["schema"] = relation[0]
-    if kind == "custom":
-        server["customProperties"] = [{"property": "platform", "value": platform or "unknown"}]
-    return server
 
 
 def _properties_entry(root: Path, repo_map: dict, relation: tuple[str, str]) -> dict | None:
@@ -1275,42 +1624,22 @@ def _relationships(column: dict | None) -> list[dict]:
 
 
 def _catalog_relations(catalog: Path, repo_map: dict,
-                       expected: dict[tuple[str, str], str]) -> dict[tuple[str, str], list[dict]]:
-    """Every column of every relation a contract is owed for, in catalog order.
+                       boundary: dict[tuple[str, str], str]) -> dict[tuple[str, str], list[dict]]:
+    """Every column of every boundary relation the warehouse holds, in catalog order.
 
-    A relation the map declares is owed one; so is a loader audit relation, which no declared
-    resource builds. `_dlt_*` bookkeeping and a table nothing declares are not.
+    `_dlt_*` bookkeeping, a loader column on a relation dlt loads, and a relation off the
+    boundary are not drafted.
     """
-    import duckdb
-
-    try:
-        con = duckdb.connect(str(catalog), read_only=True)
-        try:
-            rows = con.execute(
-                """
-                select table_schema, table_name, column_name, data_type, is_nullable
-                from information_schema.columns
-                where table_schema not in ('information_schema', 'pg_catalog')
-                order by table_schema, table_name, ordinal_position
-                """
-            ).fetchall()
-        finally:
-            con.close()
-    except duckdb.Error as exc:
-        raise _Refused(_diag("error", "catalog/unreadable", f"{catalog}: {exc}"))
-
     relations: dict[tuple[str, str], list[dict]] = {}
-    for schema, table, column, physical, nullable in rows:
-        relation = (schema, table)
-        if table.startswith("_dlt"):
+    for relation, columns in _landed_columns(catalog).items():
+        if relation not in boundary or relation[1].startswith("_dlt"):
             continue
-        if relation not in expected and not _is_audit(relation, repo_map):
-            continue
-        if _is_loader_column(relation, column, repo_map):
-            continue
-        relations.setdefault(relation, []).append({
-            "name": column, "physicalType": physical, "nullable": nullable != "NO",
-        })
+        for column, physical, nullable in columns:
+            if _is_loader_column(relation, column, repo_map):
+                continue
+            relations.setdefault(relation, []).append({
+                "name": column, "physicalType": physical, "nullable": nullable,
+            })
     return relations
 
 
@@ -1345,7 +1674,7 @@ def _relation_evidence(con, relation: tuple[str, str], columns: list[dict]) -> d
 
 def _evidence(catalog: Path, relations: dict[tuple[str, str], list[dict]]) -> dict:
     """The data behind every relation a contract is owed for."""
-    import duckdb
+    duckdb = _duckdb()
 
     evidence: dict[tuple[str, str], dict] = {}
     try:
@@ -1370,7 +1699,7 @@ def _settled_metrics(prop: dict) -> set[str]:
 
 
 def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statistics: dict,
-                       keys: set[str]) -> list[dict]:
+                       keys: set[str], star: bool = False) -> list[dict]:
     """The doubts one contract property leaves open, each with the evidence gathered so far."""
     name = prop["name"]
     where = f"{relation[0]}.{relation[1]}.{name}"
@@ -1378,7 +1707,7 @@ def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statist
     non_null = rows - nulls
     settled = _settled_metrics(prop)
     diags = []
-    if not _prose(prop.get("description")):
+    if not star and not _prose(prop.get("description")):
         diags.append(_diag("warning", UNDESCRIBED,
                            f"{where}: no description; what does {name} mean?"))
     if nulls and not prop.get("required") and "nullValues" not in settled:
@@ -1412,11 +1741,12 @@ def _property_findings(relation: tuple[str, str], prop: dict, rows: int, statist
 
 
 def _findings(relation: tuple[str, str], contract: dict, evidence: dict,
-              keys: set[str]) -> list[dict]:
+              keys: set[str], star: bool = False) -> list[dict]:
     """Every doubt one contract leaves open, as the question that would settle it.
 
     A finding is raised only where neither the contract, the canonical model, the dbt tests nor
     the data settle the point: what is already answered is not queued, and nothing is guessed.
+    A star member's grain and prose belong to the model, so none of those questions is its own.
     """
     label = f"{relation[0]}.{relation[1]}"
     elements = [element for element in contract.get("schema") or [] if isinstance(element, dict)]
@@ -1424,23 +1754,26 @@ def _findings(relation: tuple[str, str], contract: dict, evidence: dict,
     description = contract.get("description")
     purpose = description.get("purpose") if isinstance(description, dict) else description
     diags = []
-    if not _prose(element.get("dataGranularityDescription")):
+    if not star and not _prose(element.get("dataGranularityDescription")) \
+            and not _keyed(element):
         diags.append(_diag("warning", NO_GRAIN,
-                           f"{label}: no grain statement; what does one row of "
-                           f"{relation[1]} represent?"))
-    if not any(_prose(prose) for prose in
-               (purpose, element.get("description"), element.get("dataGranularityDescription"))):
+                           f"{label}: no primary key and no grain statement; what makes "
+                           f"one row of {relation[1]} unique?"))
+    if not star and not any(_prose(prose) for prose in
+                            (purpose, element.get("description"),
+                             element.get("dataGranularityDescription"))):
         diags.append(_diag("warning", UNDESCRIBED,
                            f"{label}: nothing describes this table; what is {relation[1]} for?"))
     for name, prop in sorted(_properties(contract).items()):
         diags.extend(_property_findings(
             relation, prop, evidence["rows"],
-            evidence["columns"].get(name) or {"nulls": 0, "distinct": 0}, keys))
+            evidence["columns"].get(name) or {"nulls": 0, "distinct": 0}, keys, star))
     return diags
 
 
 def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[dict],
-           documents: dict[tuple[str, str], tuple[dict, Path]]) -> dict:
+           documents: dict[tuple[str, str], tuple[dict, Path]],
+           documented: set[tuple[str, str]]) -> dict:
     """One contract, holding only what the catalog, the canonical model and dbt already state."""
     schema, table = relation
     document = documents.get(relation)
@@ -1452,9 +1785,11 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
                  if isinstance(column, dict) and column.get("name")}
     keys = set(dataset.get("primary_key") or [])
 
+    # A star member's grain and column prose belong to the model: the contract states neither.
+    star = relation in documented
     element: dict = {"name": table}
     grain = _prose(dataset.get("description")) or _prose(entry.get("description"))
-    if grain:
+    if grain and not star:
         element["dataGranularityDescription"] = grain
 
     properties = []
@@ -1474,7 +1809,7 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
             prop["primaryKey"] = True
         description = (_prose((declared or {}).get("description"))
                        or _prose((field or {}).get("description")))
-        if description:
+        if description and not star:
             prop["description"] = description
         rules = _quality_rules(declared)
         if rules:
@@ -1496,8 +1831,6 @@ def _draft(root: Path, repo_map: dict, relation: tuple[str, str], columns: list[
         "servers": [_server(root, repo_map, relation)],
         "schema": [element],
     }
-    if _is_audit(relation, repo_map):
-        doc["description"] = {"purpose": AUDIT_PURPOSE}
     if document is not None:
         doc["authoritativeDefinitions"] = [
             {"url": _display(document[1], root), "type": "businessDefinition"},
@@ -1533,56 +1866,48 @@ def _dump(doc: dict) -> str:
 @app.command()
 def version():
     """Pin report: tool, standard version and the vendored upstream commit, as JSON."""
-    # Also forces Typer group mode so `check` keeps its subcommand name once
-    # `reverse` and `generate` land beside it.
     print(json.dumps({"tool": "odcs", "spec": SPEC_VERSION, "upstream_commit": UPSTREAM_COMMIT}))
 
 
 @app.command()
+@_guarded
 def reverse(root: str = "", catalog: str = "", force: bool = False):
-    """Draft one contract per relation, grounded only in the catalog, the model and dbt.
+    """Draft one contract per boundary relation, grounded only in the catalog, the model and dbt.
 
     The warehouse is the physical truth: every property and its type comes from
     `information_schema`. A field the canonical model declares overrides the physical type, and
     an existing dbt generic test becomes a quality rule or a declared relationship. Nothing is
     invented: a relation no description reaches, or a gold relation no document names, is left
     for the review rather than filled in. The id is derived from the relation, so a forced
-    rewrite reproduces every file.
+    rewrite reproduces every file. Only the boundary is drafted; a relation off it owes none.
 
     An existing contract is a draft the review already worked on, so this leaves it alone and
     reports how many it skipped; `--force` rewrites them all.
 
     Every relation also yields its open questions as `finding/*` warnings, computed against the
-    contract on disk (or the draft, where there is none): a doubt the model, the tests or the
-    data already settles is not raised, and one nothing settles is, naming the relation, the
-    column and the question that would close it.
+    contract on disk (or the draft, where there is none), gold relations first, then inputs: a
+    doubt the model, the tests or the data already settles is not raised, and one nothing
+    settles is, naming the relation, the column and the question that would close it.
     """
-    repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
+    repo_root = _repo_root(root)
     repo_map = _repo_map(repo_root)
     raw = (repo_map.get("artifact_paths") or {}).get("data_contract")
-    try:
-        if not raw:
-            raise _Refused(_diag("error", "contract/unconfigured",
-                                 "repo-map.json declares no artifact_paths.data_contract, so no "
-                                 "contract can be placed"))
-        warehouse = Path(catalog).resolve() if catalog else repo_root / WAREHOUSE_FILE
-        if not warehouse.is_file():
-            raise _Refused(_diag("error", "catalog/missing",
-                                 f"{warehouse}: no DuckDB warehouse to read; build the Domain or "
-                                 f"pass --catalog"))
-        documents = _canonical_datasets(repo_root, repo_map)
-        relations = _catalog_relations(
-            warehouse, repo_map, expected_relations(repo_root, repo_map))
-        evidence = _evidence(warehouse, relations)
-    except _Refused as refusal:
-        print(json.dumps([refusal.diag]))
-        raise typer.Exit(1)
+    if not raw:
+        raise _Refused(_diag("error", "contract/unconfigured",
+                             "repo-map.json declares no artifact_paths.data_contract, so no "
+                             "contract can be placed"))
+    warehouse = _warehouse("reverse", repo_map, catalog)
+    documents = _canonical_datasets(repo_root, repo_map)
+    documented = _documented(documents)
+    declared = declared_relations(repo_root, repo_map)
+    relations = _catalog_relations(warehouse, repo_map, boundary_relations(repo_map, declared))
+    evidence = _evidence(warehouse, relations)
 
     drafts: list[tuple[tuple[str, str], dict]] = []
     diags: list[dict] = []
     for relation, columns in sorted(relations.items()):
         try:
-            drafts.append((relation, _draft(repo_root, repo_map, relation, columns, documents)))
+            drafts.append((relation, _draft(repo_root, repo_map, relation, columns, documents, documented)))
         except _Refused as refusal:
             diags.append(refusal.diag)
     if diags:
@@ -1594,21 +1919,23 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
         relation: set(dataset.get("primary_key") or [])
         for relation, (dataset, _) in documents.items()
     }
-    findings: list[dict] = []
+    per_relation: list[tuple[tuple[int, tuple[str, str]], list[dict]]] = []
     skipped = 0
     for relation, doc in drafts:
         target = base / relation[0] / f"{relation[1]}.odcs.yaml"
         existing = target.is_file() and not force
         if existing:
             skipped += 1
-        findings.extend(_findings(
-            relation, _reviewed(target, doc, existing), evidence[relation],
-            keys.get(relation, set())))
+        found = _findings(relation, _reviewed(target, doc, existing), evidence[relation],
+                          keys.get(relation, set()), relation in documented)
+        found.sort(key=lambda diag: (diag["message"].split(": ", 1)[0], diag["code"]))
+        per_relation.append(((_boundary_rank(relation, repo_map, declared), relation), found))
         if existing:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(_dump(doc), encoding="utf-8")
-    findings.sort(key=lambda diag: (diag["message"].split(": ", 1)[0], diag["code"]))
+    findings = [diag for _rank, found in sorted(per_relation, key=lambda item: item[0])
+                for diag in found]
     if skipped:
         findings.append(_diag(
             "warning", "contract/exists",
@@ -1618,19 +1945,16 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
 
 
 @app.command()
+@_guarded
 def generate(root: str = ""):
     """Write the dbt contract keys and dlt column hints that the contracts own.
 
     Only the keys this tool owns are written, and nothing is written at all when a contract
     already disagrees with the map: a contract set that is inconsistent is not a source.
     """
-    repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
+    repo_root = _repo_root(root)
     repo_map = _repo_map(repo_root)
-    try:
-        contracts = _committed_contracts(repo_root, repo_map)
-    except _Refused as refusal:
-        print(json.dumps([refusal.diag]))
-        raise typer.Exit(1)
+    contracts = _committed_contracts(repo_root, repo_map)
 
     texts: dict[Path, str] = {}
     hints: dict[str, dict[str, dict]] = {}
@@ -1639,17 +1963,21 @@ def generate(root: str = ""):
         try:
             doc = yaml.safe_load(path.read_text(encoding="utf-8"))
             if not isinstance(doc, dict):
-                raise _Refused(_diag("error", "schema/invalid", f"{path}: not a mapping"))
+                raise _Refused(_diag("error", "schema/invalid", f"{path}: not a mapping", path))
             target = _target(repo_root, repo_map, relation)
             if target is None:
                 continue
             kind, file = target
+            # A proposed dlt input still needs its COLUMNS hints to land the table; a proposed
+            # dbt relation binds nothing built yet, so it gets no enforcement keys.
+            if _is_proposed(doc) and kind != "dlt":
+                continue
             owned = _owned(relation, doc, kind)
         except _Refused as refusal:
             diags.append(refusal.diag)
             continue
         except yaml.YAMLError as exc:
-            diags.append(_diag("error", "schema/invalid", f"{path}: {exc}"))
+            diags.append(_diag("error", "schema/invalid", f"{path}: {exc}", path))
             continue
         if kind == "dlt":
             hints[relation[1]] = owned["columns"]
@@ -1672,34 +2000,41 @@ def generate(root: str = ""):
 
 
 @app.command()
-def check(root: str = "", relations: bool = False):
+@_guarded
+def check(root: str = "", relations: bool = False, catalog: str = ""):
     """Validate every committed contract against the repo map and the vendored schema.
+
+    Every boundary relation owes a contract (`contract/missing`); a contract naming no relation
+    the map declares is an orphan, unless it is `status: proposed` (written before its table).
+    A contract off the boundary is checked like any other. A relation `semantic_exclusions`
+    names is reported `gold/excluded` (info), not `gold/undeclared`.
 
     Where the repo has adopted a canonical model, a gold contract must also agree with the
     document that names its relation. A schema that model documents no relation in is not yet
     modelled: its gold relations warn (`contract/no-document`) instead of failing, because the
     review asks for those documents and the gate has nothing to agree with. A map that declares
     no gold layers leaves nothing to agree with at all: `map/no-gold-layers` reports that gap
-    rather than inventing a set. `--relations` adds
-    the comparison against the built relation and fails when no catalog resolves, rather than
-    skipping: asking for the check and getting silence is the false pass it exists to prevent.
+    rather than inventing a set. `--relations` adds the comparison against the built relation
+    and fails when no catalog resolves, rather than skipping: asking for the check and getting
+    silence is the false pass it exists to prevent.
     """
-    repo_root = Path(root).resolve() if root else _repo_root(APP_DIR)
+    repo_root = _repo_root(root)
     repo_map = _repo_map(repo_root)
+    contracts = _committed_contracts(repo_root, repo_map)
 
-    try:
-        contracts = _committed_contracts(repo_root, repo_map)
-    except _Refused as refusal:
-        print(json.dumps([refusal.diag]))
-        raise typer.Exit(1)
-
-    expected = expected_relations(repo_root, repo_map)
+    declared = declared_relations(repo_root, repo_map)
+    boundary = boundary_relations(repo_map, declared)
     documents = _canonical_datasets(repo_root, repo_map)
-    gold = _gold_schemas(repo_map, expected) if documents else set()
+    documented = _documented(documents)
+    gold = _gold_schemas(repo_map, declared) if documents else set()
     # A schema the canonical model documents no relation in is not yet modelled: the review
     # asks for a document, the gate does not fail a relation that never had one to agree with.
-    modelled = gold & {schema for schema, _ in documents}
-    diags: list[dict] = []
+    modelled = gold & {schema for schema, _ in documented}
+    excluded, exclusion_diags = _exclusions(repo_map)
+    diags: list[dict] = _unknown_contract_layers(repo_map)
+    diags.extend(exclusion_diags)
+    diags.extend(_misplaced(_declared(repo_root, repo_map["artifact_paths"]["data_contract"]),
+                            repo_root))
     parsed: dict[tuple[str, str], dict] = {}
 
     # A canonical model with no gold layers declared leaves agreement unchecked. Saying so is the
@@ -1709,38 +2044,41 @@ def check(root: str = "", relations: bool = False):
                            "repo-map.json declares no gold_layers, so no relation is gated against "
                            "the canonical model; declare the layers that hold gold"))
 
-    for relation, declarer in sorted(expected.items()):
+    for relation, declarer in sorted(boundary.items()):
         if relation not in contracts:
             diags.append(_diag("error", "contract/missing",
-                               f"{relation[0]}.{relation[1]}: declared by {declarer} and has no contract"))
+                               f"{relation[0]}.{relation[1]}: declared by {declarer}, on the "
+                               f"contract boundary, and has no contract"))
     for relation, path in sorted(contracts.items()):
-        if relation in expected or _is_audit(relation, repo_map):
+        if relation in declared or _is_audit(relation, repo_map) or _proposed_path(path):
             continue
         diags.append(_diag("error", "contract/orphan",
-                           f"{path}: names no relation the map declares"))
-    for relation, _path in sorted(contracts.items()):
-        if relation[0] in gold and relation not in documents:
+                           f"{path}: names no relation the map declares", path))
+    for relation, path in sorted(contracts.items()):
+        if (relation[0] in gold and relation not in documented and relation not in excluded
+                and not _proposed_path(path)):
             diags.append(_diag("warning", "contract/no-document",
                                f"{relation[0]}.{relation[1]}: no canonical document names this "
-                               f"gold relation; the review asks for one"))
+                               f"gold relation; the review asks for one", path))
 
     for relation, path in sorted(contracts.items()):
         try:
             doc = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
-            diags.append(_diag("error", "schema/invalid", f"{path}: {exc}"))
+            diags.append(_diag("error", "schema/invalid", f"{path}: {exc}", path))
             continue
         if not isinstance(doc, dict):
-            diags.append(_diag("error", "schema/invalid", f"{path}: not a mapping"))
+            diags.append(_diag("error", "schema/invalid", f"{path}: not a mapping", path))
             continue
         parsed[relation] = doc
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
-        diags.extend(_grain(doc, path))
+        diags.extend(_grain(doc, path, relation in documented))
         diags.extend(_declared_name(relation, path, doc))
         diags.extend(_loader_columns(relation, doc, repo_map))
-        if documents:
-            diags.extend(_gold_agreement(relation, path, doc, documents, modelled))
+        if documents and not _is_proposed(doc):
+            diags.extend(_gold_agreement(relation, path, doc, documents, modelled, excluded,
+                                           documented))
 
     diags.extend(_stale_diagnostics(repo_root, repo_map, contracts, parsed))
 
@@ -1750,21 +2088,636 @@ def check(root: str = "", relations: bool = False):
             diags.extend(_server_diagnostics(relation, path, doc, repo_map, repo_root))
 
     if relations:
-        catalog = _catalog_path(repo_root)
-        if catalog is None:
-            diags.append(_diag(
-                "error", "relations/no-catalog",
-                "check --relations needs a built relation: set VD_EPHM_DUCKDB_LOCAL_PATH or "
-                "build the warehouse the map declares",
-            ))
+        try:
+            landed = _landed_columns(_warehouse("relations", repo_map, catalog, json_catalog=True))
+        except _Refused as refusal:
+            diags.append(refusal.diag)
         else:
             for relation, path in sorted(contracts.items()):
                 doc = parsed.get(relation)
-                if doc is not None:
-                    diags.extend(_relation_diagnostics(relation, path, doc, catalog, repo_map))
+                if doc is not None and not _is_proposed(doc):
+                    diags.extend(_relation_diagnostics(relation, path, doc, landed, repo_map))
 
     print(json.dumps(diags))
     raise typer.Exit(1 if any(d["severity"] == "error" for d in diags) else 0)
+
+
+@app.command()
+@_guarded
+def validate(contracts: str = typer.Argument(..., help="the contracts directory"),
+             root: str = ""):
+    """The checks one contract settles on its own, with no repo map: schema validity, no empty
+    section, a stated grain (`check` waives it for a relation the model owns) and a
+    `schema[].name` that matches its path.
+
+    For a caller such as Domain CI that reads none of the Domain's own files. `check` runs these
+    too, plus everything that needs the map: the boundary, orphans, gold agreement, generated
+    keys and `servers`.
+    """
+    repo_root, base = _contracts_location(root, contracts)
+    if not base.is_dir():
+        _fail(_diag("error", "contract/no-directory",
+                    f"{_display(base, repo_root)}: no such contracts directory"))
+    diags: list[dict] = _misplaced(base, repo_root)
+    for relation, path in sorted(_contracts_under(base).items()):
+        shown = _display(path, repo_root)
+        doc = _loaded(path.read_text(encoding="utf-8"))
+        if doc is None:
+            diags.append(_diag("error", "schema/invalid", f"{shown}: not a YAML mapping", shown))
+            continue
+        diags.extend(_schema_diagnostics(doc, shown))
+        diags.extend(_empty_sections(doc, shown))
+        diags.extend(_grain(doc, shown))
+        diags.extend(_declared_name(relation, shown, doc))
+    print(json.dumps(diags))
+    raise typer.Exit(1 if any(d["severity"] == "error" for d in diags) else 0)
+
+
+# ── diff: what a change did to the promise, and the version it needs ─────────────────────────
+
+# The semver move a change needs, smallest first. A version moved less than its change needs
+# fails; one moved more passes, since nothing breaks for a consumer told more than happened.
+PATCH, MINOR, MAJOR = 1, 2, 3
+LEVEL_NAMES = {MAJOR: "breaking", MINOR: "additive", PATCH: "descriptive"}
+SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.+-]*)?$")
+
+# Keys a change to which alters what a consumer's query returns or may rely on. Every other
+# key of a property or a schema element is prose, and a change to it is descriptive.
+TYPE_KEYS = ("logicalType", "physicalType", "logicalTypeOptions")
+KEY_KEYS = ("primaryKey", "primaryKeyPosition")
+ELEMENT_CLAIMS = ("name", "properties", "quality", "relationships", "dataGranularityDescription")
+PROPERTY_CLAIMS = ("name", *TYPE_KEYS, *KEY_KEYS, "required", "quality", "relationships")
+
+
+def _semver(text: object) -> tuple[int, int, int] | None:
+    match = SEMVER.match(str(text or ""))
+    return tuple(int(part) for part in match.groups()) if match else None  # type: ignore[return-value]
+
+
+def _moved(before: tuple[int, int, int], after: tuple[int, int, int]) -> int:
+    """The level a version moved by: 0 when it did not move forward."""
+    if after[0] > before[0]:
+        return MAJOR
+    if after[0] == before[0] and after[1] > before[1]:
+        return MINOR
+    if after[:2] == before[:2] and after[2] > before[2]:
+        return PATCH
+    return 0
+
+
+def _canonical(value: object) -> str:
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def _promise(item: object) -> str:
+    """A rule or relationship without its wording: the part a consumer relies on."""
+    if isinstance(item, dict):
+        item = {k: v for k, v in item.items() if k not in ("description", "name")}
+    return _canonical(item)
+
+
+def _listed(changes: list, label: str, before: object, after: object, what: str) -> None:
+    """A list of promises (rules, relationships): one withdrawn is breaking, one added additive.
+
+    A change to a promise's `description` or `name` alone is descriptive.
+    """
+    old = {_promise(item): item for item in before or [] if item is not None}
+    new = {_promise(item): item for item in after or [] if item is not None}
+    for key in sorted(set(old) - set(new)):
+        changes.append((MAJOR, f"{label}: {what} {key} withdrawn"))
+    for key in sorted(set(new) - set(old)):
+        changes.append((MINOR, f"{label}: {what} {key} added"))
+    for key in sorted(set(old) & set(new)):
+        if _canonical(old[key]) != _canonical(new[key]):
+            changes.append((PATCH, f"{label}: {what} {key} reworded"))
+
+
+def _prose_keys(changes: list, label: str, before: dict, after: dict, claims: tuple) -> None:
+    for key in sorted((set(before) | set(after)) - set(claims)):
+        if _canonical(before.get(key)) != _canonical(after.get(key)):
+            changes.append((PATCH, f"{label}: `{key}` changed"))
+
+
+def _property_changes(changes: list, label: str, before: dict, after: dict) -> None:
+    for key in (*TYPE_KEYS, *KEY_KEYS):
+        was_value, now_value = before.get(key), after.get(key)
+        if key == "physicalType" and isinstance(was_value, str) and isinstance(now_value, str):
+            was_value, now_value = was_value.upper(), now_value.upper()
+        if _canonical(was_value) != _canonical(now_value):
+            changes.append((MAJOR, f"{label}: `{key}` {before.get(key)!r} -> {after.get(key)!r}"))
+    was, now = before.get("required") is True, after.get("required") is True
+    if now and not was:
+        changes.append((MAJOR, f"{label}: `required` newly true refuses a null a consumer may "
+                               f"already receive"))
+    elif was and not now:
+        changes.append((MAJOR, f"{label}: `required` withdrawn, so a consumer may now receive "
+                               f"a null"))
+    _listed(changes, label, before.get("quality"), after.get("quality"), "quality rule")
+    _listed(changes, label, before.get("relationships"), after.get("relationships"),
+            "relationship")
+    _prose_keys(changes, label, before, after, PROPERTY_CLAIMS)
+
+
+def _named(items: object) -> dict[str, dict]:
+    return {str(item["name"]): item for item in items or []
+            if isinstance(item, dict) and item.get("name")}
+
+
+def _server_changes(changes: list, before: object, after: object) -> None:
+    """`servers` as a multiset of entries: order is no claim, a server added is additive, one
+    withdrawn or changed (a withdrawal and an addition) is breaking."""
+    old = collections.Counter(_canonical(item) for item in before or [])
+    new = collections.Counter(_canonical(item) for item in after or [])
+    for key in sorted((old - new).elements()):
+        changes.append((MAJOR, f"`servers`: {key} withdrawn; the relation is no longer "
+                               f"published there"))
+    for key in sorted((new - old).elements()):
+        changes.append((MINOR, f"`servers`: {key} added"))
+
+
+def contract_changes(before: dict, after: dict) -> list[tuple[int, str]]:
+    """Every change between two versions of one contract, each with the level it needs.
+
+    Breaking: a property removed (a rename is a removal and an addition), a type or key
+    changed, a rule or relationship withdrawn, `required` turned either way. Additive: a
+    property, rule or relationship added. Descriptive: any other key, which is prose (the grain statement included).
+    """
+    changes: list[tuple[int, str]] = []
+    if before.get("id") != after.get("id"):
+        changes.append((MAJOR, f"`id` {before.get('id')!r} -> {after.get('id')!r}"))
+    _server_changes(changes, before.get("servers"), after.get("servers"))
+    _prose_keys(changes, "contract", before, after, ("id", "version", "schema", "servers"))
+    old_elements, new_elements = _named(before.get("schema")), _named(after.get("schema"))
+    for name in sorted(set(old_elements) - set(new_elements)):
+        changes.append((MAJOR, f"{name}: schema element removed or renamed"))
+    for name in sorted(set(new_elements) - set(old_elements)):
+        changes.append((MINOR, f"{name}: schema element added"))
+    for name in sorted(set(old_elements) & set(new_elements)):
+        old, new = old_elements[name], new_elements[name]
+        was = _prose(old.get("dataGranularityDescription"))
+        now = _prose(new.get("dataGranularityDescription"))
+        # The grain is the key; the sentence about it is prose, whatever happens to it.
+        if was != now:
+            verb = "stated" if now and not was else "removed" if was and not now else "changed"
+            changes.append((PATCH, f"{name}: grain {verb}"))
+        _listed(changes, name, old.get("quality"), new.get("quality"), "quality rule")
+        _listed(changes, name, old.get("relationships"), new.get("relationships"),
+                "relationship")
+        _prose_keys(changes, name, old, new, ELEMENT_CLAIMS)
+        old_props, new_props = _named(old.get("properties")), _named(new.get("properties"))
+        for prop in sorted(set(old_props) - set(new_props)):
+            changes.append((MAJOR, f"{name}.{prop}: property removed or renamed"))
+        for prop in sorted(set(new_props) - set(old_props)):
+            changes.append((MINOR, f"{name}.{prop}: property added"))
+        for prop in sorted(set(old_props) & set(new_props)):
+            _property_changes(changes, f"{name}.{prop}", old_props[prop], new_props[prop])
+    return changes
+
+
+def _contracts_location(root: str, contracts: str) -> tuple[Path, Path]:
+    """The Domain root and its contracts directory: from `contracts` when given, which reads no
+    repo map, else from the map's `artifact_paths.data_contract`."""
+    if contracts:
+        repo_root = Path(root).resolve() if root else Path.cwd().resolve()
+        return repo_root, (repo_root / contracts).resolve()
+    repo_root = _repo_root(root)
+    repo_map = _repo_map(repo_root)
+    if not (repo_map.get("artifact_paths") or {}).get("data_contract"):
+        _committed_contracts(repo_root, repo_map)  # refuses with contract/unconfigured
+    return repo_root, _declared(repo_root, repo_map["artifact_paths"]["data_contract"])
+
+
+def _git(root: Path, *args: str) -> str:
+    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise _Refused(_diag("error", "diff/unknown-ref",
+                             f"git {' '.join(args)}: {result.stderr.strip() or 'failed'}"))
+    return result.stdout
+
+
+def _contracts_at(root: Path, base: Path, ref: str) -> dict[tuple[str, str], str]:
+    """Every contract the base ref holds under `base`, keyed by relation, as a path relative to
+    the root.
+
+    A directory outside the root is refused: git sees nothing there, and comparing nothing would
+    pass every change.
+    """
+    try:
+        relative_base = base.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        raise _Refused(_diag("error", "diff/contracts-outside-root",
+                             f"{base}: the contracts directory is not under the root {root}; "
+                             f"pass a directory inside it"))
+    _git(root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    found: dict[tuple[str, str], str] = {}
+    for line in _git(root, "ls-tree", "-r", "--name-only", ref, "--", relative_base).splitlines():
+        relation = _relation_of(Path(line).relative_to(relative_base).parts)
+        if relation is not None:
+            found[relation] = line
+    return found
+
+
+def _loaded(text: str) -> dict | None:
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+@app.command()
+@_guarded
+def diff(base_ref: str = typer.Argument(..., help="git ref the change is compared against"),
+         root: str = "",
+         contracts: str = typer.Option("", help="the contracts directory, relative to the root; "
+                                                "given, no repo-map.json is read")):
+    """Classify each contract the change touched and require the version bump it needs.
+
+    Each contract on disk is compared with the same file at `base_ref`. Every change is reported
+    with its level (`diff/breaking`, `diff/additive`, `diff/descriptive`, severity info), and a
+    contract whose `version` moved less than its largest change needs fails
+    `diff/version-not-bumped`. A new contract needs only a valid version. A removed contract is a
+    warning, `diff/contract-removed`: the relation's removal is the change, and it is the
+    consumer-facing one.
+
+    `--contracts` names the directory directly, for a caller such as Domain CI that reads no
+    repo map; the root is then `--root`, else the working directory.
+    """
+    repo_root, base_dir = _contracts_location(root, contracts)
+    head = _contracts_under(base_dir)
+    fork = base_ref
+    try:  # the fork point, so commits that landed on the base since are not this change's
+        fork = _git(repo_root, "merge-base", base_ref, "HEAD").strip() or base_ref
+    except _Refused:
+        pass  # an unknown ref is reported by _contracts_at below
+    base = _contracts_at(repo_root, base_dir, fork)
+    diags: list[dict] = []
+    for relation in sorted(set(head) | set(base)):
+        label = f"{relation[0]}.{relation[1]}"
+        if relation not in head:
+            diags.append(_diag("warning", "diff/contract-removed",
+                               f"{label}: the contract is gone since {base_ref}; removing the "
+                               f"relation breaks every consumer of it", base[relation]))
+            continue
+        path = head[relation]
+        shown = _display(path, repo_root)
+        after = _loaded(path.read_text(encoding="utf-8"))
+        if after is None:
+            diags.append(_diag("error", "diff/unreadable", f"{shown}: not a YAML mapping", shown))
+            continue
+        if _semver(after.get("version")) is None:
+            diags.append(_diag("error", "diff/invalid-version",
+                               f"{shown}: `version` {after.get('version')!r} is not semver "
+                               f"MAJOR.MINOR.PATCH", shown))
+            continue
+        if relation not in base:
+            continue
+        before = _loaded(_git(repo_root, "show", f"{fork}:./{base[relation]}"))
+        if before is None:
+            diags.append(_diag("warning", "diff/unreadable",
+                               f"{shown}: the {base_ref} version is not a YAML mapping, so "
+                               f"nothing compares it", shown))
+            continue
+        changes = contract_changes(before, after)
+        for level, text in changes:
+            diags.append(_diag("info", f"diff/{LEVEL_NAMES[level]}", f"{label}: {text}", shown))
+        old_version = _semver(before.get("version"))
+        new_version = _semver(after.get("version"))
+        if old_version is not None and new_version < old_version:
+            diags.append(_diag("error", "diff/version-not-bumped",
+                               f"{label}: `version` went back from {before.get('version')} to "
+                               f"{after.get('version')}", shown))
+            continue
+        needed = max((level for level, _text in changes), default=0)
+        moved = _moved(old_version, new_version) if old_version is not None else MAJOR
+        if moved < needed:
+            diags.append(_diag(
+                "error", "diff/version-not-bumped",
+                f"{label}: a {LEVEL_NAMES[needed]} change needs a "
+                f"{('patch', 'minor', 'major')[needed - 1]} bump and `version` moved "
+                f"{('no', 'a patch', 'a minor', 'a major')[moved]} step "
+                f"({before.get('version')} -> {after.get('version')})", shown))
+    print(json.dumps(diags))
+    raise typer.Exit(1 if any(d["severity"] == "error" for d in diags) else 0)
+
+
+# ── profile: the contract's claims against the data ──────────────────────────────────────────
+
+# The comparisons a library rule may state, as the test a measured count passes.
+OPERATORS = {
+    "mustBe": lambda count, bound: count == bound,
+    "mustBeLessThan": lambda count, bound: count < bound,
+    "mustBeLessOrEqualTo": lambda count, bound: count <= bound,
+}
+
+
+def _bounded(rule: dict) -> tuple[str, int] | None:
+    for operator in OPERATORS:
+        if isinstance(rule.get(operator), int) and not isinstance(rule.get(operator), bool):
+            return operator, rule[operator]
+    return None
+
+
+def _profile_relation(con, relation: tuple[str, str], path: str, doc: dict,
+                      columns: list[tuple[str, str, bool]] | None) -> list[dict]:
+    """Every claim one contract makes about its data that a query can contradict."""
+    label = f"{relation[0]}.{relation[1]}"
+    if not columns:
+        return [_diag("error", "profile/missing-relation",
+                      f"{label}: the warehouse holds no such relation; build it before "
+                      f"profiling", path)]
+    # The local database resolves identifiers whatever their case, so case is not a claim.
+    landed = {name.lower(): name for name, _type, _nullable in columns}
+    props = _properties(doc)
+    table = _relation_sql(relation)
+    diags: list[dict] = []
+
+    def present(name: str) -> bool:
+        if name.lower() in landed:
+            return True
+        diags.append(_diag("error", "profile/missing-column",
+                           f"{label}.{name}: the contract makes a claim about a column the "
+                           f"relation does not have", path))
+        return False
+
+    keyed = sorted(
+        (prop.get("primaryKeyPosition") or 0, name)
+        for name, prop in props.items() if prop.get("primaryKey") is True)
+    keys = [name for _position, name in keyed]
+    if keys and all([present(name) for name in keys]):
+        identifiers = [_identifier(landed[name.lower()]) for name in keys]
+        # A row with a null key part has no key value to repeat; a required null is its own claim.
+        known = " and ".join(f"{column} is not null" for column in identifiers)
+        groups, rows = con.execute(
+            f"select count(*), coalesce(sum(n), 0) from (select count(*) as n from {table} "
+            f"where {known} group by {', '.join(identifiers)} having count(*) > 1)").fetchone()
+        if groups:
+            diags.append(_diag("error", "profile/key-repeats",
+                               f"{label}: {groups} value(s) of the primary key ({', '.join(keys)}) "
+                               f"repeat across {rows} rows; the key claims one row each", path))
+    for name, prop in sorted(props.items()):
+        if prop.get("required") is True and present(name):
+            nulls = con.execute(
+                f"select count(*) from {table} where {_identifier(landed[name.lower()])} is null"
+            ).fetchone()[0]
+            if nulls:
+                diags.append(_diag("error", "profile/required-null",
+                                   f"{label}.{name}: {nulls} row(s) are null and the property "
+                                   f"is required", path))
+        for rule in prop.get("quality") or []:
+            if not (isinstance(rule, dict) and rule.get("type") == "library"
+                    and rule.get("metric") == "invalidValues"):
+                continue
+            values = [v for v in (rule.get("arguments") or {}).get("valid_values") or []
+                      if v is not None]  # a NULL in NOT IN makes every row unknown
+            bound = _bounded(rule)
+            if not values or bound is None or not present(name):
+                continue
+            column = _identifier(landed[name.lower()])
+            marks = ", ".join("?" for _ in values)
+            where = f"{column} is not null and {column} not in ({marks})"
+            outside = con.execute(f"select count(*) from {table} where {where}",
+                                  list(values)).fetchone()[0]
+            if OPERATORS[bound[0]](outside, bound[1]):
+                continue
+            sample = [row[0] for row in con.execute(
+                f"select distinct cast({column} as varchar) from {table} where {where} "
+                f"order by 1 limit 5", list(values)).fetchall()]
+            diags.append(_diag("error", "profile/invalid-values",
+                               f"{label}.{name}: {outside} row(s) hold a value outside "
+                               f"valid_values (e.g. {', '.join(sample)}), and the rule says "
+                               f"{bound[0]} {bound[1]}", path))
+    return diags
+
+
+@app.command()
+@_guarded
+def profile(root: str = "", catalog: str = "",
+            relation: list[str] = typer.Option(
+                [], help="SCHEMA.TABLE to profile; repeat it, or omit it for every contract")):
+    """Test each contract's data claims against the built relation, over every row.
+
+    The primary key (every `primaryKey: true` property together, the grain the contract names)
+    must not repeat (`profile/key-repeats`), a `required: true` property must hold no null
+    (`profile/required-null`), and an `invalidValues` rule's count of values outside its
+    `valid_values` must meet its operator (`profile/invalid-values`). Each contradicted claim is
+    an error. With no built warehouse this refuses (`catalog/missing`) rather than passing.
+    """
+    repo_root = _repo_root(root)
+    repo_map = _repo_map(repo_root)
+    contracts = _committed_contracts(repo_root, repo_map)
+    wanted = {tuple(name.split(".", 1)) for name in relation}
+    unknown = sorted(".".join(name) for name in wanted if name not in contracts)
+    if unknown:
+        raise _Refused(_diag("error", "profile/unknown-relation",
+                             f"no contract for {', '.join(unknown)}"))
+    for name in sorted(wanted):
+        if _proposed_path(contracts[name]):
+            raise _Refused(_diag("error", "profile/proposed",
+                                 f"{'.'.join(name)}: a `status: proposed` contract has no built "
+                                 f"relation to profile yet"))
+    warehouse = _warehouse("profile", repo_map, catalog)
+    if warehouse.suffix == ".json":
+        raise _Refused(_diag("error", "catalog/unreadable",
+                             f"{warehouse}: profile queries rows, so it reads a local database "
+                             f"file, not dbt's catalog.json"))
+    landed = _landed_columns(warehouse)
+    duckdb = _duckdb()
+    diags: list[dict] = []
+    try:
+        con = duckdb.connect(str(warehouse), read_only=True)
+    except duckdb.Error as exc:
+        raise _Refused(_diag("error", "catalog/unreadable", f"{warehouse}: {exc}"))
+    try:
+        for name, path in sorted(contracts.items()):
+            if wanted and name not in wanted:
+                continue
+            shown = _display(path, repo_root)
+            doc = _loaded(path.read_text(encoding="utf-8"))
+            if doc is None:
+                diags.append(_diag("error", "schema/invalid", f"{shown}: not a mapping", shown))
+                continue
+            if _is_proposed(doc):
+                continue
+            try:
+                diags.extend(_profile_relation(con, name, shown, doc, _landed(name, landed)))
+            except duckdb.Error as exc:
+                diags.append(_diag("error", "profile/query-failed",
+                                   f"{name[0]}.{name[1]}: {exc}", shown))
+    finally:
+        con.close()
+    print(json.dumps(diags))
+    raise typer.Exit(1 if any(d["severity"] == "error" for d in diags) else 0)
+
+
+# ── results: a dbt run's test results as contract assertions ─────────────────────────────────
+
+# The generic test `generate` renders for each rule, back to the rule it renders.
+TEST_RULES = {"not_null": "nullValues", "unique": "duplicateValues",
+              "accepted_values": "invalidValues", "relationships": "relationships"}
+
+
+def _read_json(path: Path, what: str) -> dict:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise _Refused(_diag("error", "results/unreadable", f"{path}: {what}: {exc}"))
+    if not isinstance(doc, dict):
+        raise _Refused(_diag("error", "results/unreadable", f"{path}: {what} is not an object"))
+    return doc
+
+
+def _tested_relation(manifest: dict, test: dict) -> tuple[str, str, str] | None:
+    """The `(schema, table, kind)` a test is attached to, from the manifest's node or source."""
+    attached = test.get("attached_node") or next(
+        (node for node in (test.get("depends_on") or {}).get("nodes") or []
+         if not node.startswith("test.")), None)
+    if not attached:
+        return None
+    node = (manifest.get("nodes") or {}).get(attached) or (manifest.get("sources") or {}).get(
+        attached)
+    if not node:
+        return None
+    if attached.startswith("source."):
+        return str(node.get("schema")), str(node.get("identifier") or node.get("name")), "source"
+    return str(node.get("schema")), str(node.get("alias") or node.get("name")), "node"
+
+
+def _contract_for(contracts: dict[tuple[str, str], Path], schema: str,
+                  table: str) -> tuple[str, str] | None:
+    """The contract a built relation answers to.
+
+    A dbt target may prefix the schema a layer declares (a developer's or a CI schema), so the
+    table decides and the schema only breaks a tie.
+    """
+    schema, table = schema.lower(), table.lower()
+    candidates = [relation for relation in contracts if relation[1].lower() == table]
+    exact = [relation for relation in candidates
+             if schema == relation[0].lower() or schema.endswith(f"_{relation[0].lower()}")]
+    # A relation outside the boundary may share a table name with a contracted one; the
+    # schema must agree, so its tests are never credited to the other's contract.
+    return exact[0] if len(exact) == 1 else None
+
+
+REF = re.compile(r"""^\s*ref\(\s*(?:['"][^'"]*['"]\s*,\s*)?['"]([^'"]+)['"]\s*\)\s*$""")
+
+
+def _asserts(rule: str, prop: dict, kwargs: dict) -> bool:
+    """Whether a test asserts what the property's contract states, not merely the same kind.
+
+    A test whose arguments cannot be read against the contract is not credited: crediting it
+    would record a rule as tested by a test that checks something else.
+    """
+    if rule == "relationships":
+        model = REF.match(str(kwargs.get("to") or ""))
+        field = str(kwargs.get("field") or "").lower()
+        if not model or not field:
+            return False
+        for relationship in prop.get("relationships") or []:
+            target = str((relationship or {}).get("to") or "") if isinstance(
+                relationship, dict) else ""
+            relation, _, column = target.rpartition(".")
+            if (relation.rpartition(".")[2].lower() == model.group(1).lower()
+                    and column.lower() == field):
+                return True
+        return False
+    if rule == "invalidValues":
+        values = kwargs.get("values")
+        if not isinstance(values, list):
+            return False
+        tested = {str(value) for value in values}
+        return any(
+            isinstance(rule_doc, dict) and rule_doc.get("type") == "library"
+            and rule_doc.get("metric") == "invalidValues" and rule_doc.get("mustBe") == 0
+            and {str(v) for v in (rule_doc.get("arguments") or {}).get("valid_values") or []}
+            == tested
+            for rule_doc in prop.get("quality") or [])
+    return rule in _settled_metrics(prop)
+
+
+def _implied(rule: str, prop: dict, contract: dict) -> str | None:
+    """The property claim a `not_null` or `unique` test renders when no quality rule does:
+    `required`, or a single-column `primaryKey`."""
+    if rule == "nullValues" and prop.get("required") is True:
+        return "required"
+    if rule == "duplicateValues" and _sole_key(contract) == prop.get("name"):
+        return "primaryKey"
+    return None
+
+
+def _executed_at(result: dict, run_results: dict) -> str | None:
+    for timing in result.get("timing") or []:
+        if timing.get("name") == "execute" and timing.get("completed_at"):
+            return timing["completed_at"]
+    return (run_results.get("metadata") or {}).get("generated_at")
+
+
+@app.command()
+@_guarded
+def results(run_results: str = typer.Argument(..., help="dbt's run_results.json"),
+            manifest: str = typer.Option("", help="dbt's manifest.json; default: beside "
+                                                  "run_results.json"),
+            root: str = ""):
+    """Print one JSON record per contract assertion a dbt run executed, one per line.
+
+    Each test result is traced through the manifest to the relation and column it is attached
+    to, then to the contract and the rule (or relationship) that rendered it. A test no contract
+    rule accounts for (hand-written, or on a relation with no contract) is skipped. Nothing is
+    stored: the caller keeps the records.
+    """
+    repo_root = _repo_root(root)
+    repo_map = _repo_map(repo_root)
+    contracts = _committed_contracts(repo_root, repo_map)
+    results_path = Path(run_results).resolve()
+    manifest_path = Path(manifest).resolve() if manifest else results_path.with_name(
+        "manifest.json")
+    if not manifest_path.is_file():
+        raise _Refused(_diag("error", "results/no-manifest",
+                             f"{manifest_path}: no manifest to trace tests to their columns; pass "
+                             f"--manifest"))
+    run = _read_json(results_path, "run results")
+    graph = _read_json(manifest_path, "manifest")
+    docs: dict[tuple[str, str], dict | None] = {}
+    records = []
+    for result in run.get("results") or []:
+        test = (graph.get("nodes") or {}).get(str(result.get("unique_id")))
+        if not test or test.get("resource_type") != "test":
+            continue
+        meta = test.get("test_metadata") or {}
+        rule = TEST_RULES.get(str(meta.get("name")))
+        column = test.get("column_name") or (meta.get("kwargs") or {}).get("column_name")
+        built = _tested_relation(graph, test)
+        if rule is None or not column or built is None:
+            continue
+        relation = _contract_for(contracts, built[0], built[1])
+        if relation is None:
+            continue
+        if relation not in docs:
+            docs[relation] = _loaded(contracts[relation].read_text(encoding="utf-8"))
+        doc = docs[relation]
+        prop = _properties(doc or {}).get(str(column))
+        if prop is None:
+            continue
+        kwargs = meta.get("kwargs") or {}
+        # dbt 1.10 nests a test's own arguments under `arguments`; earlier versions flatten them.
+        if isinstance(kwargs.get("arguments"), dict):
+            kwargs = {**kwargs, **kwargs["arguments"]}
+        if not _asserts(rule, prop, kwargs):
+            rule = _implied(rule, prop, doc or {})
+            if rule is None:
+                continue
+        records.append({
+            "contract_id": doc.get("id"),
+            "contract_version": doc.get("version"),
+            "relation": f"{relation[0]}.{relation[1]}",
+            "property": str(column),
+            "rule": rule,
+            "status": result.get("status"),
+            "failures": result.get("failures"),
+            "executed_at": _executed_at(result, run),
+        })
+    for record in records:
+        print(json.dumps(record))
 
 
 if __name__ == "__main__":

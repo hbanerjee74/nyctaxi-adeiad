@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: f75e64d6-bb26-5665-bc1e-a3b76385cb76
 name: agg_vehicle_daily
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_vehicle_daily
-    dataGranularityDescription: Vehicle-day. The asset view of the same shifts. Asset utilisation is taken against the 24-hour day, not against sign-on time -- a medallion idle in the depot is the asset question, a driver idle on the road is the labour question, and they are different numbers.
     properties:
       - name: shift_date
         logicalType: date

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 45817eb7-5720-52b9-9118-9ce4bb3430d3
 name: dim_trip_quality
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,13 +11,11 @@ servers:
     schema: core
 schema:
   - name: dim_trip_quality
-    dataGranularityDescription: Junk dimension over the observed combinations of trip quality verdicts.
     properties:
       - name: trip_quality_key
         logicalType: string
         physicalType: VARCHAR
         primaryKey: true
-        description: Key over the observed verdict combination.
         quality:
           - type: library
             metric: duplicateValues

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 2b07e811-f17f-5272-aae8-1fe29c31de24
 name: fct_shift
-version: 2.0.0
+version: 2.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,13 +11,11 @@ servers:
     schema: core
 schema:
   - name: fct_shift
-    dataGranularityDescription: One row per driver sign-on, bridging the operational world (occupancy, leases) and the revenue world (trips).
     properties:
       - name: shift_id
         logicalType: string
         physicalType: VARCHAR
         primaryKey: true
-        description: Sign-on identifier; the grain of the fleet revenue fact.
         quality:
           - type: library
             metric: duplicateValues
@@ -28,13 +26,11 @@ schema:
       - name: driver_key
         logicalType: integer
         physicalType: BIGINT
-        description: Driver who signed on.
         relationships:
           - to: dim_driver.driver_key
       - name: vehicle_key
         logicalType: integer
         physicalType: INTEGER
-        description: Vehicle operated during the shift.
         relationships:
           - to: dim_vehicle.vehicle_key
       - name: occupancy_rate
@@ -43,42 +39,33 @@ schema:
       - name: shift_date_key
         logicalType: integer
         physicalType: INTEGER
-        description: Surrogate key into date for the shift date.
       - name: shift_date
         logicalType: date
         physicalType: DATE
-        description: Calendar date of sign-on.
       - name: garage_key
         logicalType: integer
         physicalType: BIGINT
-        description: Driver's home garage at sign-on, carried from dim_driver; not the vehicle's garage.
       - name: engagement_type
         logicalType: string
         physicalType: VARCHAR
-        description: How the driver is engaged (employee, contractor, ...).
       - name: lease_type
         logicalType: string
         physicalType: VARCHAR
-        description: Lease arrangement in force for the shift; null when the driver is not on a lease.
       - name: shift_start_ts
         logicalType: timestamp
         physicalType: TIMESTAMP
-        description: Timestamp the driver signed on.
       - name: effective_end_ts
         logicalType: timestamp
         physicalType: TIMESTAMP
       - name: is_unclosed_shift
         logicalType: boolean
         physicalType: BOOLEAN
-        description: True when no sign-off event closed the shift and the effective end was used instead.
       - name: online_seconds
         logicalType: integer
         physicalType: BIGINT
-        description: Signed-on seconds, to the shift's effective end. Denominator of the rate metrics; aggregate only through metrics.
       - name: on_trip_seconds
         logicalType: integer
         physicalType: HUGEINT
-        description: Seconds spent carrying a fare. Numerator of occupancy; aggregate only through metrics.
       - name: available_seconds
         logicalType: integer
         physicalType: HUGEINT
@@ -94,11 +81,9 @@ schema:
       - name: trip_count
         logicalType: integer
         physicalType: BIGINT
-        description: Trips attributed to the shift, row level; sum it rather than reading a single row.
       - name: gross_revenue
         logicalType: number
         physicalType: DOUBLE
-        description: Revenue earned on the shift's trips, row level; aggregate only through metrics.
       - name: fare_revenue
         logicalType: number
         physicalType: DOUBLE

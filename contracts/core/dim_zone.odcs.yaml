@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 2fcad8ea-ee90-5f09-81a9-3219ceb038e8
 name: dim_zone
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,13 +11,11 @@ servers:
     schema: core
 schema:
   - name: dim_zone
-    dataGranularityDescription: Type 2 zone dimension, natural key location_id, versioned by master data.
     properties:
       - name: zone_key
         logicalType: string
         physicalType: VARCHAR
         primaryKey: true
-        description: Surrogate key over natural key plus valid-from date.
         quality:
           - type: library
             metric: duplicateValues
@@ -28,7 +26,6 @@ schema:
       - name: zone_natural_key
         logicalType: integer
         physicalType: BIGINT
-        description: TLC location_id.
         quality:
           - type: library
             metric: nullValues
@@ -36,7 +33,6 @@ schema:
       - name: is_current_version
         logicalType: boolean
         physicalType: BOOLEAN
-        description: True for the current version of each zone.
         quality:
           - type: library
             metric: nullValues
@@ -44,7 +40,6 @@ schema:
       - name: borough_name
         logicalType: string
         physicalType: VARCHAR
-        description: Borough, including Unknown and N/A for unresolved zones.
         quality:
           - type: library
             metric: invalidValues
@@ -65,22 +60,18 @@ schema:
       - name: valid_from_date
         logicalType: date
         physicalType: DATE
-        description: Half-open validity start for the as-of join. Audit column, not a time dimension.
       - name: valid_to_date
         logicalType: date
         physicalType: DATE
-        description: Half-open validity end; 2099-12-31 marks the current version.
       - name: zone_name
         logicalType: string
         physicalType: VARCHAR
-        description: Zone display name.
       - name: borough_code
         logicalType: string
         physicalType: VARCHAR
       - name: reporting_region
         logicalType: string
         physicalType: VARCHAR
-        description: Reporting region above borough.
       - name: tlc_service_zone
         logicalType: string
         physicalType: VARCHAR

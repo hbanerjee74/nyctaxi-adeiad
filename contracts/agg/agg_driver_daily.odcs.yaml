@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3b4fef1f-3543-55af-9736-7dcb6f0b0425
 name: agg_driver_daily
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_driver_daily
-    dataGranularityDescription: Driver-day, the base of the driver pyramid. Rates are rebuilt from summed numerators and denominators, never averaged from shift rates -- the mean of two ratios is not the ratio anyone asked for.
     properties:
       - name: occupancy_rate
         logicalType: number

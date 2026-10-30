@@ -42,7 +42,7 @@ def test_canonical_validates():
     code, diags = _run("validate", str(CANONICAL))
     assert code == 0, diags
     assert not [d for d in diags if d["severity"] == "error"]
-    assert ("vibedata/table-unjoined", "warning") in _codes(diags)
+    assert ("vibedata/table-unjoined", "warning") not in _codes(diags)  # every physical table is joined once the bridge leaves the model
 
 
 def test_missing_file_stdout_stays_json():
@@ -661,15 +661,15 @@ def test_aggregate_content_level_needs_its_physical_join(tmp_path):
 
 def test_level_tests_are_current():
     """The generated level test is what the model generates now."""
-    result = RUNNER.invoke(app, ["level-tests", "logical-model",
-                                 "transformation/tests/assert_semantic_levels_hold.sql", "--check"])
+    result = RUNNER.invoke(app, ["generate-tests", "logical-model", "transformation/tests", "--check"])
     assert result.exit_code == 0, result.stdout
 
 
 def test_level_tests_report_every_declared_key(tmp_path):
     """Each non-primary key and hierarchy step becomes a reported check."""
     from ossie_levels import generate
-    sql = generate([_doc()])
+    files = generate([_doc()])
+    sql = "\n".join(files.values())
     assert "date.month: key year_month names several members" in sql
     assert "zone.Geography: zone rolls up to several borough members" in sql
     assert "LTS8_monthly_service_summary: trips_to_payment_method payment_method key is no member" in sql
@@ -738,7 +738,7 @@ def test_content_filter_needs_a_holding_test(tmp_path):
 
 def test_navigable_must_be_boolean(tmp_path):
     doc = _doc()
-    trips, payload, source = _trips_source(doc, "LTS6_od_flow")
+    trips, payload, source = _trips_source(doc, "LTS2_zone_day_agg")
     source["navigable"] = "no"
     _set_payload(trips, payload)
     code, diags = _run("validate", str(_write(tmp_path, doc)))
@@ -1473,13 +1473,13 @@ def test_notes_says_when_a_directory_is_missing(tmp_path):
 
 
 def test_glossary_reports_both_directions_without_judging(tmp_path):
-    """A reporter: the lists are facts, and no drift is an error."""
+    """Both lists are reported; only an entity type with no term fails."""
     ontology_dir = tmp_path / "ontology"
     _write_doc(ontology_dir, "taxi.ontology.yaml", ONTOLOGY)
     context = tmp_path / "CONTEXT.md"
     context.write_text("# Context\n\n**Trip**:\nA journey.\n\n**Billable trip**:\nA rule.\n")
     result = RUNNER.invoke(app, ["glossary", str(ontology_dir), str(context)])
-    assert result.exit_code == 0, result.stdout
+    assert result.exit_code == 1, result.stdout  # an entity type with no term fails
     out = json.loads(result.stdout)
     assert out["entity_types_without_term"] == ["Zone"]
     assert out["terms_without_concept"] == ["Billable trip"]

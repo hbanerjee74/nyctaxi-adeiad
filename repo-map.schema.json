@@ -206,6 +206,25 @@
       },
       "description": "Layer names that hold gold relations. A tool that gates gold agreement reads this instead of carrying a list of non-gold names of its own, because another Domain names its layers differently. The list is the only source: a map that omits it gates no gold relation, and the check warns about the gap rather than inferring a set."
     },
+    "semantic_exclusions": {
+      "type": "array",
+      "description": "Gold relations deliberately outside the canonical semantic model, as schema.table with the reason. Coverage and the contract check report an excluded gold relation as information, not as undeclared.",
+      "items": {
+        "type": "object",
+        "required": [
+          "relation",
+          "reason"
+        ],
+        "properties": {
+          "relation": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "sources": {
       "type": "object",
       "description": "Each raw source loaded by dlt.",

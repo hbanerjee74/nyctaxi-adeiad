@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: a45a09d1-7457-595b-b0ce-61689d83d4ea
 name: dim_payment_method
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,13 +11,11 @@ servers:
     schema: core
 schema:
   - name: dim_payment_method
-    dataGranularityDescription: 'One row per payment method: settlement, tip capture, and revenue eligibility.'
     properties:
       - name: payment_method_key
         logicalType: integer
         physicalType: INTEGER
         primaryKey: true
-        description: Payment type code.
         quality:
           - type: library
             metric: duplicateValues
@@ -28,7 +26,6 @@ schema:
       - name: tip_is_captured
         logicalType: boolean
         physicalType: BOOLEAN
-        description: Whether trips paid this way record tips.
         quality:
           - type: library
             metric: nullValues
@@ -36,7 +33,6 @@ schema:
       - name: payment_method_name
         logicalType: string
         physicalType: VARCHAR
-        description: Name of the payment method; its display key, as the finance marts carry it.
       - name: settlement_class
         logicalType: string
         physicalType: VARCHAR

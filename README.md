@@ -40,7 +40,7 @@ TLC site ──► ingestion/tlc_pipeline.py ──► bronze ──────
                        dbt: staging → intermediate → marts (core, agg, finance, ops)
                                                                 │
                                                                 ▼
-                                       semantic model (MetricFlow) and dbt docs
+                                       canonical semantic model and dbt docs
 ```
 
 `orchestration/run_all.py` runs ingestion, then `dbt build`. `domain.duckdb`,

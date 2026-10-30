@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 69f3e590-f350-5786-bb4b-bf7f44d99e69
 name: agg_driver_monthly
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_driver_monthly
-    dataGranularityDescription: Driver-month, built from driver-day rather than from shifts again. Each level is built from the one below so the pyramid cannot disagree with itself.
     properties:
       - name: month_start_date
         logicalType: timestamp

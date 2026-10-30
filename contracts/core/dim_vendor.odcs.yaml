@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 8a55813e-4ef7-5110-8a69-06f60a995cfa
 name: dim_vendor
-version: 2.0.0
+version: 2.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,13 +11,11 @@ servers:
     schema: core
 schema:
   - name: dim_vendor
-    dataGranularityDescription: Type 2 vendor dimension, natural key vendor_id.
     properties:
       - name: vendor_key
         logicalType: string
         physicalType: VARCHAR
         primaryKey: true
-        description: Surrogate over natural key plus valid-from date.
         quality:
           - type: library
             metric: duplicateValues
@@ -28,7 +26,6 @@ schema:
       - name: vendor_natural_key
         logicalType: integer
         physicalType: INTEGER
-        description: Source vendor identifier.
         quality:
           - type: library
             metric: nullValues
@@ -39,15 +36,12 @@ schema:
       - name: valid_from_date
         logicalType: date
         physicalType: DATE
-        description: Half-open validity start for the as-of join.
       - name: valid_to_date
         logicalType: date
         physicalType: DATE
-        description: Half-open validity end.
       - name: is_current_version
         logicalType: boolean
         physicalType: BOOLEAN
-        description: True for the current version of each vendor.
       - name: vendor_legal_name
         logicalType: string
         physicalType: VARCHAR

@@ -18,7 +18,7 @@ After the conversation is condensed, invoke the [`workarounds`](.agents/skills/w
 - **Silver**: dbt staging and intermediate models in `transformation/`.
 - **Gold**: dbt marts in `core`, `agg`, `finance` and `ops`.
 
-Layer, schema and builder for each are in `repo-map.json` under `layers`.
+Layers are declared in `repo-map.json` under `layers` (schema, builder and path for each); the medallion arrangement is this Domain's choice.
 
 ## Conventions
 

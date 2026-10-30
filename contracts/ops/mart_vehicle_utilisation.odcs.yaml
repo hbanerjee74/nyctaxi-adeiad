@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3fa52b31-93fd-5f25-824f-176c37a87fa4
 name: mart_vehicle_utilisation
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: ops
 schema:
   - name: mart_vehicle_utilisation
-    dataGranularityDescription: Asset utilisation for the period with downtime netted out.
     properties:
       - name: vehicle_key
         logicalType: integer

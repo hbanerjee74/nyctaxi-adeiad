@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: edf94c85-cbf3-58ee-9672-f448930698dd
 name: mart_daily_zone_revenue
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: finance
 schema:
   - name: mart_daily_zone_revenue
-    dataGranularityDescription: Daily revenue by pickup zone. The billable rule (ADR 0003) is applied here and nowhere upstream.
     properties:
       - name: trip_date
         logicalType: date

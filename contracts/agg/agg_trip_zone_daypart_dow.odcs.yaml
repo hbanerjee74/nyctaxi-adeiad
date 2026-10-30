@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 81de3f5a-9664-5f68-b779-5b79dbdb222e
 name: agg_trip_zone_daypart_dow
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_trip_zone_daypart_dow
-    dataGranularityDescription: 'The demand cube: one row per pickup zone, day of week, non-working-day flag, daypart, peak flag and fleet. A holiday Monday and a working Monday are separate rows, and the early daypart splits into its off-peak and peak hours, so sum the rows to answer at zone x daypart x day of week. The grain most operational questions land on. Tip metrics are restricted to payment methods where the meter captures tips, and the covered share is published alongside so the reader can see how much traffic the rate speaks for.'
     properties:
       - name: avg_measurable_tip_rate
         logicalType: number

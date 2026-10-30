@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 78fd2945-cf26-5d13-a277-14baff2d185d
 name: agg_vehicle_monthly
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_vehicle_monthly
-    dataGranularityDescription: Vehicle-month with maintenance downtime netted out of the denominator. A vehicle in the shop for six days has 24 fewer available days, and charging it with those days makes a well-run asset look idle.
     properties:
       - name: month_start_date
         logicalType: timestamp

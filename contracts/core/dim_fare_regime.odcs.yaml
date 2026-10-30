@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 97033d74-7cba-5638-a216-b2c914855977
 name: dim_fare_regime
-version: 2.0.0
+version: 2.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -49,6 +49,3 @@ schema:
         logicalType: boolean
         physicalType: BOOLEAN
         description: True for the current version of each regime.
-authoritativeDefinitions:
-  - url: logical-model/nyc_taxi_fare_regime.ossie.yaml
-    type: businessDefinition

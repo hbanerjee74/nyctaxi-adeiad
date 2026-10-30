@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 354be355-0612-5027-9d8f-125d777a3421
 name: agg_zone_occupancy_hourly
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_zone_occupancy_hourly
-    dataGranularityDescription: Where the fleet spends its time, by zone and hour, from the status stream rather than from trips. The gap between this map and the revenue map is the whole reason occupancy is collected.
     properties:
       - name: interval_date
         logicalType: date

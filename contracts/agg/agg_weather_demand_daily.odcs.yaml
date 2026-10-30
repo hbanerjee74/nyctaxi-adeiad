@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 03545ed9-b13f-50d6-918e-6772d8f11853
 name: agg_weather_demand_daily
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,7 +11,6 @@ servers:
     schema: agg
 schema:
   - name: agg_weather_demand_daily
-    dataGranularityDescription: Demand against weather, by borough and day. The spine is every borough crossed with every day in the window, so a borough-day with weather and no trips keeps a zero row, and a trip in an unresolved or non-weather borough keeps its row with null weather (ADR 0012) instead of disappearing. Trips are attributed through their own zone surrogate, the version resolved as of the trip's date (ADR 0009), not the borough's current version.
     properties:
       - name: obs_date
         logicalType: date

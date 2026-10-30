@@ -36,6 +36,8 @@ A source in `_sources.yml` names its `schema` and tables, never a `database`, an
 - Intermediate and gold models name the entity directly.
 - No `_fact` or `_dimension` suffix: the prefix carries it.
 
+A new gold model starts with its contract (data-contract skill, `status: proposed` until built) and is routed by the semantic-model skill (star or `semantic_exclusions`).
+
 ## Properties files (B6)
 
 One YAML file per folder, named `_<folder>.yml` (`_staging.yml`, `_intermediate.yml`, `_core.yml`). Unit tests sit in `_unit_tests.yml` beside the models they cover.

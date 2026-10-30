@@ -71,10 +71,16 @@ def test_exact_level_on_a_versioned_dimension_is_held():
 
 
 def test_non_navigable_source_is_never_chosen_unasked():
-    od = [{"via": "trips_to_pickup_zone", "level": "zone"}, {"via": "trips_to_dropoff_zone", "level": "zone"}]
-    flt = WINDOW + " AND is_billable AND pickup_zone_key IS NOT NULL AND dropoff_zone_key IS NOT NULL"
-    assert _compile(["billable_trip_count"], od, flt).source == "LTS1_detail"
-    assert _compile(["billable_trip_count"], od, flt, source="LTS6_od_flow").source == "LTS6_od_flow"
+    doc = yaml.safe_load(TRIPS.read_text())
+    trips = next(d for d in doc["datasets"] if d["name"] == "trips")
+    payload = json.loads(trips["custom_extensions"][0]["data"])
+    next(s for s in payload["logical_sources"] if s["name"] == "LTS2_zone_day_agg")["navigable"] = False
+    trips["custom_extensions"][0]["data"] = json.dumps(payload)
+    model = Model(doc, lambda t: t["source"])
+    group = [{"via": "trips_to_date", "level": "month"}]
+    flt = WINDOW + " AND pickup_zone_key IS NOT NULL"
+    assert compile_query(model, Query(["trip_count"], group, flt, None)).source == "LTS1_detail"
+    assert compile_query(model, Query(["trip_count"], group, flt, "LTS2_zone_day_agg")).source == "LTS2_zone_day_agg"
 
 
 def test_non_additive_metric_reads_the_detail():
@@ -130,15 +136,14 @@ def test_compile_cli_prints_source_and_sql(tmp_path):
 
 
 def test_content_tests_are_current():
-    result = RUNNER.invoke(app, ["content-tests", "logical-model",
-                                 "transformation/tests/assert_semantic_content_holds.sql", "--check"])
+    result = RUNNER.invoke(app, ["generate-tests", "logical-model", "transformation/tests", "--check"])
     assert result.exit_code == 0, result.stdout
 
 
 def test_content_tests_cover_every_aggregate_binding():
     from ossie_content import generate
     sql = generate([yaml.safe_load(TRIPS.read_text()), yaml.safe_load(FLEET.read_text())])
-    assert "trips.LTS6_od_flow.billable_trip_count at " in sql  # floored: held group by group
+    assert "trips.LTS2_zone_day_agg.trip_count" in sql
     assert "shift.LTS2_driver_day.shift_count" in sql
     assert "occupancy_rate'" not in sql  # a rate binds no column, so it has nothing to hold
 
