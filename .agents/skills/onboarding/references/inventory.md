@@ -2,7 +2,7 @@
 
 One row per convention the repo follows. Build it from the code and documents before asking anything.
 
-Record whether `logical-model/` exists. A repo with gold marts and no canonical model is a review finding, and writing the model is part of Build once the marts are stable enough to describe.
+Record whether `logical-model/` exists. A repo with gold marts and no Ossie document is a review finding, and writing the Ossie documents is part of Build once the marts are stable enough to describe.
 
 | Column | Content |
 | --- | --- |

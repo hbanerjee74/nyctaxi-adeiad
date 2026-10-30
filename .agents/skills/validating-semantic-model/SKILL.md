@@ -1,6 +1,6 @@
 ---
 name: validating-semantic-model
-description: "Use when checking a canonical semantic model before commit, after a mart change, or when asked to validate it or whether a metric is trustworthy — covering the structural tool run, the terms it shares with the ontology, and the content review that decides whether the model is honest."
+description: "Use when checking a canonical semantic model before commit, after a mart change, or when asked to validate it or whether a metric is trustworthy — covering the structural tool run, the terms it shares with the ontology, and the content review that decides whether the Ossie document is honest."
 ---
 
 # Validating a semantic model
@@ -13,13 +13,13 @@ The scripts live beside the authoring skill: `../semantic-model/scripts/ossie.py
 
 From the repo root, run `python3 .agents/skills/semantic-model/scripts/ossie.py validate <model-dir>` and require exit 0 with zero errors. Then `ossie.py coverage <model-dir> <model-root>`, where the root is the directory `repo-map.json` gives the layer the document covers — `layers.<name>.path` for a gold model, or the parent of `artifact_paths.semantic_model` when the map names no layer — not a fixed `models/marts`, because a dataset may name a silver model as readily as a gold one — and require `0 coverage error(s)`. Then `ossie.py suppliers <model-dir>` and require an empty list — it is the instrument behind review item 1 — and `ossie.py notes <model-dir> <tests-dir> <adr-dir>` and require none dangling, which is what keeps a note's promises true after a test or ADR is renamed. Record each command with its exit code.
 
-The ontology and its mappings are a separate step: run `validating-ontology` for them. This skill checks the model's side of the same facts — the terms it shares with the ontology — in item 11.
+The ontology and its mappings are a separate step: run `validating-ontology` for them. This skill checks the Ossie document's side of the same facts — the terms it shares with the ontology — in item 11.
 
 An error means the document is malformed; fix it and re-run before going further. Nothing in step 2 compensates for a document that does not parse.
 
 ## Step 2 — content
 
-Work from the mart SQL, never from the model's own prose. Every item's evidence is a file you read and the line that settles it.
+Work from the mart SQL, never from the Ossie document's own prose. Every item's evidence is a file you read and the line that settles it.
 
 1. **Every declared field resolves.** Each field's `column_map` right side must be a column its mart's `SELECT` produces; for a `table_type: ALIAS` handle, check the table it is an alias of. After a build, `ossie.py columns <model-dir> <catalog.json>` proves every mapped column exists; it cannot prove the right one is mapped. A field with no `column_map` entry in any source is unsupplied — a finding.
 2. **Every aggregate metric binding is honest.** The agg column must compute the same aggregation over the same population as the metric: a filtered metric bound to an unfiltered column fails, and so does any table whose rows are a subset of the metric's population. Record the confirming sentence in that source's `note` and in your report — a binding whose note does not carry it is itself a finding.
@@ -29,21 +29,21 @@ Work from the mart SQL, never from the model's own prose. Every item's evidence 
 4a. **Content is the SQL, not a guess.** Each aggregate's `content_filter` restates its `WHERE` plus every row its inner joins drop, and its `content_levels` match its `GROUP BY` level by level, with the role (`via`) the join actually uses. Run `assert_semantic_content_holds` against a built warehouse (after `ossie.py generate-tests <model-dir> <tests-dir> --check`), or report it as unrun. Each level's keys come from the dbt metadata (`primary_key`, `unique` tests, constraints) and intent, a repeating name is an attribute not a key, and every aggregate content level names the `key_columns` that carry the level's key. Run `assert_semantic_level_keys_hold` (severity error) and `assert_semantic_levels_hold` (severity warn), written by the same `generate-tests` run; fix what the first reports and list what the second warns on as data findings; a report is never a reason to weaken a declaration.
 5. **Semi-additive measures are not plain sums.** Down-days, balances, snapshots, stock levels: no `SUM` metric, and no aggregate whose grain crosses the forbidden dimension.
 6. **Refusals are recorded.** Every declared field or metric an aggregate declines to supply, and every table that cannot be mapped, carries a `note` naming why. Refusing an undeclared physical column needs no note.
-7. **Coverage is complete.** `coverage` proves the model set; the notes prove the gaps. A gold table with neither a handle nor a note is a finding.
+7. **Coverage is complete.** `coverage` proves the Ossie datasets; the notes prove the gaps. A gold table with neither a handle nor a note is a finding.
 8. **Datatypes and SCD are honest.** Each field's `datatype` matches the column the staging or ingestion SQL produces, and each `scd` claim matches the ADR that rules it — a Type 2 claim on a Type 1 source is a finding.
 9. **Documents hold whole stars.** A dataset that exists only to bridge two documents is a partition error, not a table.
 10. **Consumer parity.** When a dbt semantic layer exists, compare metric names and expressions against it. A divergence is a finding, not a curiosity.
-11. **The model's terms agree with the ontology's concepts.** Read the ontology and `CONTEXT.md`. Every business object the model names in a description or `ai_context` is a concept; a metric whose name states a measure of an object uses that object's term; and no dataset description asserts an identity the concept contradicts. A model that invents a business name the glossary does not hold is a finding — the vocabulary is the language layer's to own, not the model's. The `glossary` report the ontology review runs is where such a name shows up as a `terms_without_concept` entry; read the same list.
-12. **Every dataset a concept populates is claimed.** For each concept, the datasets that carry its identity are named in that concept's mapping. A dataset whose key is a concept's identity and which no mapping names understates the model, even when another dataset states the same concept. The ontology side of this rule is `validating-ontology` item 5.
-13. **A rename or reinterpretation lands in both.** When the model renames a business object, changes its grain or changes what a key identifies, the concept, its `CONTEXT.md` sentence and its mapping move in the same change. A model change that leaves the concept stating the old meaning is a finding, even when every expression still resolves.
+11. **The Ossie document's terms agree with the ontology's concepts.** Read the ontology and `CONTEXT.md`. Every business object the Ossie document names in a description or `ai_context` is a concept; a metric whose name states a measure of an object uses that object's term; and no dataset description asserts an identity the concept contradicts. A model that invents a business name the glossary does not hold is a finding — the vocabulary is the language layer's to own, not the Ossie document's. The `glossary` report the ontology review runs is where such a name shows up as a `terms_without_concept` entry; read the same list.
+12. **Every dataset a concept populates is claimed.** For each concept, the datasets that carry its identity are named in that concept's mapping. A dataset whose key is a concept's identity and which no mapping names understates the Ossie document, even when another dataset states the same concept. The ontology side of this rule is `validating-ontology` item 5.
+13. **A rename or reinterpretation lands in both.** When the Ossie document renames a business object, changes its grain or changes what a key identifies, the concept, its `CONTEXT.md` sentence and its mapping move in the same change. A model change that leaves the concept stating the old meaning is a finding, even when every expression still resolves.
 
 ## Step 3 — fix, or escalate
 
-You fix what the model can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
+You fix what the Ossie document can settle without a business decision, and re-run `validate` and `suppliers` afterwards. That is: a missing confirming sentence, a wrong `datatype` traceable to the staging or ingestion SQL, an unsupplied metric whose column is obvious, a dangling reference, a note that contradicts the SQL.
 
-You escalate as a grilling session — one finding at a time, location → evidence → options → recommendation, waiting for the ruling before raising the next — when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the model and an ADR. Those are S9 questions in the authoring skill, not validation calls.
+You escalate as a grilling session — one finding at a time, location → evidence → options → recommendation, waiting for the ruling before raising the next — when the fix changes what the number means: withdrawing a mapping, reclassifying a table as standalone, deciding a truncated or row-dropping source is acceptable, or resolving a contradiction between the Ossie document and an ADR. Those are S9 questions in the authoring skill, not validation calls.
 
-Never edit mart SQL, a seed or a macro to satisfy the model. If the mart is wrong, it is a finding about the mart, reported — the model records what the lakehouse actually does.
+Never edit mart SQL, a seed or a macro to satisfy the Ossie document. If the mart is wrong, it is a finding about the mart, reported — the Ossie document records what the lakehouse actually does.
 
 ## Step 4 — report
 
@@ -57,5 +57,5 @@ The report closes with a declaration-versus-executable section: which artifacts 
 - "The note says it was checked." Read the SQL; a note is a claim, not evidence.
 - "No warehouse, so I'll assume the keys are unique." Report the unknown as unknown; never convert it into a pass.
 - "One mapping looked odd but validate passed." That is a finding.
-- "The model documents its own intent, so it is consistent." Read the mart and the ADR; a model can be green and wrong.
+- "The Ossie document documents its own intent, so it is consistent." Read the mart and the ADR; a model can be green and wrong.
 - "I fixed it while reviewing, so the review is done." Re-run both gates after any fix, or the verdict describes a file that no longer exists.

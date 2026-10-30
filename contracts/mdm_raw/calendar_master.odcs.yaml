@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 66476552-dc27-52a6-bf8d-38fdc10bcd4d
 name: calendar_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,20 +13,26 @@ schema:
   - name: calendar_master
     properties:
       - name: calendar_date
+        description: "The calendar date."
         logicalType: date
         physicalType: DATE
       - name: holiday_name
+        description: "Name of the holiday or city event, when the date is one."
         logicalType: string
         physicalType: VARCHAR
       - name: holiday_class
+        description: "Class of the holiday: federal or city_event."
         logicalType: string
         physicalType: VARCHAR
       - name: is_holiday
+        description: "True when the date is a holiday or city event."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: is_weekend
+        description: "True when the date falls on a Saturday or Sunday."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: is_school_term
+        description: "True when New York City public schools are in term."
         logicalType: boolean
         physicalType: BOOLEAN

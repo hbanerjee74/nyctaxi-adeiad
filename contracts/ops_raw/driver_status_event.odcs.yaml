@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 4de99a24-a3a5-5762-9751-040be5789749
 name: driver_status_event
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,33 +13,42 @@ schema:
   - name: driver_status_event
     properties:
       - name: event_id
+        description: "Identifier of the status event."
         logicalType: string
         physicalType: VARCHAR
       - name: shift_id
+        description: "Identifier of the shift."
         logicalType: string
         physicalType: VARCHAR
       - name: driver_id
+        description: "Identifier of the driver."
         logicalType: integer
         physicalType: BIGINT
       - name: vehicle_id
+        description: "Identifier of the vehicle."
         logicalType: integer
         physicalType: INTEGER
       - name: event_ts
+        description: "When the event happened."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: status_code
+        description: "Driver status: LOGIN, AVAILABLE, DISPATCHED, ON_TRIP, BREAK or LOGOUT."
         logicalType: string
         physicalType: VARCHAR
       - name: zone_id
+        description: "TLC zone the driver was in, when known."
         logicalType: integer
         physicalType: INTEGER
       - name: received_ts
+        description: "When the platform received the event. Can invert the order against event_ts for a small share of events."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: source_system
+        description: "Device the event came from: tablet or driver_app."
         logicalType: string
         physicalType: VARCHAR

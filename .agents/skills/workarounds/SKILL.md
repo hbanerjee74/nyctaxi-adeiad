@@ -31,7 +31,7 @@ The file editor echoes the file back after every edit; for `repo-map.json`, YAML
 
 - `repo-map.json`, `test-map.json`: load with Python `json`, change, dump with `indent=2`, then validate (`python3 -m pytest tests/test_maps.py -q`).
 - `plan.md`, `verify.md`: append with a heredoc, or replace one block with a short Python `str.replace`.
-- YAML properties files (`_sources.yml`, `_staging.yml`) and the canonical model (`logical-model/*.ossie.yaml`): a short Python `str.replace` on a unique anchor. The canonical file is one large single-model document by convention (VD-7126); a targeted editor edit re-emits the whole file.
+- YAML properties files (`_sources.yml`, `_staging.yml`) and the Ossie documents (`logical-model/*.ossie.yaml`): a short Python `str.replace` on a unique anchor. The canonical file is one large single-model document by convention (VD-7126); a targeted editor edit re-emits the whole file.
 
 Never make two edits to the same file in parallel.
 
@@ -71,7 +71,7 @@ step, then write the SQL or pipeline to satisfy what it declares. The contract i
 artifact in that loop — `data_type`, `data_tests` and the dlt column hints are generated, and a hand edit
 there is lost on the next run and caught by the check. A change that breaks a published shape (a rename, a
 dropped column, a narrower grain, a new required) moves the contract's version in the same commit. Where a
-canonical model exists, the contract and the document that declares those fields move together. Never make a
+Ossie document exists, the contract and the document that declares those fields move together. Never make a
 build pass by deleting a quality rule, an enforced-contract line or a dlt column hint: a violation is a shape
 change to declare.
 

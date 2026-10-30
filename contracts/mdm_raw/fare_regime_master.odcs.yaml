@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 1fcb54f7-28a3-55d7-ba8b-dd79daee860e
 name: fare_regime_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,20 +13,26 @@ schema:
   - name: fare_regime_master
     properties:
       - name: regime_code
+        description: "Code of the surcharge regime."
         logicalType: string
         physicalType: VARCHAR
       - name: fare_component
+        description: "The fare component the regime sets a rate for."
         logicalType: string
         physicalType: VARCHAR
       - name: rate_amount
+        description: "Rate amount charged for the component under this regime."
         logicalType: number
         physicalType: DECIMAL(3,2)
       - name: applies_to_fleet
+        description: "Fleet the regime applies to: yellow, green or all."
         logicalType: string
         physicalType: VARCHAR
       - name: valid_from_date
+        description: "First date on which this version of the record applies (inclusive)."
         logicalType: date
         physicalType: DATE
       - name: valid_to_date
+        description: "Date on which this version stops applying (exclusive)."
         logicalType: date
         physicalType: DATE

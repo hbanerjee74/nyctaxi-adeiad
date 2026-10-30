@@ -7,11 +7,13 @@ description: "Use when creating, renaming or editing a dbt model, its properties
 
 Operator conventions for dbt models in `transformation/`. Where files live is declared in `repo-map.json`; this file covers naming and shape.
 
-## Medallion mapping (B1)
+## Layer roles (B1)
 
-- **Bronze**: raw data loaded by the dlt pipelines in `ingestion/` (schemas `bronze`, `ops_raw`, `mdm_raw`). dbt reads it as sources and never writes to it.
-- **Silver**: dbt `staging` (views) and `intermediate` (tables). Staging renames and casts one source table. Intermediate applies business logic and joins, with no grain commitment of its own.
-- **Gold**: dbt marts (`core`, `agg`, `finance`, `ops`): grain-committed facts, conformed dimensions, aggregates.
+- **Input** (bronze): raw data loaded by the dlt pipelines in `ingestion/` (schemas `bronze`, `ops_raw`, `mdm_raw`). dbt reads it as sources and never writes to it.
+- **Internal** (silver): dbt `staging` (views) and `intermediate` (tables), and the `seeds` schema. Staging renames and casts one source table. Intermediate applies business logic and joins, with no grain commitment of its own.
+- **Boundary** (gold): dbt marts (`core`, `agg`, `finance`, `ops`): grain-committed facts, conformed dimensions, aggregates.
+
+Each layer's role is in `repo-map.json`; the rules per role are in the plugin's `layer-roles.md`.
 
 ## Time zones (B17)
 
@@ -40,7 +42,7 @@ A new gold model starts with its contract (data-contract skill, `status: propose
 
 ## Properties files (B6)
 
-One YAML file per folder, named `_<folder>.yml` (`_staging.yml`, `_intermediate.yml`, `_core.yml`). Unit tests sit in `_unit_tests.yml` beside the models they cover.
+One YAML file per folder, named `_<folder>.yml` (`_staging.yml`, `_intermediate.yml`, `_core.yml`). Unit tests sit in `_unit_tests.yml` beside the dbt models they cover.
 
 ## Columns (B8)
 

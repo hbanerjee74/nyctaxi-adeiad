@@ -1,12 +1,12 @@
-# Refactoring the model
+# Refactoring the Ossie document
 
-Use when the model's structure or a definition changes: splitting, folding, renaming, a grain change, a business-rule change, an aggregate's lifecycle, or a star's retirement. Everyday edits do not need this file.
+Use when the Ossie document's structure or a definition changes: splitting, folding, renaming, a grain change, a business-rule change, an aggregate's lifecycle, or a star's retirement. Everyday edits do not need this file.
 
-The model is not append-only. These moves are normal work, each validated across every file afterwards, with no dual sources of truth left behind:
+The Ossie document is not append-only. These moves are normal work, each validated across every file afterwards, with no dual sources of truth left behind:
 
 - **New standalone model.** An object that serves no star (bridge, rate table, direct-consumption mart) gets its own document named after what it models, one dataset, its own `physical_tables` entry, and a `note` saying why it stands alone. Never park it in a star it cannot join.
 - **Fold a standalone model into a star.** When a join key lands, move the dataset into the consuming document, add the relationship and its `physical_joins` entry there, delete the standalone document, and correct every stale statement about the object wherever it lives — its `note`, description, `ai_context`, and any rule the new path invalidates. Relationships cannot cross documents, so leaving both is a second source of truth, not caution.
-- **Split the model across documents.** Partition by whole stars, as the atomic-stars rule in `SKILL.md` requires; each document keeps every dataset its own facts need, and shared dims are copied so their identity matches.
+- **Split an Ossie document across documents.** Partition by whole stars, as the atomic-stars rule in `SKILL.md` requires; each document keeps every dataset its own facts need, and shared dims are copied so their identity matches.
 - **Move or rename a dataset.** Update every relationship, `physical_join`, and `logical_sources[].physical_table` that names it in the same change; leave no dangling reference for validation to find.
 - **Rename a field, metric or relationship.** Content and metric payloads name them too: `content_filter`, `content_levels[].via`/`key_columns`, level `keys[].fields` and `attributes`, `row_level`, `derived_expression`, `at_levels`, `time_series.of`/`via`, `based_on_dimensions.of`/`across`. After any level, key or content change, regenerate the tests with `ossie.py generate-tests <model-dir> <tests-dir>`. `validate` fails each one left behind.
 
@@ -18,7 +18,7 @@ Population decides the disposition. A source whose rows are the star's populatio
 
 ### Fact-grain change
 
-When a fact's grain changes, the primary key, the detail `content_grain`, every aggregate's `content_levels`, and every count metric change together: a `SUM(CASE ...)`-style count silently becomes a finer-grained count, so count metrics need the distinct rollup key while additive money metrics stay sums. Then establish — by reading each aggregate's SQL, never by assumption — whether that aggregate was rebuilt at the old grain or the new one; if the answer is not available, that is a blocked-mapping question (`references/reverse-engineering.md`), not a default. A metric whose grain disagrees with the aggregate source supplying it is the most expensive silent error in the model.
+When a fact's grain changes, the primary key, the detail `content_grain`, every aggregate's `content_levels`, and every count metric change together: a `SUM(CASE ...)`-style count silently becomes a finer-grained count, so count metrics need the distinct rollup key while additive money metrics stay sums. Then establish — by reading each aggregate's SQL, never by assumption — whether that aggregate was rebuilt at the old grain or the new one; if the answer is not available, that is a blocked-mapping question (`references/reverse-engineering.md`), not a default. A metric whose grain disagrees with the aggregate source supplying it is the most expensive silent error in the Ossie document.
 
 ### Business-rule change
 
@@ -36,4 +36,4 @@ When a definition changes (billable, active, in-window), the `content_filter` of
 
 Deleting a fact star means deleting its document and the handles only it used, after moving the decisions and reasons it carried into the repo's decision record. A document left behind holding half a star is worse than no document: it still validates.
 
-Business rules live in the repo's decision record, not in the model: a threshold, filter or bound that changes the answer is an ADR, and the model cites it. When a refactor makes a stated rule wrong on one path, that is a business ruling — ask under the blocked-mapping rule in `references/reverse-engineering.md`; never quietly rewrite the rule to fit the new shape.
+Business rules live in the repo's decision record, not in the Ossie document: a threshold, filter or bound that changes the answer is an ADR, and the Ossie document cites it. When a refactor makes a stated rule wrong on one path, that is a business ruling — ask under the blocked-mapping rule in `references/reverse-engineering.md`; never quietly rewrite the rule to fit the new shape.

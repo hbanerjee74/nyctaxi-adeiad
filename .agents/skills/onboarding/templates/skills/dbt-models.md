@@ -65,11 +65,11 @@ alternatives: suffixes instead of prefixes; a single underscore in staging names
 <!-- onboarding
 ask: yes
 question: How are properties files organised?
-recommended: One `_<folder>.yml` per folder; unit tests in `_unit_tests.yml` beside the models.
+recommended: One `_<folder>.yml` per folder; unit tests in `_unit_tests.yml` beside the dbt models.
 alternatives: one YAML file per model.
 -->
 
-One YAML file per folder, named `_<folder>.yml`. Unit tests sit in `_unit_tests.yml` beside the models they cover. Generic-test arguments go under `arguments:`.
+One YAML file per folder, named `_<folder>.yml`. Unit tests sit in `_unit_tests.yml` beside the dbt models they cover. Generic-test arguments go under `arguments:`.
 
 ## Columns (B8)
 <!-- onboarding

@@ -18,6 +18,7 @@ models:
       - name: trip_count
         data_type: BIGINT
         data_tests: [not_null]
+        description: Trips, billable or not.
       - name: pickup_location_id
         data_type: BIGINT
       - name: zone_name
@@ -48,6 +49,7 @@ models:
         data_type: VARCHAR
       - name: billable_trip_count
         data_type: BIGINT
+        description: Trips whose total amount is positive.
       - name: total_revenue
         data_type: DOUBLE
       - name: fare_revenue
@@ -91,6 +93,7 @@ models:
         data_type: VARCHAR
       - name: trip_count
         data_type: BIGINT
+        description: Trips, billable or not.
       - name: total_revenue
         data_type: DOUBLE
       - name: total_miles
@@ -115,34 +118,49 @@ models:
     columns:
       - name: origin_location_id
         data_type: BIGINT
+        description: TLC location_id of the pickup zone.
       - name: origin_zone
         data_type: VARCHAR
+        description: Display name of the pickup zone.
       - name: origin_borough
         data_type: VARCHAR
+        description: Borough of the pickup zone.
       - name: origin_is_airport
         data_type: BOOLEAN
+        description: True when the pickup zone is an airport zone.
       - name: dest_location_id
         data_type: BIGINT
+        description: TLC location_id of the dropoff zone.
       - name: dest_zone
         data_type: VARCHAR
+        description: Display name of the dropoff zone.
       - name: dest_borough
         data_type: VARCHAR
+        description: Borough of the dropoff zone.
       - name: dest_is_airport
         data_type: BOOLEAN
+        description: True when the dropoff zone is an airport zone.
       - name: is_intra_borough
         data_type: BOOLEAN
+        description: True when the pickup and dropoff zones are in the same borough.
       - name: trip_count
         data_type: BIGINT
+        description: Billable trips picked up in the reporting window for the pair; at least 25, since smaller pairs are not published (ADR 0017).
       - name: total_revenue
         data_type: DOUBLE
+        description: Sum of total_amount over the pair's billable trips.
       - name: avg_fare
         data_type: DOUBLE
+        description: Mean total_amount per billable trip on the pair.
       - name: avg_distance
         data_type: DOUBLE
+        description: Mean trip_distance in miles per billable trip on the pair.
       - name: avg_minutes
         data_type: DOUBLE
+        description: Mean trip duration in minutes per billable trip on the pair.
       - name: avg_corridor_mph
         data_type: DOUBLE
+        description: Mean trip distance divided by mean trip hours for the pair, in miles per hour; null when the divisor is zero.
   - name: agg_trip_band_profile
     description: >
       Distance, duration and fare banding in one profile. Three independent range
@@ -173,6 +191,7 @@ models:
         data_type: VARCHAR
       - name: trip_count
         data_type: BIGINT
+        description: Trips, billable or not.
       - name: total_revenue
         data_type: DOUBLE
       - name: avg_total_amount
@@ -215,6 +234,7 @@ models:
         data_type: VARCHAR
       - name: trip_count
         data_type: BIGINT
+        description: Trips, billable or not.
       - name: total_revenue
         data_type: DOUBLE
       - name: avg_trip_distance
@@ -249,18 +269,22 @@ models:
         data_type: VARCHAR
       - name: shift_count
         data_type: BIGINT
+        description: Driver sign-ons.
       - name: vehicles_driven
         data_type: BIGINT
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: break_hours
         data_type: DOUBLE
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: tip_revenue
         data_type: DOUBLE
       - name: airport_fee_collected
@@ -275,6 +299,7 @@ models:
         data_type: HUGEINT
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
       - name: revenue_per_trip
         data_type: DOUBLE
   - name: agg_driver_monthly
@@ -300,14 +325,18 @@ models:
         data_type: BIGINT
       - name: shift_count
         data_type: HUGEINT
+        description: Driver sign-ons.
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: tip_revenue
         data_type: DOUBLE
       - name: total_cost
@@ -318,8 +347,10 @@ models:
         data_type: DOUBLE
       - name: occupancy_rate
         data_type: DOUBLE
+        description: Share of online time spent carrying a fare, rebuilt from summed seconds (ADR 0016); null when the fleet was never online.
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
       - name: trips_per_online_hour
         data_type: DOUBLE
       - name: margin_rate
@@ -350,22 +381,27 @@ models:
         data_type: BIGINT
       - name: shift_count
         data_type: BIGINT
+        description: Driver sign-ons.
       - name: distinct_drivers
         data_type: BIGINT
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: paid_miles
         data_type: DOUBLE
       - name: odometer_miles
         data_type: DOUBLE
       - name: occupancy_rate
         data_type: DOUBLE
+        description: Share of online time spent carrying a fare, rebuilt from summed seconds (ADR 0016); null when the fleet was never online.
       - name: asset_utilisation_rate
         data_type: DOUBLE
       - name: paid_mile_ratio
@@ -393,14 +429,18 @@ models:
         data_type: BIGINT
       - name: shift_count
         data_type: HUGEINT
+        description: Driver sign-ons.
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: paid_miles
         data_type: DOUBLE
       - name: down_days
@@ -415,8 +455,10 @@ models:
         data_type: DOUBLE
       - name: occupancy_rate
         data_type: DOUBLE
+        description: Share of online time spent carrying a fare, rebuilt from summed seconds (ADR 0016); null when the fleet was never online.
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
   - name: agg_garage_monthly
     description: Garage-month. The top of the driver, vehicle and garage pyramid.
     contract: {enforced: true}
@@ -435,22 +477,28 @@ models:
         data_type: BIGINT
       - name: shift_count
         data_type: HUGEINT
+        description: Driver sign-ons.
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: maintenance_cost
         data_type: HUGEINT
       - name: down_days
         data_type: HUGEINT
       - name: occupancy_rate
         data_type: DOUBLE
+        description: Share of online time spent carrying a fare, rebuilt from summed seconds (ADR 0016); null when the fleet was never online.
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
       - name: bay_occupancy_rate
         data_type: DOUBLE
   - name: agg_zone_occupancy_hourly
@@ -484,6 +532,7 @@ models:
         data_type: DOUBLE
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: available_hours
         data_type: DOUBLE
       - name: break_hours

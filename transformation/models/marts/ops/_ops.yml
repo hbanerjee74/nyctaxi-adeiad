@@ -30,14 +30,18 @@ models:
         data_type: HUGEINT
       - name: shift_count
         data_type: HUGEINT
+        description: Driver sign-ons.
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: tip_revenue
         data_type: DOUBLE
       - name: total_cost
@@ -48,6 +52,7 @@ models:
         data_type: DOUBLE
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
       - name: revenue_per_trip
         data_type: DOUBLE
       - name: trips_per_online_hour
@@ -89,14 +94,18 @@ models:
         data_type: HUGEINT
       - name: shift_count
         data_type: HUGEINT
+        description: Driver sign-ons.
       - name: trip_count
         data_type: HUGEINT
       - name: online_hours
         data_type: DOUBLE
+        description: Hours a driver was signed on, from effective shift end so an unclosed shift keeps the time it was worked.
       - name: on_trip_hours
         data_type: DOUBLE
+        description: Hours a driver was carrying a fare.
       - name: gross_revenue
         data_type: DOUBLE
+        description: Revenue earned on the fleet's shifts.
       - name: paid_miles
         data_type: DOUBLE
       - name: down_days
@@ -107,10 +116,12 @@ models:
         data_type: HUGEINT
       - name: occupancy_rate
         data_type: DOUBLE
+        description: Share of online time spent carrying a fare, rebuilt from summed seconds (ADR 0016); null when the fleet was never online.
       - name: availability_adjusted_rate
         data_type: DOUBLE
       - name: revenue_per_online_hour
         data_type: DOUBLE
+        description: Gross revenue per online hour, from summed revenue and summed hours. The driver ranking basis (ADR 0010).
       - name: net_revenue_per_active_day
         data_type: DOUBLE
   - name: mart_trip_quality_scorecard
@@ -129,6 +140,7 @@ models:
         data_type: VARCHAR
       - name: trip_count
         data_type: BIGINT
+        description: Trips, billable or not.
       - name: clean_trip_count
         data_type: BIGINT
       - name: non_billable_count

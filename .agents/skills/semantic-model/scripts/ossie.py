@@ -257,6 +257,13 @@ def _load_schema(kind: str = "model"):
     return schema, None
 
 
+def _norm_prose(text):
+    """Description text with whitespace collapsed; None when empty or not a string."""
+    if not isinstance(text, str):
+        return None
+    return " ".join(text.split()) or None
+
+
 def _dataset_fingerprint(dataset, alias_names=frozenset()):
     """Identity of a dataset that must match wherever the same name appears.
 
@@ -268,7 +275,8 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
     for field in dataset.get("fields") or []:
         if isinstance(field, dict) and field.get("name"):
             fields[field["name"]] = json.dumps(
-                [field.get("expression"), field.get("datatype"), field.get("dimension")],
+                [field.get("expression"), field.get("datatype"), field.get("dimension"),
+                 _norm_prose(field.get("description"))],
                 sort_keys=True)
     payload = {}
     for data in (dataset.get("custom_extensions") or []):
@@ -290,6 +298,7 @@ def _dataset_fingerprint(dataset, alias_names=frozenset()):
              source.get("navigable")],
             sort_keys=True)
     return {"source": dataset.get("source"),
+            "description": _norm_prose(dataset.get("description")),
             "primary_key": dataset.get("primary_key"),
             "unique_keys": dataset.get("unique_keys"),
             "fields": fields,
@@ -339,9 +348,14 @@ def cross_document_drift(docs):
     """
     diags = []
     seen = {}
+    conformed = {}
     for target, doc in docs:
         if not isinstance(doc, dict):
             continue
+        for dataset in doc.get("datasets") or []:
+            if (isinstance(dataset, dict) and dataset.get("name")
+                    and _conformed_owner(dataset, docs)):
+                conformed.setdefault(dataset["name"], set()).add(target)
         aliases = frozenset(
             name for name, table in physical_table_index(doc).items()
             if table.get("table_type") == "ALIAS")
@@ -357,6 +371,8 @@ def cross_document_drift(docs):
         for name, table in physical_table_index(doc).items():
             seen.setdefault(("physical_table", name), []).append((target, table))
     for (kind, name), entries in seen.items():
+        if kind == "dataset":
+            entries = [e for e in entries if e[0] not in conformed.get(name, ())]
         if len(entries) < 2:
             continue
         first_target, first = entries[0]
@@ -367,6 +383,73 @@ def cross_document_drift(docs):
                     "message": f"{kind} '{name}' is defined differently in '{first_target}' "
                                f"and '{target}'; copies of a shared {kind} must match",
                     "file": target})
+    return diags
+
+
+def _aliases_of(doc):
+    return frozenset(name for name, table in physical_table_index(doc).items()
+                     if table.get("table_type") == "ALIAS")
+
+
+def _find_dataset(doc, name):
+    for dataset in doc.get("datasets") or []:
+        if isinstance(dataset, dict) and dataset.get("name") == name:
+            return dataset
+    return None
+
+
+def _find_owner(docs, owner_name):
+    """The parsed document named `owner_name`, or None."""
+    return next((d for _, d in docs
+                 if isinstance(d, dict) and d.get("name") == owner_name), None)
+
+
+def _conformed_owner(dataset, docs):
+    """The owner's dataset when `dataset` declares a valid conformed_from, else None."""
+    owner_name = _vibedata_of(dataset).get("conformed_from")
+    if not isinstance(owner_name, str):
+        return None
+    owner_doc = _find_owner(docs, owner_name)
+    owner = _find_dataset(owner_doc, dataset.get("name")) if owner_doc else None
+    if owner is not None and "conformed_from" not in _vibedata_of(owner):
+        return owner
+    return None
+
+
+def conformed_check(docs):
+    """A copy that names its owner document must equal the owner's dataset."""
+    diags = []
+    for target, doc in docs:
+        if not isinstance(doc, dict):
+            continue
+        for dataset in doc.get("datasets") or []:
+            if not isinstance(dataset, dict):
+                continue
+            owner_name = _vibedata_of(dataset).get("conformed_from")
+            if not isinstance(owner_name, str):
+                continue
+            name = dataset.get("name")
+            where = f"'{name}' in '{doc.get('name')}' declares conformed_from '{owner_name}'"
+            owner_doc = _find_owner(docs, owner_name)
+            owner = _find_dataset(owner_doc, name) if owner_doc else None
+            if owner is None:
+                diags.append({"severity": "error", "code": "crossdoc/conformed-missing",
+                              "message": f"{where}, which defines no such dataset",
+                              "file": target})
+            elif "conformed_from" in _vibedata_of(owner):
+                message = (f"'{name}' in '{doc.get('name')}' declares conformed_from itself"
+                           if owner_doc is doc else
+                           f"{where}, whose own '{name}' also declares "
+                           f"conformed_from; name the document that owns it")
+                diags.append({"severity": "error", "code": "crossdoc/conformed-chain",
+                              "message": message,
+                              "file": target})
+            elif (_dataset_fingerprint(dataset, _aliases_of(doc))
+                  != _dataset_fingerprint(owner, _aliases_of(owner_doc))):
+                diags.append({"severity": "error", "code": "crossdoc/conformed-diverged",
+                              "message": f"'{name}' in '{doc.get('name')}' differs from its "
+                                         f"owner '{owner_name}'; copy the owner's definition",
+                              "file": target})
     return diags
 
 
@@ -749,6 +832,7 @@ def validate(model: str):
             parsed.append((str(target), data))
     if len(parsed) > 1:
         diags.extend(cross_document_drift(parsed))
+        diags.extend(conformed_check(parsed))
     if Path(model).is_dir():
         for path in sorted(Path(model).glob("*.y*ml")):
             if not path.name.endswith(SUFFIXES):

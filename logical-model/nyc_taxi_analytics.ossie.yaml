@@ -80,14 +80,14 @@ datasets:
             - dialect: ANSI_SQL
               expression: pickup_zone_key
         datatype: String
-        description: Origin zone surrogate, resolved as of the trip date (Pickup_Zone role).
+        description: Role-playing zone key for the origin, resolved as of the trip date (Pickup_Zone role).
       - name: dropoff_zone_key
         expression:
           dialects:
             - dialect: ANSI_SQL
               expression: dropoff_zone_key
         datatype: String
-        description: Destination zone surrogate, resolved as of the trip date (Dropoff_Zone role).
+        description: Role-playing zone key for the destination, resolved as of the trip date (Dropoff_Zone role).
       - name: vendor_key
         expression:
           dialects:
@@ -408,7 +408,7 @@ datasets:
   - name: trip_quality
     source: core.dim_trip_quality
     primary_key: [trip_quality_key]
-    description: Junk dimension over the observed combinations of trip quality verdicts.
+    description: Junk dimension over the observed combinations of trip quality verdicts. Only combinations that occur are materialised, not the 4096-row cross product (ADR 0004).
     fields:
       - name: trip_quality_key
         expression:
@@ -559,7 +559,7 @@ datasets:
   - name: zone_poi
     source: core.bridge_zone_poi
     primary_key: [poi_id]
-    description: "One row per point of interest with its zone and the share of that zone's demand weight. A weighted bridge: measures crossing it are allocated, never repeated."
+    description: "One row per point of interest with its zone and the share of that zone's demand weight. Zone to POI is one-to-many, so a zone-level measure fans out across categories; it is allocated by the weight, never repeated."
     fields:
       - name: poi_id
         expression:

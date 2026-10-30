@@ -5,7 +5,7 @@ description: "Use when checking a business ontology or its mappings before commi
 
 # Validating an ontology
 
-Its own step, not a corner of the semantic-model review: the ontology makes claims the model cannot state, and the model makes claims the ontology cannot check. This skill validates the ontology and its mappings against the canonical model, and the `validating-semantic-model` skill validates the model against the ontology's terms.
+Its own step, not a corner of the semantic-model review: the ontology makes claims the Ossie document cannot state, and the Ossie document makes claims the ontology cannot check. This skill validates the ontology and its mappings against the Ossie documents, and the `validating-semantic-model` skill validates the Ossie document against the ontology's terms.
 
 Python proves shape only: the schema, the names, and whether an expression names a field that exists. The schema it loads is the vendored spec beside the validator — `semantic-model/scripts/ossie_vendor/ontology/ontology.json` and `.../mapping.json` — so a construct rejected here is rejected by the pinned spec, not by local taste; read the `$defs` rather than arguing with the error. Coverage — is every table classified, does every concept reach a dataset — and meaning have no tool. Read `../validating-semantic-model/references/checks.md` for what the commands can and cannot see.
 
@@ -25,8 +25,8 @@ The tool cannot count what is absent, so this step is a read, not a command. Enu
 1. **Every table is classified.** A dimension, transactional fact or event-derived interval either has a concept or carries its exemption where a reader finds it — a junk dimension, a degenerate key, a rebuilt state snapshot, an effective-dated rule, a bridge or an aggregate. A table nobody classified is a finding, and so is a concept invented for one of those kinds. A table the author could not classify is a blocked finding with the question it raised, never an omission.
 2. **Every concept reaches a dataset.** A concept with no mapping anywhere is either ahead of its data, with its description saying so, or a finding.
 3. **Every identity component is mapped.** A concept mapped on only some of the relationships its `identify_by` names is a partial identity — a gap to report, never a complete mapping.
-4. **Every document is accounted for.** Each canonical document is mapped, or its own description says why no concept reaches it.
-5. **Every dataset carrying a concept's identity is mapped.** A dataset whose key is a concept's identity and has no object mapping understates the model even when another dataset states the same concept.
+4. **Every document is accounted for.** Each Ossie document is mapped, or its own description says why no concept reaches it.
+5. **Every dataset carrying a concept's identity is mapped.** A dataset whose key is a concept's identity and has no object mapping understates the Ossie document even when another dataset states the same concept.
 6. **The glossary holds both ways.** Run `... ossie.py glossary <ontology-dir> <CONTEXT.md>` and read the three lists as signals, not a verdict: the command reports drift and always exits 0.
    - `entity_types_without_term` — always a finding. An entity type must have a word in the business's vocabulary; add the term or drop the concept.
    - `terms_without_concept` — adjudicate every entry. A rule, measure, population, period, classification or version stays prose; a term naming a thing with identity is a missing concept, added in the same change.
@@ -35,7 +35,7 @@ The tool cannot count what is absent, so this step is a read, not a command. Enu
 
 ## Step 3 — content
 
-Work from the mart SQL and the model, never from the mapping's own prose.
+Work from the mart SQL and the Ossie document, never from the mapping's own prose.
 
 7. **Identity is natural.** Each `identify_by` reaches the value holding the entity's natural key in the mart or its staging SQL. A surrogate over natural key plus valid-from is a version; a key with no natural code beside it is a surrogate the report names as such.
 8. **A relationship's direction and multiplicity match the foreign key.** The inverse is implicit; a declared inverse, or two relationships where one would do, is a finding.

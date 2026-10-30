@@ -1,7 +1,7 @@
 """ODCS data-contract tooling, run from the data-contract skill against a Domain checkout.
 
 Commands: `check` (schema and structure of the committed contracts, one contract per
-boundary relation, and their agreement with the canonical model that names each gold
+boundary relation, and their agreement with the canonical model that names each boundary
 relation), `check --relations` (adds the comparison against the built relation), `reverse`
 (draft the boundary's contracts from a built warehouse, with the questions neither the
 warehouse nor the model can settle), `generate` (write the dbt keys and dlt hints from the
@@ -11,16 +11,18 @@ against the built relation), `results` (map a dbt run's test results to the cont
 assertions they enforce), `version`.
 
 The boundary is where a contract is owed: every relation a dlt source loads, and every
-relation a gold layer builds. A `contract_layers` list in `repo-map.json` replaces that
+relation a boundary layer builds. A layer's role (`input`, `internal` or `boundary`, from
+`layers.<name>.role`, derived from `built_by` and the legacy `gold_layers` key when absent)
+says which it is. A `contract_layers` list in `repo-map.json` replaces that
 default with the layers it names. A contract outside the boundary is checked like any other;
 it is never required.
 
-The canonical model owns what it declares. A gold contract's `primaryKey` properties and the
+The canonical model owns what it declares. A boundary contract's `primaryKey` properties and the
 model's `primary_key` must agree both ways (when the model declares one). A relation the model
 documents (a star member) states no `dataGranularityDescription` and no column descriptions:
 `reverse` drafts none and neither `check` nor the findings ask for them. `semantic_exclusions`
 in `repo-map.json` (`[{relation: "schema.table", reason}]`) names the relations the model
-deliberately leaves out: `check` reports `gold/excluded` (info) for them, not `gold/undeclared`.
+deliberately leaves out: `check` reports `boundary/excluded` (info) for them, not `boundary/undeclared`.
 A contract with ODCS `status: proposed` is written before its table exists: it is still checked
 for shape, but is no orphan and `generate`, the stale check and `--relations` skip it.
 
@@ -307,6 +309,23 @@ def declared_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]
     return expected
 
 
+def _unknown_gold_layers(repo_map: dict) -> list[dict]:
+    """A legacy `gold_layers` entry that names no layer declares no boundary; say so."""
+    named = repo_map.get("gold_layers")
+    if named is None:
+        return []
+    if not isinstance(named, list):
+        return [_diag("error", "map/gold-layers",
+                      "repo-map.json `gold_layers` is not a list of layer names")]
+    layers = repo_map.get("layers") or {}
+    return [
+        _diag("error", "map/gold-layers",
+              f"repo-map.json `gold_layers` names `{name}`, which `layers` does not declare")
+        for name in named
+        if name not in layers
+    ]
+
+
 def _unknown_contract_layers(repo_map: dict) -> list[dict]:
     """A `contract_layers` entry that names no layer scopes nothing; saying so is the report."""
     named = repo_map.get("contract_layers")
@@ -365,14 +384,58 @@ def _proposed_path(path: Path) -> bool:
         return False
 
 
+LAYER_ROLES = ("input", "internal", "boundary")
+
+
+def _role_for(repo_map: dict, name: str) -> str:
+    """A layer's role: `layers.<name>.role` when valid, else derived from the legacy keys.
+
+    Derived: `built_by == "dlt"` is `input` (even when the layer is also named in `gold_layers`);
+    a name in `gold_layers` (the legacy way to declare a
+    boundary layer) is `boundary`; anything else is `internal`. An invalid explicit role falls
+    back to the derivation; `check` reports it as `map/layer-role`.
+    """
+    layer = (repo_map.get("layers") or {}).get(name)
+    layer = layer if isinstance(layer, dict) else {}
+    if layer.get("role") in LAYER_ROLES:
+        return layer["role"]
+    if layer.get("built_by") == "dlt":
+        return "input"
+    if name in (repo_map.get("gold_layers") or []):
+        return "boundary"
+    return "internal"
+
+
+def _roles(repo_map: dict) -> dict[str, str]:
+    """The role of every layer the map declares."""
+    return {name: _role_for(repo_map, name) for name in repo_map.get("layers") or {}}
+
+
+def _role_schemas(repo_map: dict, *roles: str) -> set[str]:
+    """Schemas of the layers whose role is one of `roles`."""
+    layers = repo_map.get("layers") or {}
+    return {layers[name]["schema"] for name, role in _roles(repo_map).items()
+            if role in roles and "schema" in layers[name]}
+
+
+def _layer_role_diags(repo_map: dict) -> list[dict]:
+    """A `role` outside `input`, `internal` and `boundary` is reported, not guessed at."""
+    return [
+        _diag("error", "map/layer-role",
+              f"repo-map.json layers.{name}.role must be input, internal or boundary")
+        for name, layer in (repo_map.get("layers") or {}).items()
+        if isinstance(layer, dict) and "role" in layer and layer["role"] not in LAYER_ROLES
+    ]
+
+
 def boundary_relations(repo_map: dict,
                        declared: dict[tuple[str, str], str]) -> dict[tuple[str, str], str]:
     """The relations a contract is owed for: the inputs and outputs of the Domain.
 
     By default, every relation a dlt source loads (a consumer of the load sees its shape first)
-    and every relation a gold layer builds (what a consumer outside the repo reads). Staging,
-    intermediate and seed layers are guarded by their dbt tests and owe none. `contract_layers`,
-    when the map declares it, replaces that default with the layers it names, a dlt layer
+    and every relation a layer with role `input` or `boundary` builds (what a consumer outside
+    the repo reads). Layers with role `internal` are guarded by their dbt tests and owe none.
+    `contract_layers`, when the map declares it, replaces that default with the layers it names, a dlt layer
     contributing the resources its sources land in that schema.
     """
     layers = repo_map.get("layers") or {}
@@ -380,22 +443,23 @@ def boundary_relations(repo_map: dict,
     if isinstance(named, list):
         schemas = {layers[name]["schema"] for name in named if name in layers}
         return {relation: by for relation, by in declared.items() if relation[0] in schemas}
-    gold = {layers[name]["schema"] for name in repo_map.get("gold_layers") or []
-            if name in layers}
+    owed = _role_schemas(repo_map, "input", "boundary")
+    # Only an explicit `role: internal` stops a source from owing a contract; a layer whose role
+    # is merely derived as internal still owes one for the sources that land in it.
+    internal = {layer["schema"] for layer in layers.values()
+                if isinstance(layer, dict) and layer.get("role") == "internal" and "schema" in layer}
     return {
         relation: by
         for relation, by in declared.items()
-        if by.startswith("source ") or (relation[0] in gold and by.startswith("layer "))
+        if (by.startswith("source ") and relation[0] not in internal)
+        or (relation[0] in owed and by.startswith("layer "))
     }
 
 
 def _boundary_rank(relation: tuple[str, str], repo_map: dict,
                    declared: dict[tuple[str, str], str]) -> int:
-    """Gold first, then inputs, then anything else: the order a reviewer triages in."""
-    layers = repo_map.get("layers") or {}
-    gold = {layers[name]["schema"] for name in repo_map.get("gold_layers") or []
-            if name in layers}
-    if relation[0] in gold:
+    """Boundary first, then inputs, then anything else: the order a reviewer triages in."""
+    if relation[0] in _role_schemas(repo_map, "boundary"):
         return 0
     if (declared.get(relation) or "").startswith("source "):
         return 1
@@ -500,8 +564,10 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tup
     """Every dataset the canonical model declares, keyed by the relation its `source` names.
 
     Each value keeps the document it was read from, so a contract can name its authority and
-    the two readings cannot disagree. Empty when the repo has adopted no canonical model: a
-    contract set is not broken for lacking something it never promised to agree with.
+    the two readings cannot disagree. A relation named by two documents is read from the first in
+    sorted path order, as `_star_sources` and `_ossie_index` read it. Empty when the repo has
+    adopted no canonical model: a contract set is not broken for lacking something it never
+    promised to agree with.
     """
     raw = (repo_map.get("artifact_paths") or {}).get("logical_model")
     if not raw:
@@ -517,7 +583,7 @@ def _canonical_datasets(root: Path, repo_map: dict) -> dict[tuple[str, str], tup
                 continue
             source = str(dataset.get("source") or "").split(".", 1)
             if len(source) == 2:
-                datasets[(source[0], source[1])] = (dataset, path)
+                datasets.setdefault((source[0], source[1]), (dataset, path))
     return datasets
 
 
@@ -534,7 +600,8 @@ def _vibedata(node: object) -> dict:
     return {}
 
 
-def _documented(documents: dict[tuple[str, str], tuple[dict, Path]]) -> set[tuple[str, str]]:
+def _documented(documents: dict[tuple[str, str], tuple[dict, Path]],
+                models: list[dict] | None = None) -> set[tuple[str, str]]:
     """Every relation the canonical model names: a dataset's `source`, plus the `physical_tables`
     sources (a logical source's `physical_table` is a handle into that list; an aggregate source
     has no dataset of its own).
@@ -543,8 +610,10 @@ def _documented(documents: dict[tuple[str, str], tuple[dict, Path]]) -> set[tupl
     owns, so they state no grain prose and are not asked for a document.
     """
     named = set(documents)
-    for path in {path for _, path in documents.values()}:
-        model = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if models is None:
+        models = [yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                  for path in sorted({path for _, path in documents.values()})]
+    for model in models:
         handles = [str(t.get("source")) for t in _vibedata(model).get("physical_tables") or []
                    if isinstance(t, dict)]
         for handle in handles:
@@ -555,22 +624,17 @@ def _documented(documents: dict[tuple[str, str], tuple[dict, Path]]) -> set[tupl
     return named
 
 
-def _gold_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
-    """Schemas holding gold relations: the layers the map declares gold, where they are built.
+def _boundary_schemas(repo_map: dict, expected: dict[tuple[str, str], str]) -> set[str]:
+    """Schemas holding boundary relations: the layers with role `boundary`, where they are built.
 
     The map is the only source. Another Domain names its layers differently, so a layer name is
     something this tool cannot know; guessing one — by exclusion, or by the shape of the
-    directory — would gate relations the Domain never called gold and pass over the ones it did.
+    directory — would gate relations the Domain never called boundary and pass over the ones it did.
     An undeclared set is therefore empty and names nothing, and `check` warns about the gap
-    instead of inventing a gold set to fill it.
+    instead of inventing a boundary set to fill it.
     """
-    layers = repo_map.get("layers") or {}
     built = {schema for schema, _ in expected}
-    return {
-        layers[name]["schema"]
-        for name in repo_map.get("gold_layers") or []
-        if name in layers and layers[name]["schema"] in built
-    }
+    return _role_schemas(repo_map, "boundary") & built
 
 
 def _properties(contract: dict) -> dict[str, dict]:
@@ -596,18 +660,18 @@ def _property_diagnostics(where: str, prop: dict, field: dict, primary: bool) ->
         want = LOGICAL_TYPES[datatype]
         got = prop.get("logicalType")
         if got != want:
-            diags.append(_diag("error", "gold/divergent",
+            diags.append(_diag("error", "boundary/divergent",
                                f"{where}: logicalType is {got!r}, the canonical model's "
                                f"{datatype} is {want!r}"))
         zone = (prop.get("logicalTypeOptions") or {}).get("timezone")
         if datatype == "DateTimeTz" and not zone:
-            diags.append(_diag("error", "gold/divergent",
+            diags.append(_diag("error", "boundary/divergent",
                                f"{where}: `{datatype}` needs logicalTypeOptions.timezone true"))
         elif datatype == "DateTime" and zone:
-            diags.append(_diag("error", "gold/divergent",
+            diags.append(_diag("error", "boundary/divergent",
                                f"{where}: `{datatype}` must not carry logicalTypeOptions.timezone"))
     if primary and prop.get("primaryKey") is not True:
-        diags.append(_diag("error", "gold/divergent",
+        diags.append(_diag("error", "boundary/divergent",
                            f"{where}: the canonical model declares this primary key and the "
                            f"property does not set primaryKey true"))
     return diags
@@ -630,27 +694,42 @@ def _loader_columns(relation: tuple[str, str], contract: dict, repo_map: dict) -
     ]
 
 
-def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
+def _undescribed(relation: tuple[str, str], contract: dict, repo_map: dict) -> list[dict]:
+    """A property a consumer reads with no description: the contract is its only prose.
+
+    A star member is described by its Ossie field, and a loader's `_dlt_*` column by the loader.
+    Input and boundary relations both owe the prose: a consumer reads either contract.
+    """
+    return [
+        _diag("warning", "contract/undescribed",
+              f"{relation[0]}.{relation[1]}.{name}: no description; what does {name} mean?")
+        for name, prop in _properties(contract).items()
+        if not _prose(prop.get("description"))
+        and not (_is_dlt(relation, repo_map) and name.startswith("_dlt"))
+    ]
+
+
+def _boundary_agreement(relation: tuple[str, str], path: Path, contract: dict,
                     documents: dict[tuple[str, str], tuple[dict, Path]],
-                    gold: set[str], excluded: dict[tuple[str, str], str],
+                    boundary_schemas: set[str], excluded: dict[tuple[str, str], str],
                     documented: set[tuple[str, str]]) -> list[dict]:
-    """A gold contract against the canonical document that names its relation."""
+    """A boundary contract against the canonical document that names its relation."""
     label = f"{relation[0]}.{relation[1]}"
     declared_document = documents.get(relation)
     if relation in excluded and relation in documented:
-        return [_diag("warning", "gold/excluded-but-modelled",
+        return [_diag("warning", "boundary/excluded-but-modelled",
                       f"{label}: listed in semantic_exclusions yet the canonical model names it; "
                       f"drop the exclusion or the modelling", path)]
     if declared_document is None:
         # An aggregate source is named by the model but has no dataset fields to compare.
-        if relation[0] not in gold or relation in documented:
+        if relation[0] not in boundary_schemas or relation in documented:
             return []
         if relation in excluded:
-            return [_diag("info", "gold/excluded",
+            return [_diag("info", "boundary/excluded",
                           f"{label}: excluded from the canonical model: {excluded[relation]}",
                           path)]
-        return [_diag("error", "gold/undeclared",
-                      f"{path}: no canonical document names the gold relation {label}")]
+        return [_diag("error", "boundary/undeclared",
+                      f"{path}: no canonical document names the boundary relation {label}")]
     dataset = declared_document[0]
     declared = {
         field["name"]: field
@@ -664,13 +743,13 @@ def _gold_agreement(relation: tuple[str, str], path: Path, contract: dict,
     # reverse. A model that declares no key states none to compare.
     for name, prop in props.items():
         if keys and prop.get("primaryKey") is True and name not in keys:
-            diags.append(_diag("error", "gold/divergent",
+            diags.append(_diag("error", "boundary/divergent",
                                f"{label}.{name}: the property sets primaryKey true and the "
                                f"canonical model's primary_key is {sorted(keys)}"))
     for name, field in declared.items():
         prop = props.get(name)
         if prop is None:
-            diags.append(_diag("error", "gold/omits-declared",
+            diags.append(_diag("error", "boundary/omits-declared",
                                f"{label}: the contract omits `{name}`, which the canonical "
                                f"model declares"))
         else:
@@ -718,7 +797,7 @@ def _declared_relationships(relation: tuple[str, str], path: Path, dataset: dict
                 diags.append(_diag(
                     # A warning: carrying the edge publishes a shape and adds a dbt test, so
                     # authoring it is a deliberate change, not a gate fix. Reported, never silent.
-                    "warning", "gold/missing-relationship",
+                    "warning", "boundary/missing-relationship",
                     f"{relation[0]}.{relation[1]}.{column}: the canonical model declares "
                     f"`{relationship.get('name')}` to `{target}.{columns[0]}` and the contract "
                     f"declares no such relationship",
@@ -737,7 +816,7 @@ def _declared_unique_keys(label: str, dataset: dict) -> list[dict]:
         if not isinstance(key, list) or len(key) < 2:
             continue
         diags.append(_diag(
-            "warning", "gold/composite-key",
+            "warning", "boundary/composite-key",
             f"{label}: the canonical model declares the composite unique key "
             f"({', '.join(str(k) for k in key)}); ODCS states uniqueness per property, so the "
             f"contract cannot carry it and a reader needs the document",
@@ -753,10 +832,52 @@ def _layer_for(repo_map: dict, schema: str) -> dict | None:
     return None
 
 
+def _is_dlt(relation: tuple[str, str], repo_map: dict) -> bool:
+    """Whether a dlt pipeline builds the relation: the only place the loader adds `_dlt_*`."""
+    layer = _layer_for(repo_map, relation[0])
+    return layer is not None and layer.get("built_by") == "dlt"
+
+
 def _is_dbt(relation: tuple[str, str], repo_map: dict) -> bool:
     """Whether a dbt layer builds the relation, as opposed to a dlt pipeline or the loader."""
     layer = _layer_for(repo_map, relation[0])
     return layer is not None and layer.get("built_by") == "dbt"
+
+
+def _built_models(root: Path, layer: dict) -> set[str] | None:
+    """The models dbt built successfully, from the `target/run_results.json` of the project
+    holding the layer's path; None when there is no such file (no evidence either way)."""
+    folder = (root / layer["path"]).resolve()
+    for project in (folder, *folder.parents):
+        if (project / "dbt_project.yml").is_file():
+            break
+        if project == root.resolve():
+            return None
+    else:
+        return None
+    path = project / "target" / "run_results.json"
+    if not path.is_file():
+        return None
+    try:
+        found = json.loads(path.read_text(encoding="utf-8")).get("results") or []
+    except (OSError, ValueError, AttributeError):
+        return None
+    return {str(result.get("unique_id", "")).split(".")[-1] for result in found
+            if isinstance(result, dict) and result.get("status") in ("success", "pass")
+            and str(result.get("unique_id", "")).split(".")[0] in ("model", "seed", "snapshot")}
+
+
+def _active_unbuilt(root: Path, repo_map: dict, relation: tuple[str, str], path: Path,
+                    doc: dict, excluded: dict) -> list[dict]:
+    """An `active` contract whose dbt relation the last run did not build: still a proposal."""
+    if doc.get("status") != "active" or relation in excluded or not _is_dbt(relation, repo_map):
+        return []
+    built = _built_models(root, _layer_for(repo_map, relation[0]))
+    if built is None or relation[1] in built:
+        return []
+    return [_diag("warning", "contract/active-unbuilt",
+                  f"{relation[0]}.{relation[1]}: status is active but dbt has not built "
+                  f"{relation[0]}.{relation[1]}; mark it proposed until the table exists", path)]
 
 
 def _is_loader_column(relation: tuple[str, str], name: str, repo_map: dict) -> bool:
@@ -881,7 +1002,103 @@ def _data_tests(prop: dict, where: str, sole_key: bool = False) -> list:
     return tests
 
 
-def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
+def _is_pointer(value: object) -> bool:
+    """A description containing `{{ doc(...) }}`: dbt resolves it, so it is the author's, never rewritten."""
+    return isinstance(value, str) and re.search(r"\{\{\s*doc\s*\(", value) is not None
+
+
+def _flat(value: object) -> object:
+    """An on-disk description read the way `_prose` reads the derived one: one flowing line.
+
+    A `>` or `|` block scalar keeps a trailing newline and a wrapped line; the text is the same.
+    """
+    return " ".join(value.split()) if isinstance(value, str) else value
+
+
+def _expression_names(field: dict, column: str) -> bool:
+    """True when the field is the column itself: no expression, or one that is just its name."""
+    expression = field.get("expression")
+    if expression is None:
+        return True
+    if isinstance(expression, dict):
+        texts = [str(d.get("expression") or "").strip()
+                 for d in expression.get("dialects") or [] if isinstance(d, dict)]
+        return bool(texts) and all(text == column for text in texts)
+    return str(expression).strip() == column
+
+
+def _named_by(handle: object, relation: tuple[str, str]) -> bool:
+    """`catalog.schema.table` and `schema.table` both name the relation by their last two parts."""
+    return str(handle or "").split(".")[-2:] == [relation[0], relation[1]]
+
+
+def _ossie_index(documents: dict[tuple[str, str], tuple[dict, Path]]) -> dict:
+    """The Ossie documents parsed once: `{"models": [...], "documented": {...}}`.
+
+    Models are in sorted path order. When two documents name the same relation, the first in
+    that order wins, both here and in `_star_sources`.
+    """
+    paths = sorted({path for _, path in documents.values()})
+    models = [yaml.safe_load(path.read_text(encoding="utf-8")) or {} for path in paths]
+    return {"models": models, "documented": _documented(documents, models)}
+
+
+def _star_sources(relation: tuple[str, str], index: dict) -> tuple[str | None, dict, dict]:
+    """(relation prose, fields by name, metrics by name) from the Ossie document naming it.
+
+    A dataset whose `source` names the relation wins; failing that, a `physical_tables` entry
+    does, which is how an aggregate relation with no dataset of its own is documented.
+    """
+    models = index["models"]
+    for model in models:
+        for dataset in model.get("datasets") or []:
+            if isinstance(dataset, dict) and _named_by(dataset.get("source"), relation):
+                fields = {f["name"]: f for f in dataset.get("fields") or []
+                          if isinstance(f, dict) and f.get("name")}
+                metrics = {m["name"]: m for m in model.get("metrics") or []
+                           if isinstance(m, dict) and m.get("name")}
+                return _prose(dataset.get("description")), fields, metrics
+    for model in models:
+        for table in _vibedata(model).get("physical_tables") or []:
+            if isinstance(table, dict) and _named_by(table.get("source"), relation):
+                metrics = {m["name"]: m for m in model.get("metrics") or []
+                           if isinstance(m, dict) and m.get("name")}
+                return _prose(table.get("description")), {}, metrics
+    return None, {}, {}
+
+
+def _derived_prose(relation: tuple[str, str], contract: dict, documents: dict) -> dict:
+    """The description prose `generate` derives: `{"relation": str | None, "columns": {name: str}}`.
+
+    `documents` is `_ossie_index`'s parse. A star member's prose is the Ossie document's, since
+    the model owns what its columns mean; anywhere else the contract is the only source, so it
+    is the contract's. A column neither names yields nothing, which leaves a hand-written
+    description alone.
+    """
+    columns: dict[str, str] = {}
+    if relation in documents["documented"]:
+        text, fields, metrics = _star_sources(relation, documents)
+        for name in _properties(contract):
+            field = fields.get(name)
+            prose = None
+            if field is not None and _expression_names(field, name):
+                prose = _prose(field.get("description"))
+            if not prose:
+                prose = _prose((metrics.get(name) or {}).get("description"))
+            if prose:
+                columns[name] = prose
+        return {"relation": text, "columns": columns}
+    described = contract.get("description")
+    text = _prose(described.get("purpose") if isinstance(described, dict) else described)
+    for name, prop in _properties(contract).items():
+        prose = _prose(prop.get("description"))
+        if prose:
+            columns[name] = prose
+    return {"relation": text, "columns": columns}
+
+
+def _owned(relation: tuple[str, str], contract: dict, kind: str,
+           prose: dict | None = None) -> dict:
     """The keys `generate` owns for one contract, and nothing else.
 
     A model carries the enforced contract, a `data_type` per property and the `data_tests` its
@@ -899,6 +1116,8 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
     sole = _sole_key(contract)
     if kind == "model":
         owned["contract"] = {"enforced": True}
+        if prose and prose.get("relation"):
+            owned["description"] = prose["relation"]
     for name, prop in _properties(contract).items():
         where = f"{relation[0]}.{relation[1]}.{name}"
         keys: dict = {}
@@ -926,6 +1145,8 @@ def _owned(relation: tuple[str, str], contract: dict, kind: str) -> dict:
                 tests = _data_tests(prop, where, name == sole)
                 if tests:
                     keys["data_tests"] = tests
+                if prose and name in prose.get("columns", {}):
+                    keys["description"] = prose["columns"][name]
         owned["columns"][name] = keys
     return owned
 
@@ -1020,7 +1241,10 @@ def _put(lines: list[str], start: int, end: int, key: str, value: str,
     span = _key_span(lines, start, end, key)
     rendered = f"{' ' * _key_indent(lines, start, end)}{key}: {value}"
     if span is not None:
-        return [*lines[:span[0]], rendered, *lines[_content_end(lines, *span):]]
+        # The blank lines a block scalar (`>` or `|`) ends with belong to it, not to the file.
+        block = re.match(r"\s*[>|][-+0-9]*\s*(#.*)?$", KEY.match(lines[span[0]]).group(3) or "")
+        return [*lines[:span[0]], rendered,
+                *lines[span[1] if block else _content_end(lines, *span):]]
     at = _content_end(lines, start, end)
     anchor = _key_span(lines, start, end, before) if before else None
     at = anchor[0] if anchor else at
@@ -1066,6 +1290,8 @@ def _entry_lines(table: str, owned: dict, indent: int) -> list[str]:
     lines = [f"{pad}- name: {table}"]
     if "contract" in owned:
         lines.append(f"{pad}  contract: {_flow(owned['contract'])}")
+    if "description" in owned:
+        lines.append(f"{pad}  description: {_flow(owned['description'])}")
     if owned["columns"]:
         lines.append(f"{pad}  columns:")
         for column, keys in owned["columns"].items():
@@ -1076,8 +1302,8 @@ def _entry_lines(table: str, owned: dict, indent: int) -> list[str]:
 
 def _flow(value) -> str:
     """One line of YAML: a scalar, or a collection in flow style."""
-    return yaml.safe_dump(value, default_flow_style=True, width=1000).removesuffix(
-        "\n...\n").strip()
+    return yaml.safe_dump(value, default_flow_style=True, width=float("inf"),
+                          allow_unicode=True).removesuffix("\n...\n").strip()
 
 
 def _drop_renamed_tests(lines: list[str], start: int, end: int, column: str,
@@ -1122,14 +1348,22 @@ def _apply(text: str, section: str, table: str, owned: dict) -> str:
         return _joined(lines)
     # Re-found after every insertion: the file is small and the line numbers move.
     start, end = found
+    on_disk = _document_entry(yaml.safe_load(text) or {}, section, table) or {}
+    disk_columns = {c.get("name"): c for c in on_disk.get("columns") or [] if isinstance(c, dict)}
     for column, keys in owned["columns"].items():
         for key, value in keys.items():
+            if key == "description" and _is_pointer((disk_columns.get(column) or {}).get(key)):
+                continue
             lines = _set_column(lines, start, end, column, key, _flow(value))
             start, end = _entry(lines, table, *_section(lines, section))
         lines = _drop_renamed_tests(lines, start, end, column, keys)
         start, end = _entry(lines, table, *_section(lines, section))
     if "contract" in owned:
         lines = _put(lines, start, end, "contract", _flow(owned["contract"]), before="columns")
+        start, end = _entry(lines, table, *_section(lines, section))
+    if "description" in owned and not _is_pointer(on_disk.get("description")):
+        lines = _put(lines, start, end, "description", _flow(owned["description"]),
+                     before="columns")
     return _joined(lines)
 
 
@@ -1202,7 +1436,7 @@ def _stale(path: Path, root: Path, key: str) -> dict:
 # The column keys `generate` owns per kind: what it writes, plus `tests`, the legacy spelling it
 # renames to `data_tests`. A floor, not a lookup of what this contract happened to yield: a key
 # `generate` writes for the kind is reportable even where this contract states no instance.
-OWNED_COLUMN_KEYS = {"model": ("data_type", "data_tests", "tests"),
+OWNED_COLUMN_KEYS = {"model": ("data_type", "data_tests", "tests", "description"),
                      "seed": ("data_tests", "tests")}
 
 
@@ -1224,8 +1458,11 @@ def _stale_keys(found: dict, owned: dict, kind: str, table: str) -> list[str]:
         if not isinstance(column, dict):
             continue
         declared = owned["columns"].get(column.get("name"), {})
+        # `description` is stale only where `_owned` has a value that differs (see the caller):
+        # a column the contract and the model say nothing about keeps its hand-written text.
         stale.extend(f"{table}.columns.{column.get('name')}.{key}"
-                     for key in column_keys if key in column and key not in declared)
+                     for key in column_keys
+                     if key != "description" and key in column and key not in declared)
     return stale
 
 
@@ -1238,6 +1475,7 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
     """
     targets: dict[Path, list[tuple[tuple[str, str], dict, str]]] = {}
     diags: list[dict] = []
+    documents = _ossie_index(_canonical_datasets(root, repo_map))
     for relation, _ in sorted(contracts.items()):
         doc = docs.get(relation)
         if doc is None:
@@ -1264,7 +1502,8 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
             doc = yaml.safe_load(path.read_text(encoding="utf-8")) if path.is_file() else {}
         for relation, contract, kind in entries:
             try:
-                owned = _owned(relation, contract, kind)
+                owned = _owned(relation, contract, kind,
+                               _derived_prose(relation, contract, documents))
             except _Refused as refusal:
                 diags.append(refusal.diag)
                 continue
@@ -1278,13 +1517,21 @@ def _stale_diagnostics(root: Path, repo_map: dict, contracts: dict,
                 continue
             if "contract" in owned and found.get("contract") != owned["contract"]:
                 diags.append(_stale(path, root, f"{table}.contract"))
+            if ("description" in owned and not _is_pointer(found.get("description"))
+                    and _flat(found.get("description")) != owned["description"]):
+                diags.append(_stale(path, root, f"{table}.description"))
             for key in _stale_keys(found, owned, kind, table):
                 diags.append(_stale(path, root, key))
             columns = {column.get("name"): column
                        for column in found.get("columns") or [] if isinstance(column, dict)}
             for column, keys in owned["columns"].items():
                 for key, value in keys.items():
-                    if (columns.get(column) or {}).get(key) != value:
+                    disk = (columns.get(column) or {}).get(key)
+                    if key == "description" and _is_pointer(disk):
+                        continue
+                    if key == "description":
+                        disk = _flat(disk)
+                    if disk != value:
                         diags.append(_stale(path, root, f"{table}.columns.{column}.{key}"))
 
     if hints and module is not None:
@@ -1877,7 +2124,7 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
     The warehouse is the physical truth: every property and its type comes from
     `information_schema`. A field the canonical model declares overrides the physical type, and
     an existing dbt generic test becomes a quality rule or a declared relationship. Nothing is
-    invented: a relation no description reaches, or a gold relation no document names, is left
+    invented: a relation no description reaches, or a boundary relation no document names, is left
     for the review rather than filled in. The id is derived from the relation, so a forced
     rewrite reproduces every file. Only the boundary is drafted; a relation off it owes none.
 
@@ -1885,7 +2132,7 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
     reports how many it skipped; `--force` rewrites them all.
 
     Every relation also yields its open questions as `finding/*` warnings, computed against the
-    contract on disk (or the draft, where there is none), gold relations first, then inputs: a
+    contract on disk (or the draft, where there is none), boundary relations first, then inputs: a
     doubt the model, the tests or the data already settles is not raised, and one nothing
     settles is, naming the relation, the column and the question that would close it.
     """
@@ -1947,7 +2194,10 @@ def reverse(root: str = "", catalog: str = "", force: bool = False):
 @app.command()
 @_guarded
 def generate(root: str = ""):
-    """Write the dbt contract keys and dlt column hints that the contracts own.
+    """Write the dbt contract keys, descriptions and dlt column hints that the contracts own.
+
+    A description comes from the Ossie field on a star member and from the contract elsewhere;
+    a `{{ doc() }}` pointer, and a column neither names, keep what is on disk.
 
     Only the keys this tool owns are written, and nothing is written at all when a contract
     already disagrees with the map: a contract set that is inconsistent is not a source.
@@ -1955,6 +2205,7 @@ def generate(root: str = ""):
     repo_root = _repo_root(root)
     repo_map = _repo_map(repo_root)
     contracts = _committed_contracts(repo_root, repo_map)
+    documents = _ossie_index(_canonical_datasets(repo_root, repo_map))
 
     texts: dict[Path, str] = {}
     hints: dict[str, dict[str, dict]] = {}
@@ -1972,7 +2223,7 @@ def generate(root: str = ""):
             # dbt relation binds nothing built yet, so it gets no enforcement keys.
             if _is_proposed(doc) and kind != "dlt":
                 continue
-            owned = _owned(relation, doc, kind)
+            owned = _owned(relation, doc, kind, _derived_prose(relation, doc, documents))
         except _Refused as refusal:
             diags.append(refusal.diag)
             continue
@@ -2007,13 +2258,13 @@ def check(root: str = "", relations: bool = False, catalog: str = ""):
     Every boundary relation owes a contract (`contract/missing`); a contract naming no relation
     the map declares is an orphan, unless it is `status: proposed` (written before its table).
     A contract off the boundary is checked like any other. A relation `semantic_exclusions`
-    names is reported `gold/excluded` (info), not `gold/undeclared`.
+    names is reported `boundary/excluded` (info), not `boundary/undeclared`.
 
-    Where the repo has adopted a canonical model, a gold contract must also agree with the
+    Where the repo has adopted a canonical model, a boundary contract must also agree with the
     document that names its relation. A schema that model documents no relation in is not yet
-    modelled: its gold relations warn (`contract/no-document`) instead of failing, because the
+    modelled: its boundary relations warn (`contract/no-document`) instead of failing, because the
     review asks for those documents and the gate has nothing to agree with. A map that declares
-    no gold layers leaves nothing to agree with at all: `map/no-gold-layers` reports that gap
+    no boundary layers leaves nothing to agree with at all: `map/no-boundary-layers` reports that gap
     rather than inventing a set. `--relations` adds the comparison against the built relation
     and fails when no catalog resolves, rather than skipping: asking for the check and getting
     silence is the false pass it exists to prevent.
@@ -2026,23 +2277,29 @@ def check(root: str = "", relations: bool = False, catalog: str = ""):
     boundary = boundary_relations(repo_map, declared)
     documents = _canonical_datasets(repo_root, repo_map)
     documented = _documented(documents)
-    gold = _gold_schemas(repo_map, declared) if documents else set()
+    boundary_schemas = _boundary_schemas(repo_map, declared) if documents else set()
+    boundary_schemas_all = _boundary_schemas(repo_map, declared)
+    owing_prose = boundary_schemas_all | (_role_schemas(repo_map, "input") & {s for s, _ in declared})
     # A schema the canonical model documents no relation in is not yet modelled: the review
     # asks for a document, the gate does not fail a relation that never had one to agree with.
-    modelled = gold & {schema for schema, _ in documented}
+    modelled = boundary_schemas & {schema for schema, _ in documented}
     excluded, exclusion_diags = _exclusions(repo_map)
     diags: list[dict] = _unknown_contract_layers(repo_map)
+    diags.extend(_layer_role_diags(repo_map))
+    diags.extend(_unknown_gold_layers(repo_map))
     diags.extend(exclusion_diags)
     diags.extend(_misplaced(_declared(repo_root, repo_map["artifact_paths"]["data_contract"]),
                             repo_root))
     parsed: dict[tuple[str, str], dict] = {}
 
-    # A canonical model with no gold layers declared leaves agreement unchecked. Saying so is the
-    # report; guessing which layers are gold would gate relations the map never claimed.
-    if documents and not (repo_map.get("gold_layers") or []):
-        diags.append(_diag("warning", "map/no-gold-layers",
-                           "repo-map.json declares no gold_layers, so no relation is gated against "
-                           "the canonical model; declare the layers that hold gold"))
+    # A canonical model with no boundary layers declared leaves agreement unchecked. Saying so is
+    # the report; guessing which layers are boundary would gate relations the map never claimed.
+    # (`gold_layers` is the legacy key `_role_for` still reads to derive the `boundary` role.)
+    if documents and "boundary" not in _roles(repo_map).values():
+        diags.append(_diag("warning", "map/no-boundary-layers",
+                           "repo-map.json declares no boundary layers, so no relation is gated "
+                           "against the canonical model; give the layers that hold them "
+                           "`role: boundary`"))
 
     for relation, declarer in sorted(boundary.items()):
         if relation not in contracts:
@@ -2055,11 +2312,11 @@ def check(root: str = "", relations: bool = False, catalog: str = ""):
         diags.append(_diag("error", "contract/orphan",
                            f"{path}: names no relation the map declares", path))
     for relation, path in sorted(contracts.items()):
-        if (relation[0] in gold and relation not in documented and relation not in excluded
+        if (relation[0] in boundary_schemas and relation not in documented and relation not in excluded
                 and not _proposed_path(path)):
             diags.append(_diag("warning", "contract/no-document",
-                               f"{relation[0]}.{relation[1]}: no canonical document names this "
-                               f"gold relation; the review asks for one", path))
+                               f"{relation[0]}.{relation[1]}: a boundary relation no Ossie "
+                               f"document names; the review asks for one", path))
 
     for relation, path in sorted(contracts.items()):
         try:
@@ -2074,10 +2331,14 @@ def check(root: str = "", relations: bool = False, catalog: str = ""):
         diags.extend(_schema_diagnostics(doc, path))
         diags.extend(_empty_sections(doc, path))
         diags.extend(_grain(doc, path, relation in documented))
+        if relation[0] in owing_prose and relation not in documented \
+                and not _is_proposed(doc):
+            diags.extend(_undescribed(relation, doc, repo_map))
         diags.extend(_declared_name(relation, path, doc))
         diags.extend(_loader_columns(relation, doc, repo_map))
+        diags.extend(_active_unbuilt(repo_root, repo_map, relation, path, doc, excluded))
         if documents and not _is_proposed(doc):
-            diags.extend(_gold_agreement(relation, path, doc, documents, modelled, excluded,
+            diags.extend(_boundary_agreement(relation, path, doc, documents, modelled, excluded,
                                            documented))
 
     diags.extend(_stale_diagnostics(repo_root, repo_map, contracts, parsed))
@@ -2111,7 +2372,7 @@ def validate(contracts: str = typer.Argument(..., help="the contracts directory"
     `schema[].name` that matches its path.
 
     For a caller such as Domain CI that reads none of the Domain's own files. `check` runs these
-    too, plus everything that needs the map: the boundary, orphans, gold agreement, generated
+    too, plus everything that needs the map: the boundary, orphans, boundary agreement, generated
     keys and `servers`.
     """
     repo_root, base = _contracts_location(root, contracts)

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: f07bfaf1-bb39-55e1-9361-598ee7b456ea
 name: driver
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,33 +13,42 @@ schema:
   - name: driver
     properties:
       - name: driver_id
+        description: "Identifier of the driver."
         logicalType: integer
         physicalType: BIGINT
       - name: hack_licence_no
+        description: "Hack licence number of the driver. Simulated."
         logicalType: string
         physicalType: VARCHAR
       - name: driver_ref
+        description: "Operator reference for the driver."
         logicalType: string
         physicalType: VARCHAR
       - name: engagement_type
+        description: "How the driver is engaged: owner_operator, lease_daily or lease_weekly."
         logicalType: string
         physicalType: VARCHAR
       - name: home_garage_id
+        description: "Garage the driver is based at."
         logicalType: integer
         physicalType: BIGINT
       - name: hire_date
+        description: "Date the driver was hired."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: termination_date
+        description: "Date the driver left, when they have."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: is_wav_certified
+        description: "True when the driver is certified for wheelchair-accessible vehicles."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: driver_status
+        description: "Status of the driver: active or terminated."
         logicalType: string
         physicalType: VARCHAR

@@ -18,6 +18,10 @@ aggregates each bound metric's column, then compares:
 - `bindings/undeclared-filter` (warning): that SELECT, or a CTE it reads, filters rows
   with WHERE, but the source declares no content filter. A non-empty filter that is
   spelled differently is left to the content test, which compares it on data.
+- `bindings/group-cut` (error): that SELECT applies HAVING, a group-level cut no row
+  filter states, so the table is not a population of the detail and does not fit the
+  star. A HAVING inside a CTE or subquery that a later SELECT re-aggregates is not
+  that SELECT's and is not flagged.
 - `bindings/unproven` (warning): the model is not in the manifest, the SQL does not
   parse, or the column cannot be traced to an aggregation.
 
@@ -338,6 +342,13 @@ def _source_checks(query, src, metrics, label, where, model):
         # The final SELECT names the published columns, so a key it lacks is proven missing;
         # an inner one may be renamed or joined to on the way out, so there it is unproven.
         final = select is query.final
+        if select.args.get("having") is not None:
+            diags.append(_diag("error", "bindings/group-cut",
+                               f"{label}: the SQL cuts groups with HAVING, a predicate no "
+                               "content_filter can state, so this table is not a population "
+                               "of the detail; do not model it as a logical source. Exclude "
+                               "the relation through the repo map's `semantic_exclusions` "
+                               "(with a reason)", where))
         for key in keys:
             if key not in groups and key not in grouped_by:
                 diags.append(_diag("error" if final else "warning",

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3d872971-69b6-5e26-8cb5-23e915b26be6
 name: vehicle
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,38 +13,49 @@ schema:
   - name: vehicle
     properties:
       - name: vehicle_id
+        description: "Identifier of the vehicle."
         logicalType: integer
         physicalType: BIGINT
       - name: medallion_number
+        description: "Medallion number of the vehicle. Simulated."
         logicalType: string
         physicalType: VARCHAR
       - name: vin
+        description: "Vehicle identification number. Simulated."
         logicalType: string
         physicalType: VARCHAR
       - name: make
+        description: "Manufacturer of the vehicle."
         logicalType: string
         physicalType: VARCHAR
       - name: model
+        description: "Model of the vehicle."
         logicalType: string
         physicalType: VARCHAR
       - name: model_year
+        description: "Model year of the vehicle."
         logicalType: integer
         physicalType: BIGINT
       - name: fuel_type
+        description: "Fuel type: gasoline, hybrid or electric."
         logicalType: string
         physicalType: VARCHAR
       - name: wheelchair_accessible
+        description: "True when the vehicle is wheelchair accessible."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: garage_id
+        description: "Identifier of the garage."
         logicalType: integer
         physicalType: BIGINT
       - name: in_service_date
+        description: "Date the vehicle entered service."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: retired_date
+        description: "Date the vehicle was retired, when it has been."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:

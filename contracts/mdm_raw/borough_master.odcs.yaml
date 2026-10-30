@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 36b36bff-8e5d-5198-ac2a-1bfc8d54f114
 name: borough_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,23 +13,30 @@ schema:
   - name: borough_master
     properties:
       - name: borough_name
+        description: "Name of the borough. Natural key."
         logicalType: string
         physicalType: VARCHAR
       - name: borough_code
+        description: "Short code of the borough."
         logicalType: string
         physicalType: VARCHAR
       - name: reporting_region
+        description: "Reporting region the borough is grouped into."
         logicalType: string
         physicalType: VARCHAR
       - name: resident_population
+        description: "Resident population of the borough."
         logicalType: integer
         physicalType: INTEGER
       - name: area_sq_mi
+        description: "Area of the borough in square miles."
         logicalType: number
         physicalType: DECIMAL(5,2)
       - name: is_nyc
+        description: "True when the borough is inside New York City."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: is_core_market
+        description: "True when the borough is the core market."
         logicalType: boolean
         physicalType: BOOLEAN

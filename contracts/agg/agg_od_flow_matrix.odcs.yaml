@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 9f47759c-3c6d-514f-90db-d30cf896e1d4
 name: agg_od_flow_matrix
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -14,47 +14,62 @@ schema:
     dataGranularityDescription: Origin-to-destination flow -- the same zone dimension joined twice, in both roles. Published only for pairs with at least 25 billable trips (ADR 0017).
     properties:
       - name: origin_location_id
+        description: "TLC location_id of the pickup zone."
         logicalType: integer
         physicalType: BIGINT
       - name: origin_zone
+        description: "Display name of the pickup zone."
         logicalType: string
         physicalType: VARCHAR
       - name: origin_borough
+        description: "Borough of the pickup zone."
         logicalType: string
         physicalType: VARCHAR
       - name: origin_is_airport
+        description: "True when the pickup zone is an airport zone."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: dest_location_id
+        description: "TLC location_id of the dropoff zone."
         logicalType: integer
         physicalType: BIGINT
       - name: dest_zone
+        description: "Display name of the dropoff zone."
         logicalType: string
         physicalType: VARCHAR
       - name: dest_borough
+        description: "Borough of the dropoff zone."
         logicalType: string
         physicalType: VARCHAR
       - name: dest_is_airport
+        description: "True when the dropoff zone is an airport zone."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: is_intra_borough
+        description: "True when the pickup and dropoff zones are in the same borough."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: trip_count
+        description: "Billable trips picked up in the reporting window for the pair; at least 25, since smaller pairs are not published (ADR 0017)."
         logicalType: integer
         physicalType: BIGINT
       - name: total_revenue
+        description: "Sum of total_amount over the pair's billable trips."
         logicalType: number
         physicalType: DOUBLE
       - name: avg_fare
+        description: "Mean total_amount per billable trip on the pair."
         logicalType: number
         physicalType: DOUBLE
       - name: avg_distance
+        description: "Mean trip_distance in miles per billable trip on the pair."
         logicalType: number
         physicalType: DOUBLE
       - name: avg_minutes
+        description: "Mean trip duration in minutes per billable trip on the pair."
         logicalType: number
         physicalType: DOUBLE
       - name: avg_corridor_mph
+        description: "Mean trip distance divided by mean trip hours for the pair, in miles per hour; null when the divisor is zero."
         logicalType: number
         physicalType: DOUBLE

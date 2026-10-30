@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: bbd94f7e-bb18-5861-83ef-e335a8e018c8
 name: maintenance_event
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,22 +13,28 @@ schema:
   - name: maintenance_event
     properties:
       - name: maintenance_id
+        description: "Identifier of the maintenance event."
         logicalType: string
         physicalType: VARCHAR
       - name: vehicle_id
+        description: "Identifier of the vehicle."
         logicalType: integer
         physicalType: BIGINT
       - name: started_date
+        description: "Date the vehicle went into maintenance."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: down_days
+        description: "Days the vehicle was unavailable."
         logicalType: integer
         physicalType: BIGINT
       - name: maintenance_type
+        description: "Kind of maintenance."
         logicalType: string
         physicalType: VARCHAR
       - name: cost_usd
+        description: "Cost of the maintenance in US dollars."
         logicalType: integer
         physicalType: BIGINT

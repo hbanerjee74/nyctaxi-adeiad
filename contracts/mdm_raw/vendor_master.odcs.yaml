@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 0507d553-f862-5e4a-88a6-40256bda32e4
 name: vendor_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,26 +13,34 @@ schema:
   - name: vendor_master
     properties:
       - name: vendor_id
+        description: "TLC vendor code. Natural key of the vendor."
         logicalType: integer
         physicalType: INTEGER
       - name: vendor_legal_name
+        description: "Legal name of the vendor in this version."
         logicalType: string
         physicalType: VARCHAR
       - name: vendor_short_code
+        description: "Short code for the vendor in this version."
         logicalType: string
         physicalType: VARCHAR
       - name: contract_tier
+        description: "Contract tier of the vendor in this version: gold, silver or bronze."
         logicalType: string
         physicalType: VARCHAR
       - name: valid_from_date
+        description: "First date on which this version of the record applies (inclusive)."
         logicalType: date
         physicalType: DATE
       - name: valid_to_date
+        description: "Date on which this version stops applying (exclusive)."
         logicalType: date
         physicalType: DATE
       - name: source_version
+        description: "Version number of the record at the source; 1 is the first version."
         logicalType: integer
         physicalType: INTEGER
       - name: is_approved
+        description: "Whether the vendor is approved for use in this version."
         logicalType: boolean
         physicalType: BOOLEAN

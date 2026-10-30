@@ -12,13 +12,15 @@ Do not read the installed source code of dbt, dlt or any other library to work o
 
 After the conversation is condensed, invoke the [`workarounds`](.agents/skills/workarounds/SKILL.md) skill again before the next tool call: its rules are easy to lose in a summary.
 
-## Medallion layers
+## Layers and their roles
 
-- **Bronze**: raw data loaded by dlt (`ingestion/`) into `bronze` (TLC), `ops_raw` and `mdm_raw`.
-- **Silver**: dbt staging and intermediate models in `transformation/`.
-- **Gold**: dbt marts in `core`, `agg`, `finance` and `ops`.
+- **Input** (bronze): raw data loaded by dlt (`ingestion/`) into `bronze` (TLC), `ops_raw` and `mdm_raw`.
+- **Internal** (silver): dbt staging and intermediate models in `transformation/`, and the `seeds` schema.
+- **Boundary** (gold): dbt marts in `core`, `agg`, `finance` and `ops`.
 
-Layers are declared in `repo-map.json` under `layers` (schema, builder and path for each); the medallion arrangement is this Domain's choice.
+Layers and their roles are declared in `repo-map.json` under `layers` (schema, builder, role and path for each). Rules apply by role, not by name: an `input` or `boundary` relation owes a contract and a boundary relation is a candidate for the semantic layer; an `internal` relation owes neither. The medallion names are this Domain's own choice; the role definitions are in the plugin's `layer-roles.md`.
+
+Words used in this repo: a **dbt model** is a SQL file with its properties entry; an **Ossie document** is one `*.ossie.yaml` under `logical-model/`; the **semantic layer** is the Ossie documents plus the ontology.
 
 ## Conventions
 
@@ -27,11 +29,11 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | Skill | Covers |
 | --- | --- |
 | [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
-| [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Canonical Ossie model shape and VIBEDATA rules |
+| [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Ossie document shape and VIBEDATA rules |
 | [`data-contract`](.agents/skills/data-contract/SKILL.md) | Authored contract, generated dbt and dlt keys, when the version moves, and what is never invented |
-| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The review checklist: grain truth, honest `required`, rules against data and ADRs, version moves, actionable descriptions, cross-contract logical types, and meaning against the canonical document |
-| [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: classifying gold tables, concepts, natural identity, relationships, declaration-only |
-| [`validating-ontology`](.agents/skills/validating-ontology/SKILL.md) | The ontology's own gate: structure, coverage and content against the model |
+| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The review checklist: grain truth, honest `required`, rules against data and ADRs, version moves, actionable descriptions, cross-contract logical types, and meaning against the Ossie document |
+| [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: classifying boundary relations, concepts, natural identity, relationships, declaration-only |
+| [`validating-ontology`](.agents/skills/validating-ontology/SKILL.md) | The ontology's own gate: structure, coverage and content against the Ossie documents |
 | [`validating-semantic-model`](.agents/skills/validating-semantic-model/SKILL.md) | Structural gate plus the content review before commit |
 | [`sql-style`](.agents/skills/sql-style/SKILL.md) | SQL formatting |
 | [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md) | Generic, singular, unit and Python tests |
@@ -45,7 +47,7 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 ## Decisions and designs
 
 - Decisions are ADRs in `docs/adr/`. Standing business answers (week boundary, null handling) are ADRs too: check them before asking a requirement question.
-- Each model and pipeline has a design record under `docs/design/`. A design record cites its ADRs as `ADR NNNN`, and an ADR lists the designs it affects.
+- Each dbt model and pipeline has a design record under `docs/design/`. A design record cites its ADRs as `ADR NNNN`, and an ADR lists the designs it affects.
 - Each intent's Requirement, Plan and Verification live where `repo-map.json` `artifact_paths` says (`requirement`, `plan`, `verification`); the plugin names each one for its intent.
 - Review findings for triage are in `docs/review/`; do not read them for a build task. Read a proposal in `docs/proposal/` only when the intent's requirement links to it.
 
@@ -76,7 +78,7 @@ Keep these current in the same change that makes them stale.
 | --- | --- | --- |
 | `repo-map.json` | A layer, source, pipeline, orchestrator, entrypoint, command or artifact location is added, renamed or removed | `tests/test_maps.py` fails on a missing path, config section or source file, a source no orchestrator runs, or a shared dataset without `produces` |
 | `test-map.json` | A layer appears in the repo-map, or a new test starts protecting a layer | `tests/test_maps.py` fails when a layer has no module or a selector selects nothing |
-| `CONTEXT.md` | A term appears in, or changes meaning in, a model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
+| `CONTEXT.md` | A term appears in, or changes meaning in, a dbt model, ADR or design record. Use `domain-modeling`; do not edit freehand. Typo and link edits are exempt | none |
 | `.agents/skills/` | A convention changes | none |
 | `AGENTS.md` | A durable fact the code does not show: an environment constraint or a workflow gotcha | none |
 

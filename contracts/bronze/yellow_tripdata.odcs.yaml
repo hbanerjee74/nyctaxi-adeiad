@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 9d7861f6-8191-5cc0-9c90-1a4a54fb5d3b
 name: yellow_tripdata
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,63 +13,82 @@ schema:
   - name: yellow_tripdata
     properties:
       - name: VendorID
+        description: "Code for the technology provider that supplied the trip record."
         logicalType: integer
         physicalType: INTEGER
       - name: tpep_pickup_datetime
+        description: "Date and time when the meter was engaged."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: tpep_dropoff_datetime
+        description: "Date and time when the meter was disengaged."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: passenger_count
+        description: "Number of passengers in the vehicle, as entered by the driver."
         logicalType: integer
         physicalType: BIGINT
       - name: trip_distance
+        description: "Trip distance in miles reported by the taximeter."
         logicalType: number
         physicalType: DOUBLE
       - name: RatecodeID
+        description: "Rate code in effect at the end of the trip."
         logicalType: integer
         physicalType: BIGINT
       - name: store_and_fwd_flag
+        description: "Whether the record was held in vehicle memory before being sent to the provider: Y or N."
         logicalType: string
         physicalType: VARCHAR
       - name: PULocationID
+        description: "TLC taxi zone in which the meter was engaged."
         logicalType: integer
         physicalType: INTEGER
       - name: DOLocationID
+        description: "TLC taxi zone in which the meter was disengaged."
         logicalType: integer
         physicalType: INTEGER
       - name: payment_type
+        description: "Numeric code for how the passenger paid."
         logicalType: integer
         physicalType: BIGINT
       - name: fare_amount
+        description: "Time-and-distance fare calculated by the meter."
         logicalType: number
         physicalType: DOUBLE
       - name: extra
+        description: "Miscellaneous extras and surcharges, such as rush-hour and overnight charges."
         logicalType: number
         physicalType: DOUBLE
       - name: mta_tax
+        description: "Tax triggered by the metered rate in use."
         logicalType: number
         physicalType: DOUBLE
       - name: tip_amount
+        description: "Tip amount. Populated automatically for card payments; cash tips are not recorded."
         logicalType: number
         physicalType: DOUBLE
       - name: tolls_amount
+        description: "Total of all tolls paid on the trip."
         logicalType: number
         physicalType: DOUBLE
       - name: improvement_surcharge
+        description: "Improvement surcharge assessed at the flag drop."
         logicalType: number
         physicalType: DOUBLE
       - name: total_amount
+        description: "Total charged to the passenger. Excludes cash tips."
         logicalType: number
         physicalType: DOUBLE
       - name: congestion_surcharge
+        description: "Total collected on the trip for the New York State congestion surcharge."
         logicalType: number
         physicalType: DOUBLE
       - name: Airport_fee
+        description: "Fee for pickups at the airports. Present on yellow trips only."
         logicalType: number
         physicalType: DOUBLE

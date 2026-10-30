@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: ee1f213f-0382-5b75-a334-d8d0d9ccac8e
 name: audit_runs
-version: 1.1.0
+version: 1.1.2
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,67 +13,83 @@ schema:
   - name: audit_runs
     properties:
       - name: load_id
+        description: "dlt load identifier of the run, a Unix-epoch timestamp held as text."
         logicalType: string
         physicalType: VARCHAR
       - name: pipeline_name
+        description: "Name of the dlt pipeline that ran."
         logicalType: string
         physicalType: VARCHAR
       - name: destination_name
+        description: "dlt destination the run loaded into."
         logicalType: string
         physicalType: VARCHAR
       - name: dataset_name
+        description: "Schema the run loaded into."
         logicalType: string
         physicalType: VARCHAR
       - name: first_run
+        description: "Whether this was the pipeline's first run into the dataset."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: status
+        description: "Final status of the run."
         logicalType: string
         physicalType: VARCHAR
       - name: started_at
+        description: "When the run started."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: finished_at
+        description: "When the run finished."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: extract_started_at
+        description: "When the extract stage started."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: extract_finished_at
+        description: "When the extract stage finished."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: normalize_started_at
+        description: "When the normalize stage started."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: normalize_finished_at
+        description: "When the normalize stage finished."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: load_started_at
+        description: "When the load stage started."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: load_finished_at
+        description: "When the load stage finished."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: total_rows_extracted
+        description: "Total rows the extract stage produced in the run."
         logicalType: integer
         physicalType: BIGINT
       - name: git_sha
+        description: "Git commit sha of the repository when the run executed."
         logicalType: string
         physicalType: VARCHAR
 description:

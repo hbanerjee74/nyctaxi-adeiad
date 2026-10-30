@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: fd07e8d0-c3b0-510a-b2f0-0c6ac3743a4b
 name: payment_method_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,23 +13,30 @@ schema:
   - name: payment_method_master
     properties:
       - name: payment_type_code
+        description: "TLC payment type code."
         logicalType: integer
         physicalType: INTEGER
       - name: payment_method_name
+        description: "Name of the payment method."
         logicalType: string
         physicalType: VARCHAR
       - name: settlement_class
+        description: "How the payment settles: electronic, cash, waived, contested, voided or unknown."
         logicalType: string
         physicalType: VARCHAR
       - name: tip_is_captured
+        description: "True when the meter records a tip for this payment method."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: settlement_days
+        description: "Days between the trip and settlement of the payment."
         logicalType: integer
         physicalType: INTEGER
       - name: processor_fee_pct
+        description: "Processor fee as a fraction of the payment."
         logicalType: number
         physicalType: DECIMAL(5,4)
       - name: counts_as_revenue
+        description: "True when trips paid this way count as revenue."
         logicalType: boolean
         physicalType: BOOLEAN

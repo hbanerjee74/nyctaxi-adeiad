@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3605ca4d-30af-5507-aeb3-118a2bd6f417
 name: shift
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,38 +13,48 @@ schema:
   - name: shift
     properties:
       - name: shift_id
+        description: "Identifier of the shift."
         logicalType: string
         physicalType: VARCHAR
       - name: vehicle_id
+        description: "Identifier of the vehicle."
         logicalType: integer
         physicalType: INTEGER
       - name: driver_id
+        description: "Identifier of the driver."
         logicalType: integer
         physicalType: BIGINT
       - name: shift_start_ts
+        description: "When the driver signed on."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: shift_end_ts
+        description: "When the driver signed off. Null when the tablet never emitted a logout."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: derived_end_ts
+        description: "When the shift ended according to its last trip, whether or not a logout was recorded."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: reported_trip_count
+        description: "Number of trips the platform reports for the shift."
         logicalType: integer
         physicalType: BIGINT
       - name: odometer_start
+        description: "Odometer reading at sign-on."
         logicalType: number
         physicalType: DOUBLE
       - name: odometer_end
+        description: "Odometer reading at sign-off. Occasionally missing."
         logicalType: number
         physicalType: DOUBLE
       - name: telematics_source
+        description: "Device the shift reported from: tablet or driver_app."
         logicalType: string
         physicalType: VARCHAR

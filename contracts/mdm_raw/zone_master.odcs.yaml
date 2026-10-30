@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: f77e9418-52bd-535e-99bb-91d1cb45fd7c
 name: zone_master
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,47 +13,62 @@ schema:
   - name: zone_master
     properties:
       - name: location_id
+        description: "TLC taxi zone identifier. Natural key of the zone."
         logicalType: integer
         physicalType: BIGINT
       - name: borough_name
+        description: "Borough the zone belongs to."
         logicalType: string
         physicalType: VARCHAR
       - name: zone_label
+        description: "Name of the zone."
         logicalType: string
         physicalType: VARCHAR
       - name: tlc_service_zone
+        description: "TLC service zone grouping the zone belongs to."
         logicalType: string
         physicalType: VARCHAR
       - name: centroid_lat
+        description: "Latitude of the zone centroid. Simulated, stable per zone."
         logicalType: number
         physicalType: DOUBLE
       - name: centroid_lon
+        description: "Longitude of the zone centroid. Simulated, stable per zone."
         logicalType: number
         physicalType: DOUBLE
       - name: area_sq_mi
+        description: "Area of the zone in square miles. Simulated."
         logicalType: number
         physicalType: DOUBLE
       - name: resident_population
+        description: "Resident population of the zone. Simulated."
         logicalType: integer
         physicalType: BIGINT
       - name: is_airport_zone
+        description: "True for the three airport zones."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: is_congestion_zone
+        description: "True when the zone is inside the congestion-relief area. Simulated."
         logicalType: boolean
         physicalType: BOOLEAN
       - name: zone_class
+        description: "Business class of the zone: airport, core, boro or unresolved."
         logicalType: string
         physicalType: VARCHAR
       - name: demand_tier
+        description: "Demand tier assigned to the zone: very_high, high, moderate or low. Simulated."
         logicalType: string
         physicalType: VARCHAR
       - name: valid_from_date
+        description: "First date on which this version of the record applies (inclusive)."
         logicalType: date
         physicalType: DATE
       - name: valid_to_date
+        description: "Date on which this version stops applying (exclusive)."
         logicalType: date
         physicalType: DATE
       - name: source_version
+        description: "Version number of the record at the source; 1 is the first version."
         logicalType: integer
         physicalType: INTEGER

@@ -123,6 +123,10 @@
         },
         "row_level": {
           "$ref": "#/$defs/rowLevel"
+        },
+        "conformed_from": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false
@@ -535,7 +539,7 @@
     },
     "version": {
       "description": "The payload generation: every payload carries the current key-set version",
-      "const": "1.5"
+      "enum": ["1.5", "1.6"]
     },
     "text": {
       "type": "string",

@@ -25,7 +25,9 @@ from ossie_sql import ExpressionError
 VENDOR = "VIBEDATA"
 
 # The current key-set generation; vibedata-schema.json's $defs/version holds the same value.
-VIBEDATA_VERSION = "1.5"
+VIBEDATA_VERSION = "1.6"
+# 1.6 only adds `conformed_from`, so a document wholly on 1.5 stays valid.
+ACCEPTED_VERSIONS = ("1.5", VIBEDATA_VERSION)
 SCHEMA_PATH = Path(__file__).parent / "vibedata-schema.json"
 CARDINALITIES = {"many-to-one", "one-to-one", "many-to-many"}
 JOIN_TYPES = {"LEFT OUTER", "INNER", "FULL OUTER", "RIGHT OUTER"}
@@ -39,7 +41,7 @@ COMPUTED_KEYS = ("derived_expression", "at_levels", "time_series", "based_on_dim
 
 MODEL_KEYS = {"vibedata_version", "physical_tables", "physical_joins"}
 DATASET_KEYS = {"vibedata_version", "scd", "logical_sources", "levels", "row_level",
-                "hierarchies"}
+                "hierarchies", "conformed_from"}
 RELATIONSHIP_KEYS = {"vibedata_version", "physical_join", "cardinality",
                      "join_type", "join_cost", "join_expression", "note", "to_level",
                      "weight"}
@@ -355,10 +357,10 @@ def validate_vibedata(doc):
         detail = ", ".join(f"{w}={v!r}" for v, w in versions)
         diags.append(_error("vibedata/version-mismatch",
                             f"model '{model_name}': mixed vibedata_version: {detail}"))
-    elif versions and versions[0][0] != VIBEDATA_VERSION:
+    elif versions and versions[0][0] not in ACCEPTED_VERSIONS:
         diags.append(_error("vibedata/version-unsupported",
                             f"model '{model_name}': vibedata_version {versions[0][0]!r} is "
-                            f"not the current key set {VIBEDATA_VERSION!r}; upgrade every "
+                            f"not the current key set {VIBEDATA_VERSION!r} (1.5 is also accepted); upgrade every "
                             "payload (S6a)"))
 
     model_payload, errs = _model_payload(doc)

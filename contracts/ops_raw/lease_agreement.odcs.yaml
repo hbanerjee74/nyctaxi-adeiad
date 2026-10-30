@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 52d395ae-88d6-5c6a-a5c1-f81b69bec55b
 name: lease_agreement
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,29 +13,37 @@ schema:
   - name: lease_agreement
     properties:
       - name: lease_id
+        description: "Identifier of the lease agreement."
         logicalType: integer
         physicalType: BIGINT
       - name: driver_id
+        description: "Identifier of the driver."
         logicalType: integer
         physicalType: BIGINT
       - name: primary_vehicle_id
+        description: "The vehicle the driver normally leases."
         logicalType: integer
         physicalType: BIGINT
       - name: lease_type
+        description: "Lease type: owner_operator, lease_daily or lease_weekly."
         logicalType: string
         physicalType: VARCHAR
       - name: lease_rate
+        description: "Fixed lease rate; zero for owner-operators."
         logicalType: number
         physicalType: DECIMAL(22,2)
       - name: revenue_share_pct
+        description: "Share of revenue paid to the operator, as a fraction; zero for lease drivers."
         logicalType: number
         physicalType: DECIMAL(3,2)
       - name: lease_start_date
+        description: "Date the lease starts."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:
           timezone: true
       - name: lease_end_date
+        description: "Date the lease ends, when it has."
         logicalType: timestamp
         physicalType: TIMESTAMP WITH TIME ZONE
         logicalTypeOptions:

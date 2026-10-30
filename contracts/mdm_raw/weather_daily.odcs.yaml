@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: a0fcc702-f5f3-5a64-b5f7-32a4d8038792
 name: weather_daily
-version: 1.0.0
+version: 1.0.1
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -13,23 +13,30 @@ schema:
   - name: weather_daily
     properties:
       - name: observation_id
+        description: "Identifier of the weather observation."
         logicalType: string
         physicalType: VARCHAR
       - name: obs_date
+        description: "Date of the observation."
         logicalType: date
         physicalType: DATE
       - name: borough_name
+        description: "Borough the observation is for."
         logicalType: string
         physicalType: VARCHAR
       - name: temp_avg_f
+        description: "Average temperature in degrees Fahrenheit. Simulated."
         logicalType: number
         physicalType: DOUBLE
       - name: precip_inches
+        description: "Precipitation in inches. Simulated."
         logicalType: number
         physicalType: DOUBLE
       - name: snow_inches
+        description: "Snowfall in inches. Simulated."
         logicalType: number
         physicalType: DOUBLE
       - name: wind_mph
+        description: "Wind speed in miles per hour. Simulated."
         logicalType: number
         physicalType: DOUBLE

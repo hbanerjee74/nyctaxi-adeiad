@@ -176,11 +176,16 @@ PHYSICAL_TYPES = {
 
 
 def _prop(name, logical_type, **overrides):
-    """A contract property; every one carries a `physicalType`, as `reverse` writes it."""
+    """A contract property; every one carries a `physicalType`, as `reverse` writes it.
+
+    It also carries a description: a consumer reads the contract, and `check` warns about a
+    boundary property that gives none. A test about that passes `description=None`.
+    """
     prop = {"name": name, "logicalType": logical_type,
-            "physicalType": PHYSICAL_TYPES.get(logical_type, "VARCHAR")}
+            "physicalType": PHYSICAL_TYPES.get(logical_type, "VARCHAR"),
+            "description": f"The {name}."}
     prop.update(overrides)
-    return prop
+    return {key: value for key, value in prop.items() if value is not None}
 
 
 def _contract(tmp_path, schema_name, table_name, **overrides):
@@ -268,6 +273,7 @@ def test_a_seed_layer_named_something_else_still_generates_seed_keys(tmp_path):
     map_path = tmp_path / "repo-map.json"
     repo_map = json.loads(map_path.read_text())
     repo_map["layers"] = {"bands": {"schema": "seeds", "path": "seeds/", "built_by": "dbt"}}
+    repo_map.pop("gold_layers")
     map_path.write_text(json.dumps(repo_map))
     _contract(tmp_path, "seeds", "band")
     _generated(tmp_path)
@@ -334,7 +340,7 @@ def test_gold_omission_fails_and_names_the_relation_and_field(tmp_path):
     _repo(tmp_path, models=["a_model"], logical_model=_model(("a_model", ORDER_FIELDS, ["order_key"])))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/omits-declared"])
+    assert (code, _codes(diags)) == (1, ["boundary/omits-declared"])
     assert "core.a_model" in diags[0]["message"] and "ordered_date" in diags[0]["message"]
 
 
@@ -348,7 +354,7 @@ def test_gold_logical_type_disagreement_names_both_sides(tmp_path):
         _prop("total_amount", "string")))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert (code, _codes(diags)) == (1, ["boundary/divergent"])
     assert "'number'" in diags[0]["message"] and "'string'" in diags[0]["message"]
 
 
@@ -365,7 +371,7 @@ def test_gold_datetimetz_needs_the_timezone_option(tmp_path):
         ("a_model", {**ORDER_FIELDS, "loaded_at": "DateTimeTz"}, ["order_key"])))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert (code, _codes(diags)) == (1, ["boundary/divergent"])
     assert "timezone" in diags[0]["message"]
     loaded_at[0]["properties"][-1]["logicalTypeOptions"] = {"timezone": True}
     _contract(tmp_path, "core", "a_model", schema=loaded_at)
@@ -386,7 +392,7 @@ def test_gold_datetime_must_not_carry_the_timezone_option(tmp_path):
         ("a_model", {**ORDER_FIELDS, "loaded_at": "DateTime"}, ["order_key"])))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert (code, _codes(diags)) == (1, ["boundary/divergent"])
     assert "timezone" in diags[0]["message"]
 
 
@@ -400,7 +406,7 @@ def test_gold_contract_with_no_document_fails(tmp_path):
     _contract(tmp_path, "core", "b_model")
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["contract/no-document", "gold/undeclared"])
+    assert (code, _codes(diags)) == (1, ["contract/no-document", "boundary/undeclared"])
     assert "core.b_model" in diags[1]["message"]
 
 
@@ -435,8 +441,8 @@ def test_no_canonical_model_means_no_gold_diagnostics(tmp_path):
     assert _run("check", "--root", str(elsewhere)) == (0, [])
 
 
-def test_a_map_declaring_no_gold_layers_checks_none_and_says_so(tmp_path):
-    """Gold is the map's declaration: without one nothing is gold, and the gate reports the gap."""
+def test_a_map_declaring_no_boundary_layers_checks_none_and_says_so(tmp_path):
+    """The map declares the boundary: without one nothing is boundary, and the gate reports the gap."""
     _repo(tmp_path, models=["a_model", "b_model"],
           logical_model=_model(("a_model", ORDER_FIELDS, ["order_key"])))
     map_path = tmp_path / "repo-map.json"
@@ -451,10 +457,10 @@ def test_a_map_declaring_no_gold_layers_checks_none_and_says_so(tmp_path):
 
     code, diags = _run("check", "--root", str(tmp_path))
 
-    # No `contract/no-document` and no `gold/undeclared`: an undeclared gold set names no relation,
+    # No `contract/no-document` and no `boundary/undeclared`: an undeclared boundary set names no relation,
     # so the warning about the missing declaration is the whole answer.
-    assert (code, _codes(diags)) == (0, ["map/no-gold-layers"])
-    assert "gold_layers" in diags[0]["message"]
+    assert (code, _codes(diags)) == (0, ["map/no-boundary-layers"])
+    assert "role: boundary" in diags[0]["message"]
 
 
 CORE_PROPERTIES = """version: 2
@@ -487,6 +493,8 @@ models:
   columns:
   - name: order_key
     description: kept
+  - name: note
+    description: hand-written
 """
 
 MODEL_WITH_DATA_TESTS = """version: 2
@@ -546,9 +554,9 @@ def test_generate_writes_the_contract_and_a_data_type_per_column(tmp_path):
     _contract(tmp_path, "core", "a_model", schema=_element(
         "a_model",
         _prop("order_key", "string", physicalType="VARCHAR", primaryKey=True),
-        _prop("total_amount", "number", physicalType="DECIMAL(10,2)")))
+        _prop("total_amount", "number", physicalType="DECIMAL(10,2)", description=None)))
     _contract(tmp_path, "core", "b_model", schema=_element(
-        "b_model", _prop("store_id", "integer", physicalType="BIGINT")))
+        "b_model", _prop("store_id", "integer", physicalType="BIGINT", description=None)))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
 
     doc, entries = _entries(tmp_path / "models" / "core" / "_core.yml")
@@ -581,7 +589,8 @@ def test_generate_adds_an_entry_for_a_column_the_file_lacks(tmp_path):
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
 
     model = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]
-    assert model["columns"][-1] == {"name": "ordered_date", "data_type": "DATE"}
+    assert model["columns"][-1] == {"name": "ordered_date", "data_type": "DATE",
+                                    "description": "The ordered_date."}
     assert [column["name"] for column in model["columns"]] == [
         "order_key", "total_amount", "ordered_date"
     ]
@@ -626,7 +635,7 @@ def test_generate_writes_a_model_column_data_tests_from_its_quality(tmp_path):
 
     column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
     assert column == {"name": "order_key", "data_type": "VARCHAR",
-                      "data_tests": ["not_null", "unique"]}
+                      "data_tests": ["not_null", "unique"], "description": "The order_key."}
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -668,15 +677,15 @@ def test_generate_drops_a_block_sequence_tests_list_it_restates_exactly(tmp_path
     _repo(tmp_path, models=["a_model"],
           files={"models/core/_core.yml": BLOCK_TESTS_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
-        "a_model", _prop("order_key", "string", physicalType="VARCHAR", quality=[
-            _rule("nullValues"), _rule("duplicateValues")])))
+        "a_model", _prop("order_key", "string", physicalType="VARCHAR",
+                         quality=[_rule("nullValues"), _rule("duplicateValues")])))
     assert _run("generate", "--root", str(tmp_path)) == (0, [])
 
     text = (tmp_path / "models" / "core" / "_core.yml").read_text(encoding="utf-8")
     assert not [line for line in text.splitlines() if line.strip().startswith("tests:")]
     column = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]["columns"][0]
     assert column == {"name": "order_key", "data_type": "VARCHAR",
-                      "data_tests": ["not_null", "unique"]}
+                      "data_tests": ["not_null", "unique"], "description": "The order_key."}
     assert _run("check", "--root", str(tmp_path)) == (0, [])
 
 
@@ -1008,16 +1017,20 @@ def test_generate_augments_a_zero_indent_properties_file(tmp_path):
     _repo(tmp_path, models=["a_model"],
           files={"models/core/_core.yml": ZERO_INDENT_PROPERTIES})
     _contract(tmp_path, "core", "a_model", schema=_element(
-        "a_model", _prop("order_key", "string", physicalType="VARCHAR")))
+        "a_model", _prop("order_key", "string", physicalType="VARCHAR"),
+        _prop("note", "string", physicalType="VARCHAR", description=None)))
     _generated(tmp_path)
 
-    assert _run("check", "--root", str(tmp_path)) == (0, [])
+    # `note` keeps its hand-written text: no source names it, so it is neither rewritten nor stale.
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert (code, _codes(diags)) == (0, ["contract/undescribed"])
     text = (tmp_path / "models" / "core" / "_core.yml").read_text(encoding="utf-8")
     assert text.count("- name: a_model") == 1
     model = yaml.safe_load(text)["models"][0]
     assert model["contract"] == {"enforced": True}
     assert model["columns"] == [
-        {"name": "order_key", "description": "kept", "data_type": "VARCHAR"}
+        {"name": "order_key", "description": "The order_key.", "data_type": "VARCHAR"},
+        {"name": "note", "description": "hand-written", "data_type": "VARCHAR"},
     ]
 
 
@@ -1113,7 +1126,8 @@ def test_reverse_drafts_a_grounded_contract_from_the_catalog(tmp_path):
 
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (0, ["contract/no-grain"])
+    assert (code, _codes(diags)) == (0, ["contract/no-grain", "contract/undescribed",
+                                         "contract/undescribed"])
 
 
 def test_reverse_carries_a_generic_test_as_a_quality_rule(tmp_path):
@@ -1212,7 +1226,7 @@ def test_reverse_drafts_the_boundary_and_nothing_else(tmp_path):
 
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain"}
+    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain", "contract/undescribed"}
     hints = (tmp_path / "ingestion" / "contracts.py").read_text(encoding="utf-8")
     assert "orderdata" in hints and "audit_runs" not in hints
 
@@ -1268,6 +1282,119 @@ def test_gold_relation_in_a_schema_the_model_never_covers_is_not_a_gap(tmp_path)
     assert "agg.agg_mart" in diags[0]["message"]
 
 
+def _set_map(tmp_path, edit):
+    map_path = tmp_path / "repo-map.json"
+    repo_map = json.loads(map_path.read_text())
+    edit(repo_map)
+    map_path.write_text(json.dumps(repo_map))
+    return repo_map
+
+
+def test_role_derived_from_legacy_keys(tmp_path):
+    """No `role` key: dlt is input, a `gold_layers` name is boundary, everything else internal."""
+    _repo(tmp_path, models=["a_model"])
+    repo_map = json.loads((tmp_path / "repo-map.json").read_text())
+    assert odcs._role_for(repo_map, "bronze") == "input"
+    assert odcs._role_for(repo_map, "core") == "boundary"
+    assert odcs._role_for(repo_map, "staging") == "internal"
+    assert odcs._role_for(repo_map, "seeds") == "internal"
+    assert odcs._roles(repo_map) == {
+        "bronze": "input", "staging": "internal", "core": "boundary", "seeds": "internal"}
+    repo_map["gold_layers"] = ["core", "bronze"]
+    assert odcs._role_for(repo_map, "bronze") == "input"  # built_by dlt wins over gold_layers
+
+
+def test_explicit_role_overrides_derivation(tmp_path):
+    """A dlt layer marked boundary ranks first, a gold_layers dbt layer marked internal owes none,
+    and a dbt layer marked input owes contracts for its relations."""
+    _repo(tmp_path, models=["a_model"], staging=["stg_a"], sources={"src": ("bronze", ["t"])})
+    repo_map = _set_map(tmp_path, lambda m: (
+        m["layers"]["bronze"].__setitem__("role", "boundary"),
+        m["layers"]["core"].__setitem__("role", "internal"),
+        m["layers"]["staging"].__setitem__("role", "input")))
+    declared = odcs.declared_relations(tmp_path, repo_map)
+    assert set(odcs.boundary_relations(repo_map, declared)) == {("bronze", "t"), ("staging", "stg_a")}
+    assert ("core", "a_model") not in odcs.boundary_relations(repo_map, declared)
+    assert odcs._boundary_rank(("bronze", "t"), repo_map, declared) == 0
+    assert odcs._boundary_rank(("core", "a_model"), repo_map, declared) == 2
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert sorted(d["message"] for d in diags if d["code"] == "contract/missing") == [
+        "bronze.t: declared by source src, on the contract boundary, and has no contract",
+        "staging.stg_a: declared by layer staging, on the contract boundary, and has no contract"]
+
+
+def test_explicit_internal_role_on_a_dlt_layer_exempts_its_sources(tmp_path):
+    _repo(tmp_path, models=["a_model"], sources={"src": ("bronze", ["t"])})
+    repo_map = _set_map(tmp_path, lambda m: m["layers"]["bronze"].__setitem__("role", "internal"))
+    declared = odcs.declared_relations(tmp_path, repo_map)
+    assert ("bronze", "t") not in odcs.boundary_relations(repo_map, declared)
+
+
+def test_a_derived_internal_layer_still_owes_contracts_for_sources_landing_in_it(tmp_path):
+    _repo(tmp_path, models=["a_model"], sources={"src": ("bronze", ["t"])})
+
+    def edit(m):
+        m["layers"]["bronze"].pop("built_by")
+        m["layers"]["bronze"].pop("path")
+    repo_map = _set_map(tmp_path, edit)
+    assert odcs._role_for(repo_map, "bronze") == "internal"
+    declared = odcs.declared_relations(tmp_path, repo_map)
+    assert ("bronze", "t") in odcs.boundary_relations(repo_map, declared)
+
+
+def test_generate_replaces_a_block_scalar_description_without_a_blank_line(tmp_path):
+    star = _star(tmp_path, description="One row per order.",
+                 fields=[_field("order_key", "Surrogate key.")])
+    block = ("version: 2\n\nmodels:\n  - name: a_model\n    description: >\n      Old text\n"
+             "      wrapped.\n\n    columns:\n      - name: order_key\n        description: |\n"
+             "          Old column.\n\n        data_tests: [unique]\n")
+    _repo(tmp_path, models=["a_model"], logical_model=star, files={"models/core/_core.yml": block})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _generated(tmp_path)
+    path = tmp_path / "models" / "core" / "_core.yml"
+    first = path.read_text(encoding="utf-8")
+    assert "description: One row per order.\n" in first
+    assert "description: Surrogate key.\n        data_tests" in first
+    assert "\n\n\n" not in first
+    _generated(tmp_path)
+    assert path.read_text(encoding="utf-8") == first
+
+
+def test_explicit_input_role_on_a_dbt_layer_owes_contracts(tmp_path):
+    _repo(tmp_path, models=["a_model"], staging=["stg_a"])
+    repo_map = _set_map(tmp_path, lambda m: m["layers"]["staging"].__setitem__("role", "input"))
+    declared = odcs.declared_relations(tmp_path, repo_map)
+    assert ("staging", "stg_a") in odcs.boundary_relations(repo_map, declared)
+
+
+def test_contract_layers_wins_over_explicit_roles(tmp_path):
+    _repo(tmp_path, models=["a_model"], staging=["stg_a"], sources={"src": ("bronze", ["t"])})
+    repo_map = _set_map(tmp_path, lambda m: (
+        m["layers"]["core"].__setitem__("role", "boundary"),
+        m.__setitem__("contract_layers", ["staging"])))
+    declared = odcs.declared_relations(tmp_path, repo_map)
+    assert set(odcs.boundary_relations(repo_map, declared)) == {("staging", "stg_a")}
+
+
+def test_gold_layers_naming_an_undeclared_layer_is_reported(tmp_path):
+    _repo(tmp_path, models=["a_model"])
+    _set_map(tmp_path, lambda m: m.__setitem__("gold_layers", ["core", "platinum"]))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 1
+    assert [d["message"] for d in diags if d["code"] == "map/gold-layers"] == [
+        "repo-map.json `gold_layers` names `platinum`, which `layers` does not declare"]
+
+
+def test_invalid_role_is_reported(tmp_path):
+    _repo(tmp_path, models=["a_model"])
+    _set_map(tmp_path, lambda m: m["layers"]["core"].__setitem__("role", "gold"))
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert code == 1
+    assert {"severity": "error", "code": "map/layer-role",
+            "message": "repo-map.json layers.core.role must be input, internal or boundary"} in diags
+
+
 def test_reverse_drops_the_loader_columns_from_a_dlt_relation(tmp_path):
     """dlt adds `_dlt_*` itself: a raw contract declares what the resource yields, not the loader's."""
     _repo(tmp_path, sources={"shop": ("bronze", ["orderdata"])})
@@ -1295,13 +1422,13 @@ def test_check_allows_a_loader_column_only_where_a_dbt_model_propagates_it(tmp_p
     _generated(tmp_path)
 
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["contract/loader-column"])
+    assert (code, _codes(diags)) == (1, ["contract/loader-column", "contract/undescribed"])
     assert "bronze.orderdata" in diags[0]["message"] and "_dlt_load_id" in diags[0]["message"]
 
     _contract(tmp_path, "bronze", "orderdata", schema=_element("orderdata", _prop("store_id", "integer")))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain"}
+    assert code == 0 and set(_codes(diags)) <= {"contract/no-grain", "contract/undescribed"}
     model = _written(tmp_path, "core", "a_model")["schema"][0]["properties"]
     assert model[0]["name"] == "_dlt_load_id"
 
@@ -1336,7 +1463,7 @@ def test_reverse_omits_a_dbt_doc_reference_instead_of_copying_it(tmp_path):
 
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (0, ["contract/no-grain"])
+    assert (code, _codes(diags)) == (0, ["contract/no-grain", "contract/undescribed"])
 
 
 def test_check_calls_a_templated_grain_no_grain(tmp_path):
@@ -1684,7 +1811,8 @@ def _relations_run(tmp_path, monkeypatch, catalog):
 
 
 def _contract_with(tmp_path, columns, **overrides):
-    properties = [{"name": c, "logicalType": "string", "physicalType": "VARCHAR"} for c in columns]
+    properties = [{"name": c, "logicalType": "string", "physicalType": "VARCHAR",
+                   "description": f"The {c}."} for c in columns]
     _contract(
         tmp_path,
         "core",
@@ -1860,7 +1988,7 @@ def test_a_declared_relationship_the_contract_drops_is_reported(tmp_path):
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 0
-    assert [d["code"] for d in diags] == ["gold/missing-relationship"]
+    assert [d["code"] for d in diags] == ["boundary/missing-relationship"]
     assert diags[0]["severity"] == "warning"
     assert "order_to_order" in diags[0]["message"]
 
@@ -1884,7 +2012,7 @@ def test_a_declared_relationship_the_contract_carries_passes(tmp_path):
     _gold_contract(tmp_path, relationships=[{"to": "a_model.id"}])
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
-    assert [d["code"] for d in diags if d["code"].startswith("gold/")] == []
+    assert [d["code"] for d in diags if d["code"].startswith("boundary/")] == []
 
 
 def test_a_composite_unique_key_is_reported_as_inexpressible(tmp_path):
@@ -1894,7 +2022,7 @@ def test_a_composite_unique_key_is_reported_as_inexpressible(tmp_path):
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 0
-    assert [d["code"] for d in diags] == ["gold/composite-key"]
+    assert [d["code"] for d in diags] == ["boundary/composite-key"]
     assert diags[0]["severity"] == "warning"
 
 
@@ -1919,7 +2047,7 @@ def test_a_relationship_naming_the_wrong_target_is_reported(tmp_path):
     _run("generate", "--root", str(tmp_path))
     code, diags = _run("check", "--root", str(tmp_path))
     assert code == 0
-    assert [d["code"] for d in diags] == ["gold/missing-relationship"]
+    assert [d["code"] for d in diags] == ["boundary/missing-relationship"]
 
 
 # ---------------------------------------------------------------------------
@@ -1944,7 +2072,7 @@ def test_a_contract_key_the_model_does_not_declare_is_divergent(tmp_path):
         _prop("total_amount", "number")))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (1, ["gold/divergent"])
+    assert (code, _codes(diags)) == (1, ["boundary/divergent"])
     assert "ordered_date" in diags[0]["message"] and "primary_key" in diags[0]["message"]
 
 
@@ -1968,7 +2096,7 @@ def _excluded_repo(tmp_path, exclusions):
 def test_an_excluded_relation_is_info_not_undeclared(tmp_path):
     _excluded_repo(tmp_path, [{"relation": "core.b_model", "reason": "a bespoke aggregate"}])
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (0, ["gold/excluded"])
+    assert (code, _codes(diags)) == (0, ["boundary/excluded"])
     assert diags[0]["severity"] == "info"
     assert "a bespoke aggregate" in diags[0]["message"] and "core.b_model" in diags[0]["message"]
 
@@ -2084,7 +2212,7 @@ def test_a_proposed_gold_contract_passes_beside_a_canonical_model(tmp_path):
 def test_an_exclusion_outside_the_gold_schemas_is_not_reported(tmp_path):
     _excluded_repo(tmp_path, [{"relation": "staging.stg_x", "reason": "scratch"}])
     code, diags = _run("check", "--root", str(tmp_path))
-    assert "gold/excluded" not in _codes(diags)
+    assert "boundary/excluded" not in _codes(diags)
 
 
 def _aggregate_model(tmp_path, exclusions=()):
@@ -2110,7 +2238,7 @@ def test_an_aggregate_source_is_documented_by_the_model(tmp_path):
     _aggregate_model(tmp_path, [{"relation": "core.other", "reason": "bespoke"}])
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (0, ["gold/excluded"])
+    assert (code, _codes(diags)) == (0, ["boundary/excluded"])
     assert "core.other" in diags[0]["message"]
 
 
@@ -2140,7 +2268,7 @@ def test_a_catalog_qualified_physical_table_names_its_last_two_parts(tmp_path):
     model_path.write_text(yaml.safe_dump(model))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert (code, _codes(diags)) == (0, ["gold/excluded"])
+    assert (code, _codes(diags)) == (0, ["boundary/excluded"])
 
 
 def test_an_aggregate_source_alone_in_its_gold_schema_leaves_an_excluded_neighbour_reported(
@@ -2154,12 +2282,304 @@ def test_an_aggregate_source_alone_in_its_gold_schema_leaves_an_excluded_neighbo
     model_path.write_text(yaml.safe_dump(model))
     _generated(tmp_path)
     code, diags = _run("check", "--root", str(tmp_path))
-    assert "gold/excluded" in _codes(diags)
-    assert [d["code"] for d in diags if d["code"].startswith("gold/")] == ["gold/excluded"]
+    assert "boundary/excluded" in _codes(diags)
+    assert [d["code"] for d in diags if d["code"].startswith("boundary/")] == ["boundary/excluded"]
 
 
 def test_a_relation_both_excluded_and_modelled_warns(tmp_path):
     _excluded_repo(tmp_path, [{"relation": "core.a_model", "reason": "scratch"}])
     code, diags = _run("check", "--root", str(tmp_path))
-    assert "gold/excluded-but-modelled" in _codes(diags)
-    assert [d["severity"] for d in diags if d["code"] == "gold/excluded-but-modelled"] == ["warning"]
+    assert "boundary/excluded-but-modelled" in _codes(diags)
+    assert [d["severity"] for d in diags if d["code"] == "boundary/excluded-but-modelled"] == ["warning"]
+
+
+# derived descriptions: `generate` writes them, `check` reports a boundary property with none
+
+def _star(tmp_path, *, tables=(), metrics=(), **dataset):
+    """A canonical document with one dataset, `core.a_model`, and optional aggregate tables."""
+    model = _model(("a_model", {}, ["order_key"]))
+    model["datasets"][0].update(dataset)
+    if metrics:
+        model["metrics"] = list(metrics)
+    if tables:
+        model["custom_extensions"] = [{"vendor_name": "VIBEDATA", "data": json.dumps(
+            {"physical_tables": list(tables)})}]
+    return model
+
+
+def _field(name, description, expression=None):
+    field = {"name": name, "datatype": "String", "description": description}
+    if expression is not None:
+        field["expression"] = {"dialects": [{"dialect": "ANSI_SQL", "expression": expression}]}
+    return field
+
+
+def _model_entry(tmp_path, table="a_model"):
+    return _entries(tmp_path / "models" / "core" / "_generated.yml")[1][table]
+
+
+def test_generate_writes_a_star_members_prose_from_the_ossie_field(tmp_path):
+    """The model owns what a column means: a field named for the column, not a computed one."""
+    star = _star(tmp_path, description="One row per order.", fields=[
+        _field("order_key", "Surrogate key.", "order_key"),
+        _field("total_amount", "Order total.")])
+    star["datasets"][0]["fields"].append(_field("margin", "A computed field.", "a - b"))
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True),
+        _prop("total_amount", "number", description="Contract wording loses."),
+        _prop("margin", "number", description=None)))
+    _generated(tmp_path)
+
+    model = _model_entry(tmp_path)
+    assert model["description"] == "One row per order."
+    columns = {column["name"]: column for column in model["columns"]}
+    assert columns["order_key"]["description"] == "Surrogate key."
+    assert columns["total_amount"]["description"] == "Order total."
+    assert "description" not in columns["margin"]
+    code, diags = _run("check", "--root", str(tmp_path))
+    assert "generated/stale" not in _codes(diags) and "contract/undescribed" not in _codes(diags)
+
+
+def test_generate_writes_an_aggregate_relations_prose_from_the_ossie_metric(tmp_path):
+    """An aggregate has no dataset; the `physical_tables` entry and the metric describe it."""
+    star = _star(
+        tmp_path, fields=[_field("order_key", "Surrogate key.")],
+        tables=[{"name": "agg_model", "source": "core.agg_model",
+                 "description": "Orders per day."}],
+        metrics=[{"name": "order_count", "description": "Orders placed.",
+                  "expression": {"dialects": [{"dialect": "ANSI_SQL",
+                                               "expression": "COUNT(*)"}]}}])
+    _repo(tmp_path, models=["a_model", "agg_model"], logical_model=star)
+    _contract(tmp_path, "core", "agg_model", schema=_element(
+        "agg_model", _prop("order_count", "integer", description=None),
+        _prop("day", "date", description=None)))
+    _generated(tmp_path)
+
+    model = _model_entry(tmp_path, "agg_model")
+    assert model["description"] == "Orders per day."
+    columns = {column["name"]: column for column in model["columns"]}
+    assert columns["order_count"]["description"] == "Orders placed."
+    assert "description" not in columns["day"]
+
+
+def test_generate_takes_a_non_star_relations_prose_from_the_contract(tmp_path):
+    _contract(tmp_path, "core", "b_model", description={"purpose": "Daily  store\nsales.",
+                                                        "usage": "Not this."},
+              schema=_element("b_model", _prop("store_id", "integer",
+                                               description="The   store.")))
+    _contract(tmp_path, "core", "c_model", description="A plain string.",
+              schema=_element("c_model", _prop("store_id", "integer")))
+    _repo(tmp_path, models=["a_model", "b_model", "c_model"],
+          logical_model=_star(tmp_path, fields=[_field("order_key", "Surrogate key.")]))
+    _generated(tmp_path)
+
+    entries = _entries(tmp_path / "models" / "core" / "_generated.yml")[1]
+    assert entries["b_model"]["description"] == "Daily store sales."
+    assert entries["b_model"]["columns"][0]["description"] == "The store."
+    assert entries["c_model"]["description"] == "A plain string."
+
+
+POINTER_PROPERTIES = """version: 2
+
+models:
+  - name: a_model
+    description: '{{ doc("a_model") }}'
+    columns:
+      - name: order_key
+        description: '{{ doc("order_key") }}'
+      - name: note
+        description: Hand-written, no source names it.
+      - name: embedded
+        description: 'Text first. {{ doc("embedded") }}'
+"""
+
+
+def test_a_doc_pointer_and_an_unnamed_column_are_left_alone_and_not_stale(tmp_path):
+    star = _star(tmp_path, description="One row per order.",
+                 fields=[_field("order_key", "Surrogate key."),
+                         _field("embedded", "Would overwrite.")])
+    _repo(tmp_path, models=["a_model"], logical_model=star,
+          files={"models/core/_core.yml": POINTER_PROPERTIES})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True),
+        _prop("note", "string", description=None),
+        _prop("embedded", "string", description=None)))
+    _generated(tmp_path)
+
+    model = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]
+    assert model["description"] == '{{ doc("a_model") }}'
+    columns = {column["name"]: column for column in model["columns"]}
+    assert columns["order_key"]["description"] == '{{ doc("order_key") }}'
+    assert columns["note"]["description"] == "Hand-written, no source names it."
+    assert columns["embedded"]["description"] == 'Text first. {{ doc("embedded") }}'
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_a_description_that_differs_from_the_derived_one_is_stale(tmp_path):
+    star = _star(tmp_path, description="One row per order.",
+                 fields=[_field("order_key", "Surrogate key.")])
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _generated(tmp_path)
+    path = tmp_path / "models" / "core" / "_generated.yml"
+    path.write_text(path.read_text(encoding="utf-8").replace("Surrogate key.", "Edited by hand.")
+                    .replace("One row per order.", "Also edited."), encoding="utf-8")
+
+    stale = [d["message"] for d in _run("check", "--root", str(tmp_path))[1]
+             if d["code"] == "generated/stale"]
+    assert len(stale) == 2
+    assert any("a_model.description" in m for m in stale)
+    assert any("order_key.description" in m for m in stale)
+    _generated(tmp_path)
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_check_warns_a_boundary_property_no_one_describes(tmp_path):
+    """A star member is described by its field; input and boundary relations are asked."""
+    star = _star(tmp_path, fields=[_field("order_key", "Surrogate key.")])
+    _repo(tmp_path, models=["a_model", "b_model"], logical_model=star,
+          sources={"shop": ("bronze", ["orderdata"])})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _contract(tmp_path, "core", "b_model", schema=_element(
+        "b_model", _prop("store_id", "integer", description=None)))
+    _contract(tmp_path, "bronze", "orderdata", schema=_element(
+        "orderdata", _prop("store_id", "integer", description=None)))
+    _generated(tmp_path)
+
+    _, diags = _run("check", "--root", str(tmp_path))
+    undescribed = [d for d in diags if d["code"] == "contract/undescribed"]
+    assert [d["severity"] for d in undescribed] == ["warning", "warning"]
+    assert sorted(d["message"] for d in undescribed) == [
+        "bronze.orderdata.store_id: no description; what does store_id mean?",
+        "core.b_model.store_id: no description; what does store_id mean?"]
+
+
+def test_check_warns_an_input_property_no_one_describes_but_not_its_loader_column(tmp_path):
+    _repo(tmp_path, models=["a_model"], sources={"shop": ("bronze", ["orderdata"])})
+    _contract(tmp_path, "bronze", "orderdata", schema=_element(
+        "orderdata", _prop("store_id", "integer", description=None),
+        _prop("_dlt_load_id", "string", description=None)))
+    _generated(tmp_path)
+    undescribed = [d["message"] for d in _run("check", "--root", str(tmp_path))[1]
+                   if d["code"] == "contract/undescribed"]
+    assert undescribed == [
+        "bronze.orderdata.store_id: no description; what does store_id mean?"]
+
+
+def test_a_block_scalar_description_equal_to_the_derived_one_is_not_stale(tmp_path):
+    star = _star(tmp_path, description="One row per order.",
+                 fields=[_field("order_key", "Surrogate key.")])
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _generated(tmp_path)
+    path = tmp_path / "models" / "core" / "_generated.yml"
+    text = path.read_text(encoding="utf-8")
+    assert "description: One row per order." in text
+    path.write_text(text.replace("description: One row per order.",
+                                 "description: >\n      One row per order.\n"), encoding="utf-8")
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_a_doc_pointer_without_inner_spaces_is_protected_and_not_stale(tmp_path):
+    star = _star(tmp_path, description="One row per order.",
+                 fields=[_field("order_key", "Surrogate key.")])
+    _repo(tmp_path, models=["a_model"], logical_model=star,
+          files={"models/core/_core.yml": POINTER_PROPERTIES.replace('{{ doc("a_model") }}', '{{doc("a_model") }}')})
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _generated(tmp_path)
+    model = _entries(tmp_path / "models" / "core" / "_core.yml")[1]["a_model"]
+    assert model["description"] == '{{doc("a_model") }}'
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_two_canonical_documents_naming_one_relation_read_the_first(tmp_path):
+    star = _star(tmp_path, fields=[_field("order_key", "First.")])
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    second = tmp_path / "logical-model" / "z_other.ossie.yaml"
+    other = json.loads(json.dumps(star))
+    other["datasets"][0]["fields"][0]["description"] = "Last."
+    second.write_text(yaml.safe_dump(other))
+    repo_map = json.loads((tmp_path / "repo-map.json").read_text())
+    dataset, path = odcs._canonical_datasets(tmp_path, repo_map)[("core", "a_model")]
+    assert path.name == "model.ossie.yaml"
+
+
+def test_check_does_not_ask_a_proposed_contract_for_a_description(tmp_path):
+    _repo(tmp_path, models=["a_model"], logical_model=_star(
+        tmp_path, fields=[_field("order_key", "Surrogate key.")]))
+    _contract(tmp_path, "core", "b_model", status="proposed", schema=_element(
+        "b_model", _prop("store_id", "integer", description=None)))
+    _generated(tmp_path)
+    assert "contract/undescribed" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_generate_writes_a_long_unicode_description_as_one_valid_line(tmp_path):
+    long = "Total \u2014 " + "word " * 300
+    star = _star(tmp_path, description="Orders \u2014 one per row.",
+                 fields=[_field("order_key", long.strip())])
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_key", "string", description=None, primaryKey=True)))
+    _generated(tmp_path)
+
+    text = (tmp_path / "models" / "core" / "_generated.yml").read_text(encoding="utf-8")
+    assert len(long) > 1500
+    assert "\u2014" in text and "\\u2014" not in text
+    assert len([line for line in text.splitlines() if "Total" in line]) == 1
+    model = _model_entry(tmp_path)
+    assert model["description"] == "Orders \u2014 one per row."
+    assert model["columns"][0]["description"] == long.strip()
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+
+def test_a_star_column_whose_field_is_undescribed_falls_through_to_the_metric(tmp_path):
+    star = _star(tmp_path, fields=[_field("order_count", "")],
+                 metrics=[{"name": "order_count", "description": "Orders placed."}])
+    _repo(tmp_path, models=["a_model"], logical_model=star)
+    _contract(tmp_path, "core", "a_model", schema=_element(
+        "a_model", _prop("order_count", "integer", description=None)))
+    _generated(tmp_path)
+
+    assert _model_entry(tmp_path)["columns"][0]["description"] == "Orders placed."
+
+
+def test_a_changed_contract_description_on_a_non_star_relation_is_stale(tmp_path):
+    _repo(tmp_path, models=["a_model", "b_model"], logical_model=_star(
+        tmp_path, fields=[_field("order_key", "Surrogate key.")]))
+    target = _contract(tmp_path, "core", "b_model", description="Daily sales.",
+                       schema=_element("b_model", _prop("store_id", "integer",
+                                                        description="The store.")))
+    _generated(tmp_path)
+    assert "generated/stale" not in _codes(_run("check", "--root", str(tmp_path))[1])
+
+    doc = yaml.safe_load(target.read_text(encoding="utf-8"))
+    doc["description"] = "Weekly sales."
+    doc["schema"][0]["properties"][0]["description"] = "The shop."
+    target.write_text(yaml.safe_dump(doc), encoding="utf-8")
+
+    stale = [d["message"] for d in _run("check", "--root", str(tmp_path))[1]
+             if d["code"] == "generated/stale"]
+    assert len(stale) == 2
+    assert any("b_model.description" in m for m in stale)
+    assert any("store_id.description" in m for m in stale)
+
+
+def test_undescribed_exempts_loader_columns_on_dlt_relations_only():
+    repo_map = {"layers": {
+        "raw": {"schema": "bronze", "built_by": "dlt"},
+        "seeds": {"schema": "seeds", "built_by": "dbt"},
+        "core": {"schema": "core", "built_by": "dbt"}}}
+    contract = {"schema": [{"name": "t", "properties": [{"name": "_dlt_id"}, {"name": "x"}]}]}
+
+    def names(schema):
+        return [d["message"].split(": ")[0]
+                for d in odcs._undescribed((schema, "t"), contract, repo_map)]
+
+    assert names("bronze") == ["bronze.t.x"]
+    assert names("seeds") == ["seeds.t._dlt_id", "seeds.t.x"]
+    assert names("core") == ["core.t._dlt_id", "core.t.x"]
