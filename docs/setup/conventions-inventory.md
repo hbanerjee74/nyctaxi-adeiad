@@ -133,17 +133,14 @@ Operator-owned when it is a preference that does not change whether the platform
 | G6 | One PR per head ref; reuse an open one | shipping | Skill | Skill |
 | G7 | Builds and tests only in the sandbox; never against the Domain/prod target; never open `profiles.yml` | executing-the-plan | Skill | Skill |
 | G8 | No `--full-refresh` of a published model without recorded approval | executing-the-plan | Skill | Skill |
-| G9 | Code only: never deploy, schedule or publish | generating-orchestration, generating-semantic-model | Skill | Skill |
+| G9 | Code only: never deploy, schedule or publish | generating-orchestration | Skill | Skill |
 
-## H. Semantic layer and orchestration
+## H. Orchestration
 
 | # | Convention | Today in | Proposed | Decision |
 | --- | --- | --- | --- | --- |
-| H1 | MetricFlow spec chosen by `dbt --version` (Fusion vs Core); never mix | generating-semantic-model | Skill | Skill |
-| H2 | One semantic model per fact-grain mart; one primary entity; one time dimension | generating-semantic-model | Skill | Skill |
-| H3 | Time spine ships with the first metric | generating-semantic-model | Skill | Skill |
-| H4 | Orchestration at `orchestration/<Name>.Flight/` with `flight.py`, `requirements.txt`, `config.json` | generating-orchestration | Skill (platform-specific) | Skill (platform-specific) |
-| H5 | Schedules are five-field UTC cron; local time converted with the arithmetic shown | generating-orchestration | Skill | Skill |
+| H1 | Orchestration at `orchestration/<Name>.Flight/` with `flight.py`, `requirements.txt`, `config.json` | generating-orchestration | Skill (platform-specific) | Skill (platform-specific) |
+| H2 | Schedules are five-field UTC cron; local time converted with the arithmetic shown | generating-orchestration | Skill | Skill |
 
 ## I. CI
 

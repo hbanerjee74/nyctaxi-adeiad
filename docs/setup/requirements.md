@@ -37,7 +37,7 @@ against a realistic brownfield domain.
 - [x] `R-19` Repo documents are updated — accept when `AGENTS.md`, the contributor guide and `README.md` describe the repo as it is after the build (dlt ingestion, dbt silver, `repo-map.json`, `test-map.json` if added, `.agents/rules/`, the docs layout, where ADRs and design records live), and no document points at removed files such as `tools/download_bronze_data.py` — source: user answer
 - [x] `R-20` Test map and unit tests exist — accept when `test-map.json` maps each layer or model group to its narrow `dbt build --select` command and the singular tests that guard it, every path and selector it names exists, and dbt unit tests cover `int_status_intervals` (tie-break and negative floor), `int_trips_enriched` (the three airport-fee states) and `int_trips_conformed` (dedup and key), passing under `dbt test --select test_type:unit` — source: user answer
 - [x] `R-23` Python scripts have unit tests — accept when the orchestration scripts and the ingestion pipeline and generator code have pytest unit tests that run offline (network and DuckDB downloads stubbed or served from small fixtures), pass under one documented command, and are mapped in `test-map.json` beside the dbt lanes, with pytest listed in `repo-map.json` `test_frameworks` — source: user answer
-- [x] `R-21` Semantic model exists — accept when MetricFlow YAML for the agreed metrics sits beside the gold marts with a `metricflow_time_spine`, every measure points at a committed gold column, and `dbt parse` passes — source: user answer, generating-semantic-model skill
+- [x] `R-21` Semantic model exists — accept when `logical-model/` holds the canonical Ossie model for the gold marts with the agreed metrics, every metric's expression resolves to a column a declared logical source supplies, the business ontology in `ontology/` maps to it, and the structural gate (`ossie.py validate`, `coverage`, `suppliers`, `notes`, `generate-tests --check`) exits 0 — source: user answer, `semantic-model` skill
 - [x] `R-22` Orchestration scripts exist — accept when the agreed scripts run ingestion and `dbt build` end to end from a clean checkout, and `repo-map.json` `entrypoints` and `commands` name each one — source: user answer
 
 ## Business decisions
@@ -100,11 +100,10 @@ against a realistic brownfield domain.
 | dlt scope | dlt loads every external source: TLC bronze (trips Parquet, zone lookup), and the generated `ops_raw` and `mdm_raw`. Generators stop writing into the warehouse and become source simulators that write landing files for dlt to load | user answer |
 | Silver in dbt | Convention-faithful: 1:1 staging per bronze table, then `int_trips_conformed` for union, key and dedup. `stg_tlc__trips` is renamed or reworked and downstream refs change | user answer |
 | Orchestration | Scripts (possibly notebooks), described in `repo-map.json` `entrypoints` and `commands`, so agents can run ingestion and the dbt models. Form: scripts only, in `orchestration/` (`run_ingest.py` runs the dlt pipelines in order, `run_transform.py` runs `dbt build`, `run_all.py` chains them). No notebooks, no MotherDuck Flights or Fabric pipelines. This is how a DuckDB lakehouse is run, and `generating-orchestration` has no route for it today (recorded in `skill-change-notes.md`) | user answer |
-| Semantic model | Included: MetricFlow YAML beside the gold marts and a `metricflow_time_spine`, per `generating-semantic-model`. Two semantic models: `fct_trip` (trip count, billable trip count, billable revenue per ADR 0003, fare residual summed) and `fct_shift` (shift count, online hours, occupancy rate from summed numerators and denominators, revenue per online hour per ADR 0010). Measurable tip rate and the mart-level aggregates are left out | user answer |
+| Semantic model | Included: the canonical Ossie model in `logical-model/`, authored under the `semantic-model` skill and validated by `validating-semantic-model`, beside the business ontology in `ontology/`. Consumer formats export from the canonical model on the fly and are never committed. Two stars: `fct_trip` (trip count, billable trip count, billable revenue per ADR 0003, fare residual summed) and `fct_shift` (shift count, online hours, occupancy rate from summed numerators and denominators, revenue per online hour per ADR 0010). Measurable tip rate and the mart-level aggregates are left out | user answer |
 | Docs conformance | `CONTEXT.md`, ADRs and design records are updated to the plugin templates | user answer |
 | Second deliverable | After the repo is built, reverse-engineer a list of skill changes, with a focus on what `init` must do for greenfield and brownfield setup so the other skills work efficiently | user answer |
 | Order of work | Brainstorm and capture decisions, then define the plan, then build the repo, then derive the skill-change list | user answer |
-| Semantic model / time spine | Not created | recommended, not yet confirmed |
 
 ## Out of scope
 
@@ -139,10 +138,10 @@ Checked on a clean clone of the branch on 2026-10-14. `python3 orchestration/run
 | R-08, R-09 | `git check-ignore` confirms `**/secrets.toml`, `.agents_tmp/`, `*.log`, `target/`, `logs/`; profile uses `env_var('DBT_PROFILE_NAME', ...)` and `dbt parse` passes |
 | R-10, R-12, R-22 | three pipelines run from a clean clone; second runs leave counts unchanged; `int_trips_conformed` equals the replaced silver (9,722,362 rows, identical key set); `run_all.py` runs end to end |
 | R-11 | `skill-changes.md`: 45 table rows, every skill covered, every quoted path exists |
-| R-13 | all 82 rows of `conventions-inventory.md` have a Decision |
+| R-13 | every row of `conventions-inventory.md` has a Decision |
 | R-16 | 0 dangling `ADR NNNN` citations; ADR and design-record links agree both ways; `adr_lint.py` clean |
 | R-18 | three `intents/*/requirement.md`; every path, model and test they name exists; approvals marked reconstructed |
 | R-19 | `README.md`, `AGENTS.md`, `CONTRIBUTING.md` updated; no reference to the removed scripts; relative links resolve |
-| R-21 | `dbt parse` passes with 2 semantic models and 10 metrics (eight agreed plus two helper metrics MetricFlow ratios need) |
+| R-21 | the canonical model is gated by `ossie.py validate`, `coverage`, `suppliers`, `notes` and `generate-tests --check` over `logical-model/`, all exit 0 |
 
 Not met: none. Deferred: column-level descriptions and `access:`/`contract:` on gold models were not audited against the plugin's `generating-dbt-model` rules.

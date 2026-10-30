@@ -6,9 +6,10 @@ source systems: a fleet operator's dispatch and telematics platform, and a
 master-data platform.
 
 The project exercises joins, sessionization, Type 2 dimensions, quality rules,
-aggregate design and a semantic layer, without pretending that generated
-driver, vehicle, garage or weather data is real. A copy of this domain is also
-published at <https://github.com/vibedata-showcase/nyc-taxi-duckdb>.
+aggregate design, a canonical semantic model and a business ontology, without
+pretending that generated driver, vehicle, garage or weather data is real. A
+copy of this domain is also published at
+<https://github.com/vibedata-showcase/nyc-taxi-duckdb>.
 
 It is built as a model answer for a data product worked on by Vibedata agents:
 conventions live in `AGENTS.md` and `.agents/skills/`, locations in
@@ -40,8 +41,14 @@ TLC site ──► ingestion/tlc_pipeline.py ──► bronze ──────
                        dbt: staging → intermediate → marts (core, agg, finance, ops)
                                                                 │
                                                                 ▼
-                                       canonical semantic model and dbt docs
+                              Ossie canonical model (logical-model/) and ontology,
+                              the hand-authored semantic source of truth,
+                              plus dbt docs
 ```
+
+The semantic model and the ontology are Apache Ossie documents in
+`logical-model/` and `ontology/`; consumer formats export from them on the fly
+and are never committed.
 
 `orchestration/run_all.py` runs ingestion, then `dbt build`. `domain.duckdb`,
 downloaded data and dbt artifacts are ignored by Git; a full rebuild is
@@ -52,6 +59,8 @@ reproducible from the code and the public TLC files.
 - `ingestion/`: one dlt pipeline per source, their source code, resource docs and `.dlt/config.toml`.
 - `orchestration/`: `run_ingest.py`, `run_transform.py` and `run_all.py`.
 - `transformation/`: the dbt project (staging, intermediate, marts, seeds, macros, tests).
+- `logical-model/`: the canonical semantic model, Apache Ossie: the source of truth for datasets, relationships and metrics. Consumer formats export from it on the fly and are never committed.
+- `ontology/`: the business ontology, and one mapping per canonical document linking its concepts to that model.
 - `tests/`: pytest tests for ingestion, orchestration and the two maps.
 - `tools/dq.py`: local profiling and join-evidence utility.
 - `repo-map.json` and `test-map.json`: where things are, and which tests protect them.
@@ -123,7 +132,7 @@ The project is organised as:
 
 - **staging**: views, one per source table, renamed and typed.
 - **intermediate**: conformed trip, status, occupancy, fare and quality logic.
-- **core marts**: dimensions, bridges and facts, plus the semantic model.
+- **core marts**: dimensions, bridges and facts; the semantic model over them is in `logical-model/`.
 - **aggregates**: driver, vehicle, zone, OD, weather and occupancy summaries.
 - **finance marts**: daily revenue, monthly summaries and revenue bridges.
 - **operations marts**: driver, vehicle and trip-quality scorecards.

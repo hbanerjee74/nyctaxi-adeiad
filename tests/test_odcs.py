@@ -1198,7 +1198,7 @@ def test_reverse_drafts_the_boundary_and_nothing_else(tmp_path):
         ("core", "a_model"): [("amount", "DOUBLE", True)],
         ("staging", "stg_a"): [("amount", "DOUBLE", True)],
         ("seeds", "band"): [("band_order", "BIGINT", True)],
-        ("main", "metricflow_time_spine"): [("date_day", "DATE", True)],
+        ("main", "stray_relation"): [("day", "DATE", True)],
     })
 
     diags = _reversed(tmp_path)

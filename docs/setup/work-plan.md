@@ -188,25 +188,16 @@
 - [ ] **Step 2: Run `dbt test --select test_type:unit`;** expect PASS after any fixture fixes; separately `dbt test --exclude test_type:unit` also passes.
 - [ ] **Step 3: Commit** `test: unit tests for logic-heavy models`.
 
-### Task 11: Semantic model
+### Task 11: Semantic model (superseded)
 
-**Files:**
-- Create: `transformation/models/marts/core/_semantic.yml`, `transformation/models/metricflow_time_spine.sql`, `transformation/models/metricflow_time_spine.yml`
-- Modify: the design records for `fct_trip` and `fct_shift` (a `## Semantic Model` section, written in Task 14)
-
-**Interfaces:** Semantic models `trips` (on `fct_trip`) and `shifts` (on `fct_shift`) with metrics `trip_count`, `billable_trip_count`, `billable_revenue`, `fare_residual_total`, `shift_count`, `online_hours`, `occupancy_rate` (ratio of summed numerator and denominator), `revenue_per_online_hour`. Spec chosen by `dbt --version`; time spine from `_shared/platforms/duckdb_local/templates/metricflow_time_spine.sql` unchanged.
-
-- [ ] **Step 1: Run `dbt --version`** and record the spec chosen.
-- [ ] **Step 2: Write the YAML and copy the time spine;** every measure points at an existing gold column.
-- [ ] **Step 3: Verify:** `cd transformation && dbt parse` exits 0; `dbt ls --resource-type metric` lists all eight.
-- [ ] **Step 4: Commit** `feat: semantic model`.
+The dbt Semantic Layer YAML and its time spine this task specified are retired (VD-7139). The canonical semantic model is `logical-model/`, authored under the `semantic-model` skill and validated by `validating-semantic-model`; it is not a dbt build artifact, and no consumer format is committed.
 
 ### Task 12: Repo map and test map
 
 **Files:**
 - Create: `repo-map.json`, `test-map.json`, `tests/test_maps.py`
 
-**Interfaces:** `repo-map.json` is the sketch in `repo-map-design.md`, completed with `modules`, `key_directories`, `entrypoints` (the three `orchestration/` scripts), `commands`, `key_references`, `notes_for_agents`. `test-map.json` maps `ingestion`, `orchestration`, `staging`, `intermediate`, `core`, `agg`, `finance`, `ops` and `semantic` to `{command, paths, singular_tests}`.
+**Interfaces:** `repo-map.json` is the sketch in `repo-map-design.md`, completed with `modules`, `key_directories`, `entrypoints` (the three `orchestration/` scripts), `commands`, `key_references`, `notes_for_agents`. `test-map.json` maps `ingestion`, `orchestration`, `staging`, `intermediate`, `core`, `agg`, `finance` and `ops` to `{command, paths, singular_tests}`.
 
 - [ ] **Step 1: Write `tests/test_maps.py`:** `test_repo_map_paths_exist` (every path in `layers`, `artifact_paths` without placeholders, `entrypoints`, `key_directories` exists); `test_test_map_selectors_resolve` (each `dbt` selector returns at least one node via `dbt ls`); `test_repo_map_validates` against `~/src/studio/.claude/repo-map.schema.json` extended with the added fields.
 - [ ] **Step 2: Run; expect FAIL.** Write both files; run; expect PASS.
@@ -281,6 +272,6 @@
 
 ## Self-review notes
 
-- **Coverage:** R-01 Task 14; R-02 Task 14; R-03 Task 14; R-04 Task 3; R-05 Task 3; R-06 Task 12; R-07 Task 13; R-08 and R-09 Task 2; R-10 Tasks 4 to 6, 9; R-11 Task 17; R-12 Task 8; R-13 recorded in `conventions-inventory.md`; R-14 Task 14; R-15 Task 14; R-16 Task 14; R-17 Task 3; R-18 Task 16; R-19 Task 15; R-20 Tasks 10, 12; R-21 Task 11; R-22 Task 7; R-23 Tasks 4 to 7, 12.
+- **Coverage:** R-01 Task 14; R-02 Task 14; R-03 Task 14; R-04 Task 3; R-05 Task 3; R-06 Task 12; R-07 Task 13; R-08 and R-09 Task 2; R-10 Tasks 4 to 6, 9; R-11 Task 17; R-12 Task 8; R-13 recorded in `conventions-inventory.md`; R-14 Task 14; R-15 Task 14; R-16 Task 14; R-17 Task 3; R-18 Task 16; R-19 Task 15; R-20 Tasks 10, 12; R-21 Task 11 (superseded; the canonical model is authored in `logical-model/` under VD-7282); R-22 Task 7; R-23 Tasks 4 to 7, 12.
 - **Interpretation to confirm:** requirements say `ops` is a transformer "in the same pipeline run" as TLC, while the repo-map lists three pipelines. This plan keeps three pipelines: `ops` re-reads the TLC trips as a hidden parent that is never written, so no data lands twice.
 - **`replace` write disposition** on every resource is chosen because each run reloads the full fixed 3-month window; recorded as a `D-NN` per resource.
