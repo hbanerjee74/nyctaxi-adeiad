@@ -7,6 +7,7 @@ import dlt
 from contracts import COLUMNS
 from sources.ops import ops_source
 from sources.tlc import trip_tables
+from vibedata.dlt.core import dataset
 from vibedata.dlt.duckdb import finalize, setup_environment
 
 # CONNECTION_NAME: the dlt source section [sources.<name>] in .dlt/config.toml.
@@ -33,7 +34,7 @@ def main():
     pipeline = dlt.pipeline(
         pipeline_name=PIPELINE_NAME,
         destination="duckdb",
-        dataset_name="ops_raw",
+        dataset_name=dataset("ops_raw"),
     )
 
     # The operator's records are derived from the yellow trips. They are read in memory

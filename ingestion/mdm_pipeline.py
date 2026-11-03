@@ -7,6 +7,7 @@ import dlt
 from contracts import COLUMNS
 from sources.mdm import mdm_source
 from sources.tlc import zone_rows
+from vibedata.dlt.core import dataset
 from vibedata.dlt.duckdb import finalize, setup_environment
 
 # CONNECTION_NAME: the dlt source section [sources.<name>] in .dlt/config.toml.
@@ -33,7 +34,7 @@ def main():
     pipeline = dlt.pipeline(
         pipeline_name=PIPELINE_NAME,
         destination="duckdb",
-        dataset_name="mdm_raw",
+        dataset_name=dataset("mdm_raw"),
     )
 
     source = mdm_source.clone(name=CONNECTION_NAME, section=CONNECTION_NAME)(zone_lookup=zone_rows)
