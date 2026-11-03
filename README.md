@@ -7,9 +7,10 @@ master-data platform.
 
 The project exercises joins, sessionization, Type 2 dimensions, quality rules,
 aggregate design, a canonical semantic model and a business ontology, without
-pretending that generated driver, vehicle, garage or weather data is real. A
-copy of this domain is also published at
-<https://github.com/vibedata-showcase/nyc-taxi-duckdb>.
+pretending that generated driver, vehicle, garage or weather data is real. Ports
+of this domain run on Databricks
+(<https://github.com/vibedata-showcase/nyc-taxi-databricks>) and Microsoft Fabric
+(<https://github.com/vibedata-showcase/nyc-taxi-fabric>).
 
 It is built as a model answer for a data product worked on by Vibedata agents:
 conventions live in `AGENTS.md` and `.agents/skills/`, locations in
