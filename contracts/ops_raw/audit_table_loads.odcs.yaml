@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: ae4bfb8f-bd02-5404-870c-2db94b9a2e34
 name: audit_table_loads
-version: 1.0.2
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,10 +16,14 @@ schema:
         description: "dlt load identifier of the run; joins to audit_runs.load_id."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
+        primaryKeyPosition: 1
       - name: table_name
         description: "Table the load wrote."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
+        primaryKeyPosition: 2
       - name: rows_extracted
         description: "Rows the extract stage produced for the table."
         logicalType: integer

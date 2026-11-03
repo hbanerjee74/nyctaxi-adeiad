@@ -310,16 +310,16 @@ def declared_relations(root: Path, repo_map: dict) -> dict[tuple[str, str], str]
 
 
 def _unknown_gold_layers(repo_map: dict) -> list[dict]:
-    """A legacy `gold_layers` entry that names no layer declares no boundary; say so."""
+    """A legacy `gold_layers` entry that names no layer declares no boundary; warn, so a stale entry never fails an existing Domain."""
     named = repo_map.get("gold_layers")
     if named is None:
         return []
     if not isinstance(named, list):
-        return [_diag("error", "map/gold-layers",
+        return [_diag("warning", "map/gold-layers",
                       "repo-map.json `gold_layers` is not a list of layer names")]
     layers = repo_map.get("layers") or {}
     return [
-        _diag("error", "map/gold-layers",
+        _diag("warning", "map/gold-layers",
               f"repo-map.json `gold_layers` names `{name}`, which `layers` does not declare")
         for name in named
         if name not in layers

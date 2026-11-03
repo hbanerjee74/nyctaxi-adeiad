@@ -1,150 +1,88 @@
 ---
 name: data-contract
-description: "Use when a relation or a column a consumer reads is added, changed or removed; when a column needs a quality rule, a grain, or the target it references; when a published shape, type or rule changes under a consumer; or when adopting an existing repo into data contracts. Not for building the dbt model or the pipeline that produces the relation."
+description: "Use when a relation on the Domain's data boundary (an input or boundary relation) is added, changed or removed, when a column a consumer reads needs a type, quality rule, grain or reference stated, when a published shape changes under a consumer, or when adopting an existing repo into ODCS data contracts. Do not use to build the dbt model or pipeline that produces the relation (use generating-dbt-model or generating-dlt-pipeline) or to review a contract (use validating-data-contract)."
+user-invocable: false
 ---
 
-# Data contracts
+# Data Contract
 
-A data contract is the promise a consumer reads: what the relation is, what one row of it means, what each property holds, and what must be true of it. The contract is **authored**. The keys that make dbt and dlt enforce it are **generated** from the contract, and a hand edit there is a second, silent source of truth. This skill keeps the two halves apart.
+Leaves one current ODCS `v3.2.0` contract per boundary relation, the dbt and dlt keys generated from it on contracted relations, and every doubt it could not settle in the review queue. A contract is the promise a consumer reads; it is authored, and the keys that make dbt and dlt enforce it are derived from a contract by `generate`, never hand-written.
 
-Every location comes from `repo-map.json`: `artifact_paths.data_contract` places the contracts, `artifact_paths.review` the queue of doubts, `artifact_paths.logical_model` the Ossie documents, and each layer's `path` the relations it builds. `odcs.py` beside this skill is the tool; run it from the repo root. Its `check` proves shape and agreement, never meaning.
+`SKILL_DIR` in the commands below is `SKILL_DIR=<this skill's directory>`; substitute it, the runtime does not expand it. Every command runs from the Domain's repository root and prints JSON on stdout, exiting 0 when it finds nothing to fix (warnings allowed) and 1 otherwise.
 
-Two orders, and never the other way round:
+## Process
 
-- **Changing a relation:** profile it and the column, decide the contract, `generate`, then the SQL or pipeline, then the build.
-- **Adopting an existing repo:** rebuild with `--full-refresh`, `reverse` once, take its findings into the review, triage them, `generate`, `check`.
+1. Read `CONTEXT.md`, then resolve from the Domain's `repo-map.json` the contract path (`artifact_paths.data_contract`, default `contracts/{schema}/{table}.odcs.yaml`), the review queue (`artifact_paths.review`), the Ossie documents (`artifact_paths.logical_model`), and the boundary:
+
+   | Relation | Owes a contract |
+   | --- | --- |
+   | A relation in a layer with role `input` (a resource a dlt source in `sources` loads) | Yes |
+   | A relation in a layer with role `boundary` (declared in `layers.<name>.role`, or derived: `built_by: dlt` → `input`; else named in `gold_layers` → `boundary`; else `internal`) | Yes |
+   | A relation in a layer with role `internal` | No; one written anyway is checked like any other |
+   | Any relation of a layer named in `contract_layers` | Yes, and when the map declares `contract_layers` it replaces the `input` and `boundary` rows |
+   | A relation listed in `semantic_exclusions` | Still owes its contract; a boundary relation outside the semantic layer reports `boundary/excluded` (info) rather than `boundary/undeclared` |
+
+   An input contract describes the landed input relation. Dropping or renaming source columns downstream is the developer's choice; dropping a column the contract promised is breaking.
+
+2. Run `python3 "$SKILL_DIR/scripts/odcs.py" version`. When it fails on a missing module, run `python3 -m pip install -r "$SKILL_DIR/scripts/requirements.txt"` once and retry; halt and report the error if it still fails.
+3. Read `references/authoring-rules.md`, then take the path the change needs.
+
+   | The change | Path |
+   | --- | --- |
+   | A boundary relation or column is added, changed or removed | Step 4 |
+   | An existing repo adopts contracts | Step 5, then step 6 |
+
+4. Decide the contract before the SQL or pipeline, where it is the boundary: profile the relation and the column, then edit the contract — property, promise, key, and the version the change needs — and only then change the dbt model or pipeline. A contract written before its table exists carries `status: proposed`: `check` shape-checks it but skips the orphan, no-document, boundary-agreement and `--relations` checks, `generate` writes no dbt enforcement keys for it (a proposed dlt input still gets its `COLUMNS` hints, so write the input contract as proposed, `generate`, run the pipeline, then set it `active`), and `profile` skips it; once the table exists set it `active`, then run them before commit. `check` warns `contract/active-unbuilt` when an `active` dbt contract has no successful build in `target/run_results.json`. A relation removed takes its contract with it in the same change, and a boundary dbt model change updates the Ossie documents, its ontology mapping and the contract in one change.
+5. `reverse` is how an existing table gets its contract; adopt in this order, once. Rebuild the warehouse with `--full-refresh`, then run `python3 "$SKILL_DIR/scripts/odcs.py" reverse` while the existing dbt tests still carry the rules: it drafts one contract per boundary relation from the built warehouse, the Ossie documents and those tests, and returns a `finding/*` warning for every doubt. Write the findings into the review queue in the order `reverse` returns them, boundary first, then inputs, each as relation and property → evidence → question; triage each answer into the contract as a description, a rule, a relationship or a stated "no rule, because …", and leave a question nobody can answer open in the queue. Plain `reverse` never touches an existing contract (`contract/exists`), so a Domain that has contracts never runs it again; `--force` rewrites every authored contract.
+6. Write the enforcement keys (`data_type`, tests, `contract`, and the dbt `description`) with `python3 "$SKILL_DIR/scripts/odcs.py" generate`, never by hand, then run the static gates and require exit 0 from the chain, where `<base-ref>` is the integration target the change merges into:
+
+   ```bash
+   SKILL_DIR="<this skill's directory>" && python3 "$SKILL_DIR/scripts/odcs.py" check && python3 "$SKILL_DIR/scripts/odcs.py" diff <base-ref>
+   ```
+
+   `generate` refuses and writes nothing when a contract cannot ground a key; fix the contract and re-run. `diff` fails `diff/version-not-bumped` when the version moved less than the change needs.
+   On a Domain upgraded from an earlier plugin: (a) the first `generate` writes dbt `description`s from the Ossie fields and contracts, replacing hand-written text except `{{ doc() }}` pointers and columns neither names, so move any nuance into the Ossie document or contract first; (b) until then `check` reports `generated/stale`; (c) diagnostic codes `gold/*` became `boundary/*` and `map/no-gold-layers` became `map/no-boundary-layers`, so update any Domain tooling that matches them; a layer with no `role` keeps today's boundary.
+7. After the build, run the dynamic gates for each boundary relation the change touched and require exit 0. They read the Intent's sandbox when its platform keeps one local database file, or the file `--catalog <path>` names; otherwise they refuse (`catalog/missing`, `<command>/unsupported-platform`) rather than pass, and `check --relations --catalog <catalog.json>` compares against dbt's catalog from `dbt docs generate` instead.
+
+   ```bash
+   SKILL_DIR="<this skill's directory>" && python3 "$SKILL_DIR/scripts/odcs.py" check --relations && python3 "$SKILL_DIR/scripts/odcs.py" profile --relation <schema>.<table>
+   ```
+
+   A `profile` error means the data contradicts a claim — a repeating primary key, a null in a `required` property, a value outside an `invalidValues` set. Fix the claim or the data; never weaken the claim to clear the run without a review finding that says why.
+8. Write each doubt you cannot settle from the data or the business into the review queue as a finding, never as contract prose or a chat question. `check`'s warnings (`contract/no-grain` when a non-star contract has no `primaryKey` and no grain statement, `contract/no-document`) are facts; the finding is the question behind one, and a warning the queue already owns is not a second finding.
+9. Load `validating-data-contract` for the review before commit, then commit the contracts and the generated keys together, in the change that moved them, and record each gate command with its exit code where the current task keeps its evidence.
+
+`python3 "$SKILL_DIR/scripts/odcs.py" results <run_results.json>` maps a dbt run's test results to the contract assertions they enforce, one JSON record per line (contract id and version, relation, property, rule, status, failures, time), reading the `manifest.json` beside it unless `--manifest` names one. It stores nothing; the caller keeps the records.
 
 ## Quick reference
 
 | Question | Answer |
 | --- | --- |
-| Where does a column's promise go? | The contract's `properties[]`; then `generate` writes the keys the build reads |
-| May I write `data_type`, `data_tests`, `contract.enforced` or a dlt hint? | No. `generate` owns them, and `check` cannot tell a hand-written key from a generated one when the value happens to match |
-| I added a property. Which version? | Minor. Removed or renamed property, changed type or grain, withdrawn rule, or `required` newly refusing a value a consumer receives: major. Description only: patch |
-| Where does a quality rule go? | `quality` on the property, in the standard's library shape; `generate` renders the dbt test |
-| A rule no dbt test can express? | Declare it in `quality` and say in the rule's `description` that the build does not enforce it. Never hand-write the test beside it |
+| Does a relation in an `internal` layer need a contract? | No, unless the map's `contract_layers` names its layer |
+| May I write `data_type`, `data_tests`, `contract.enforced` or a dlt column hint? | Not on a contracted relation: `generate` owns them. A dbt model with no contract may carry dbt-native `contract.enforced` by hand, with hand-written `data_type` on every column |
+| Which version? | Added: minor. Removed, renamed, retyped, re-keyed, re-grained, a rule withdrawn, `required` turned: major. Prose: patch. `diff` enforces it |
+| A rule no dbt test can express? | Declare it in `quality` and say in its `description` that the build does not enforce it |
 | Which `logicalType`? | The Ossie document's, where it declares the field; the physical type's otherwise |
 | The Ossie document does not declare the column — do I add it? | No. The document is curated; the contract carries every column regardless |
-| Is this `_dlt_*` column mine? | Not on a relation the loader creates. Yes on one a dbt model selects it through |
-| No grain statement available? | Omit it; `check` warns and the review queues it. Never invent the sentence |
-| Who writes the dbt `description`? | `generate`: from the Ossie field on a star member (a relation an Ossie dataset names) and from the contract elsewhere. A `{{ doc(...) }}` pointer is left alone, and a column neither names keeps a hand-written one |
-| The only description is `{{ doc(...) }}`? | Omit it from the contract. A pointer is not prose |
-| Which type string? | `physicalType` on every property: the built relation's own type, or the profiled expression's before the column exists. Never a normalized type |
-| A type the mapper does not know? | A refusal, not a guess. Report it |
-| Nothing to say in a section? | Omit the key. The gate catches an empty root section and a relation's `quality`, never a property's |
-| Where does an unsettled doubt go? | The review artifact at `artifact_paths.review`, as a question |
-| May I run `reverse` to refresh the contracts? | Not on a repo that has contracts. Plain `reverse` skips them; `--force` replaces them |
-| What comes before `reverse`? | A full refresh of the warehouse |
-| What comes before commit? | `generate`, then `check`, exit 0 with only the warnings the review already owns |
-
-## The contract is authored; the keys are generated
-
-**Authored:** the document itself — `version`, `status`, `schema[].name`, `dataGranularityDescription`, and each property's `name`, `logicalType`, `physicalType`, `required`, `primaryKey`, `description`, `quality` and `relationships`.
-
-**Generated:** the relation entry's `contract: {enforced: true}`, every `data_type` and `data_tests` under it, the dbt `description` where an Ossie field or the contract supplies one (a `{{ doc(...) }}` pointer is never overwritten), the column hints for a relation dlt loads, and the tests for a relation dbt loads from a CSV.
-
-`generate` finds the properties file that already names the relation and writes its keys there, or creates the one it owns. It writes nothing it cannot ground: a property with no `physicalType`, a relationship naming no `<relation>.<column>`, a `servers[].schema` that disagrees with the map — the run refuses, writes no file at all, and exits 1. Fix the contract, run it again.
-
-`check` then compares what `generate` would write with what is on disk (`generated/stale`). That is a comparison of values, and it is why a hand-written `data_type` that happens to be correct passes. Only running `generate` proves the key was generated.
-
-## A new property is a decision about the promise
-
-The column is the smallest part of it. Decide these in order:
-
-1. **What it holds.** `physicalType` from the built relation — or, before the column exists, from the profiled expression; `logicalType` as the next section says; `required` only when null is impossible or forbidden.
-2. **What it promises.** A `description` a consumer can act on; a `quality` rule, or the stated reason there is none; a `relationships` entry where it points into another relation. `required: true` declares that a null is not allowed but renders no test: when a null must fail the build, add `nullValues` `mustBe: 0` too.
-3. **Whether the grain moved.** A new relation needs `dataGranularityDescription`. A new column on an existing one leaves the grain alone unless it changes what one row is.
-4. **The version.** A property added, a rule added, a relationship declared: minor. A property removed or renamed, a `logicalType` or `physicalType` changed, the grain changed, a rule withdrawn, or `required` newly disallowing a value a consumer may already receive: major. A description or `authoritativeDefinitions` edit: patch. `1.0.0` is a version, not a placeholder; a `1.0.0` contract that gains a column becomes `1.1.0`.
-
-This is the whole forward path for one property:
-
-```yaml
-version: 1.1.0                    # 1.0.0 -> 1.1.0: a property added, no consumer query breaks
-schema:
-  - name: <relation>
-    properties:
-      - name: <property>
-        logicalType: boolean      # the Ossie document's datatype where it declares the field
-        physicalType: BOOLEAN     # the expression's profiled type; the build proves it
-        description: <what true means to a consumer>
-        quality:
-          - type: library
-            metric: nullValues
-            mustBe: 0
-```
-
-`generate` then adds `contract: {enforced: true}` to the relation, and `data_type: BOOLEAN` and `data_tests: [not_null]` to the property. Those keys are never written by hand; the version is. The property ships in the build that carries it, with the contract enforced.
-
-A new relation, in a repo that already has contracts, is the same path from a sibling's document: copy its `apiVersion` and `kind`, give it its own `id` and `version: 1.0.0`, and change every place it names the relation — `name`, `schema[].name`, `servers[].schema`.
-
-## `quality` is the rule; the dbt test is its rendering
-
-A rule is `{type: library, metric, mustBe}`. `generate` renders three library metrics as dbt tests, and a property's `relationships` entry as a `relationships` test: `nullValues` with `mustBe: 0` to `not_null`, `duplicateValues` with `mustBe: 0` to `unique`, and `invalidValues` with `mustBe: 0` and `arguments.valid_values` to `accepted_values`. Any other metric or operator, and any `text`, `sql` or `custom` rule, states a promise the build does not enforce: keep it when it is the honest statement of the rule, and say so in the rule's own `description`. Never write the dbt test beside it, and never let a rule live only as a hand-written test.
-
-`primaryKey` and `required` are declarations too, and neither renders a test. A key that must be unique and never null carries both rules. Both are promises, so either one moves the version.
-
-## The Ossie document owns the logical type, not the column set
-
-On a relation an Ossie document names (a star member), the contract is a projection of that document, not a second opinion. Every field the document declares must appear — a missing one fails `check`; `logicalType` is the document's `datatype` under the standard's mapping; `DateTimeTz` carries `logicalTypeOptions: {timezone: true}` and `DateTime` carries none; a field in the document's `primary_key` sets `primaryKey: true`. A disagreement on any of those fails `check` too.
-
-A property the document does not declare is the contract's business. State its type and promise there and leave the Ossie document alone: it is a curated subset for consumers of the semantic layer, and a relation column does not enlarge it. **REQUIRED SUB-SKILL:** Use `semantic-model` when the field's meaning has to enter the Ossie document; the contract does not make that decision, and when the document changes the two artifacts change in one commit.
-
-## What the loader adds is not the relation's shape
-
-A relation dlt creates owns its own bookkeeping. A `_dlt_*` column is added by the loader to the table, not yielded by the resource, so the contract does not declare it; `check` fails `contract/loader-column` when one appears. The exception is a dbt model that selects such a column through: its contract is enforced, so every output column must be declared, and dropping the property to satisfy the loader rule breaks the build. Read which one the relation is from the map's layer, never from the column name.
-
-## Prose, grain and type are never invented
-
-**Prose is authored or absent.** On a star member the Ossie field is the one authored description and the contract carries none; elsewhere the contract's `description` is it, and `check` warns `contract/undescribed` for a property of a boundary relation with none. A description says what a consumer needs; a `{{ doc(...) }}` reference is a dbt parse-time pointer and is omitted rather than copied. A templated grain states no grain.
-
-**The grain is one sentence about a row.** It lives in `dataGranularityDescription` and comes from a description that already states it — a blurb that describes the relation without saying what one row is does not. When none exists, omit it: `check` warns `contract/no-grain` and the review carries the question. An invented sentence is worse than the warning, because nothing downstream can tell it is wrong.
-
-**`physicalType` on every property, verbatim.** It is the warehouse's type string, never a normalized one: `generate` writes the dbt `data_type` from it and maps it to a dlt column type. Read it from the built relation where the column exists. A property the change adds has no column to read yet, and `generate` needs the type before the build, so profile the expression — `typeof`, `DESCRIBE`, or the type the query returns against the warehouse — and author that; the enforced contract proves it at the build. Never build first to read the type, because that inverts the authored-first order this skill enforces. A property without one, or a type the mapper does not know, is a refusal (`contract/unmapped-type`); the nearest known type is a lie the build will enforce.
-
-## Absence is the only honest no promise
-
-An empty `servers`, `tags` or `authoritativeDefinitions`, or an empty `quality` on a relation entry, claims a promise nobody made, and `check` fails `contract/empty-section`. A property-level `quality: []` passes both the schema and `check`: nothing catches it, so it is the author's own omission to avoid. Omit the key in every case. The same holds for a rule you cannot state: leaving `quality` off says "no rule", while an empty list says "a rule I did not write".
-
-## Adopting an existing repo
-
-1. **Rebuild first.** Run the map's build command with `--full-refresh`. An incremental build can leave a relation ahead of the ones it reads, and `reverse` would then record a shape the models do not produce.
-2. **`reverse` once.** It reads the built relations, the Ossie documents and the existing dbt tests, drafts one contract per relation, and returns a `finding/*` for every doubt it could not settle. Run it while the existing tests still carry the rules: they are where a drafted `quality` comes from, and a reverse after they are deleted drafts none. No warehouse is a refusal (`catalog/missing`), never a skip.
-3. **Take the findings into the review.** Write the artifact the map places, grouped as `reverse` groups them; each finding names the relation and property, the evidence already gathered, and the question. They are questions, not defects.
-4. **Triage into the contracts.** Every answer lands as a description, a `quality` rule, a `relationships` entry, or a stated "no rule, because …". A question nobody can answer stays open in the review; it does not become prose in the contract.
-5. **`generate`, then `check`.** The first writes every key from the triaged contracts; the second proves the set is complete and consistent.
-
-**`reverse` is a one-time draft, never a refresh.** Plain `reverse` leaves every existing contract alone and reports `contract/exists`; `--force` replaces them all, including versions and descriptions a review authored. So a repo that has contracts does not run it again. A relation added later is authored from a sibling's shape and generated.
-
-## The published standard outranks the schema
-
-The standard is the authority; the vendored JSON schema is a checker pinned to a version. Where they disagree, write the standard's form and treat the schema as the defect to fix — never the non-standard form because the checker accepts it.
-
-Do not assume the schema is silent either. It is closed on root keys, and it constrains `logicalTypeOptions` per logical type: a timestamp accepts `timezone`, not `timeZone`; a string accepts `maxLength`, not `length`. Read the `$defs` before writing a key you half-remember, and keep no second allow-list in this skill.
-
-## A doubt is a review finding
-
-A doubt you cannot settle from the data or the business is a finding: not contract prose, and not a question left in chat. Open the review artifact the map places and add it in that artifact's shape — the relation and property, the doubt, the question that would settle it, and the evidence already gathered. Two questions that belong there: whether a value that reads as one state is that state, and whether a null is a real state or a defect. A question nobody can answer from data or business is not a finding; settle the scope first.
-
-`check`'s warnings are facts, not findings. `contract/no-grain` and `contract/no-document` say the contract is incomplete; the finding is the question behind the warning. A warning the review already owns is not a new finding.
+| A star member (a relation an Ossie dataset names)? | No grain text and no column descriptions: the Ossie dataset and fields own them. `primaryKey` states the grain |
+| Who writes the dbt `description`? | `generate`, from the Ossie field on a star member and from the contract elsewhere; a `{{ doc() }}` pointer is left alone; a column neither names keeps a hand-written one |
+| Nothing to say in a section? | Omit the key |
+| No warehouse for `profile`? | Report the gate as unrun with its refusal code; never as passing |
 
 ## Common mistakes
 
 - A contract edited to match a hand-edited properties file. `generate` writes the properties from the contract, never the reverse.
-- `required: true` or `primaryKey: true` read as enforcement. Only a `quality` rule renders a test.
-- A threshold or a `sql` rule declared in `quality` and assumed to be tested. Three metrics render; the rest are prose.
-- A field added to the Ossie document so a contract property can resolve. The Ossie document is curated; the contract is not.
+- `required: true` or `primaryKey: true` treated as a promise `generate` does not keep. `generate` renders `required` as `not_null` and a one-column `primaryKey` as `unique`; `profile` tests the data against the declaration.
+- A field added to an Ossie document so a contract property can resolve.
 - A `_dlt_*` property dropped from a dbt model's contract to satisfy the loader-column rule. The enforced contract then rejects the output column.
-- A relation shipped with no contract. `check` fails `contract/missing` for every relation the map declares.
-- A relation deleted while its contract stays. `check` fails `contract/orphan`; the contract goes in the same change as the relation.
+- A boundary relation shipped with no contract (`contract/missing`), or a relation deleted while its contract stays (`contract/orphan`).
 - `reverse --force` run to draft one new relation. It rewrites every authored contract.
-- A description left as `{{ doc(...) }}`, or a grain invented to clear the warning.
 
 ## Red flags — stop and re-check
 
-- "`data_type` has to land in the same commit as the SQL, so I'll write it." Run `generate`; it writes it.
-- "The column is missing from the contract, so the contract is stale; append the property." A property appended is a shape copied, not a promise made.
-- "Every contract is `1.0.0`, so there is no bump rule." This skill is the rule.
-- "I didn't invent a test to match a coincidence." Right refusal, wrong question: the contract still says whether a null is allowed and what the column promises.
-- "The Ossie document is curated, so I won't map the column." Right for the Ossie document, and the contract still carries it.
-- "`check` is green." It compares values; it cannot see a generated key written by hand.
-- "I'll ask about the version, the Ossie document scope and the null semantics." Two are answered here; the one that is not is a review finding, not a chat question.
+- "`data_type` has to land in the same commit as the SQL, so I'll write it." Run `generate`.
+- "The column is missing from the contract, so append the property." A property appended is a shape copied, not a promise made: decide its promise and its version.
+- "`check` is green." It compares values; it cannot see a generated key written by hand, and it never reads the data.
+- "No warehouse, so `profile` can be skipped." A refusal is reported as a gate that did not run.
+
+All of these mean: the contract is the decision, `generate` writes the keys, and the gates prove both.

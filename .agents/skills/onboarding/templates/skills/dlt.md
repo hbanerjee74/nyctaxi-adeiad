@@ -42,10 +42,18 @@ alternatives: `evolve` throughout.
 
 `columns: freeze`, `tables: evolve` while a pipeline is new then `freeze` once every resource has loaded into a database that persists, `data_type: freeze`. Any other value carries a `# why:` line in the pipeline and a decision in its design record.
 
-## Bronze carries no logic (D8)
+## Column hints come from the contract (D7b)
 <!-- onboarding
 ask: no
-reason: The medallion guardrail: bronze is what the source sent.
+reason: ADR-0225 puts every input relation under contract; the plugin's dlt templates already read the generated hints.
+-->
+
+A pipeline's `columns=` hint is never written by hand. `ingestion/contracts.py` is generated from the input contracts by `odcs.py generate` (`data-contract` skill) and holds `COLUMNS`; a pipeline imports it (`from contracts import COLUMNS`) and passes `columns=COLUMNS[<resource>]` to `apply_hints`, beside `schema_contract`. A resource with no entry raises. A new input resource starts with its contract, `status: proposed`: `generate` writes the hints before the pipeline exists, and the contract becomes `active` once the table has landed.
+
+## An input layer carries no logic (D8)
+<!-- onboarding
+ask: no
+reason: The input-role guardrail: an input relation is what the source sent.
 -->
 
 No transformation, casts, joins or filters in a pipeline. A pipeline loads what the source gives it. Source column names are kept verbatim (`[schema] naming = "direct"`).

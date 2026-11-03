@@ -356,12 +356,6 @@ def test_crossdoc_diverged_scd_fails(tmp_path):
     assert ("crossdoc/diverged", "error") in _codes(diags)
 
 
-def test_standalone_example_validates():
-    example = SKILL_SCRIPTS.parent / "examples" / "standalone.ossie.yaml"
-    code, diags = _run("validate", str(example))
-    assert code == 0, [d for d in diags if d["severity"] == "error"]
-
-
 def test_unmatched_file_in_model_dir_fails(tmp_path):
     _write(tmp_path, _doc())
     (tmp_path / "stray.ossie.yml").write_text("version: '0.2.0.dev0'\nname: x\n")

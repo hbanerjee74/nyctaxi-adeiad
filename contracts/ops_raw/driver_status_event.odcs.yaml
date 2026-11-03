@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 4de99a24-a3a5-5762-9751-040be5789749
 name: driver_status_event
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the status event."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: shift_id
         description: "Identifier of the shift."
         logicalType: string

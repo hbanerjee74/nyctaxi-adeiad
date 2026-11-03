@@ -13,7 +13,9 @@ the declaration into two singular dbt tests and never changes the declaration:
 A versioned dimension (Type 2) is checked on its current rows: those are its members
 as they are now, and a member's past versions may legitimately differ.
 
-Pure functions: input is a list of parsed documents, output is SQL text per file.
+Pure functions: input is a list of parsed documents, output is SQL text per file. The SQL is
+laid out as `sqlfluff fix` lays it out and casts through dbt's `type_string()`, so a Domain's
+sql-lint passes on every dialect and nobody has to reformat a file they may not edit.
 """
 
 import json
@@ -55,11 +57,30 @@ def _literal(text):
     return "'" + text.replace("'", "''") + "'"
 
 
-def _key_sql(columns, alias=None):
+_STRING = "{{ dbt.type_string() }}"
+
+
+def _key_sql(columns, alias=None, indent=0):
+    """The key as one string; a composite key puts each part on its own line, at `indent`."""
     cols = [f"{alias}.{c}" if alias else c for c in columns]
     if len(cols) == 1:
-        return f"cast({cols[0]} as varchar)"
-    return "concat_ws('|', " + ", ".join(f"cast({c} as varchar)" for c in cols) + ")"
+        return f"cast({cols[0]} as {_STRING})"
+    inner = " " * (indent + 4)
+    parts = ",\n".join(inner + part for part in ["'|'", *(f"cast({c} as {_STRING})" for c in cols)])
+    return f"concat_ws(\n{parts}\n{' ' * indent})"
+
+
+def _clause(keyword, expression):
+    """`keyword expression`; a multi-line expression starts on the next line, indented."""
+    return f"{keyword}\n    {expression}" if "\n" in expression else f"{keyword} {expression}"
+
+
+def _grouped(label, columns, rows, distinct=None):
+    """One check over `rows` grouped by `columns`: the groups with more than one row, or with more than one
+    value of the `distinct` columns."""
+    having = f"count(distinct {_key_sql(distinct, indent=4)}) > 1" if distinct else "count(*) > 1"
+    return (f"select\n    {_literal(label)} as finding,\n    {_key_sql(columns, indent=4)} as member_key\n"
+            f"from {rows}\n{_clause('group by', _key_sql(columns, indent=4))}\n{_clause('having', having)}")
 
 
 class _Dimension:
@@ -93,7 +114,7 @@ class _Dimension:
     def rows(self):
         """The rows that are members: current versions for a versioned dimension."""
         if self.row_level.get("versioned") and self.scd.get("is_current"):
-            return f"(select * from {self.relation} where {self.column[self.scd['is_current']]})"
+            return f"(\n    select * from {self.relation}\n    where {self.column[self.scd['is_current']]}\n) as r"
         return self.relation
 
 
@@ -104,39 +125,27 @@ def _dimension_checks(dim):
     level = dim.row_level.get("level")
     current = dim.row_level.get("versioned") and dim.scd.get("is_current")
     if level and (not dim.row_level.get("versioned") or current):
-        pk = _key_sql(dim.columns(dim.primary(level)["fields"]))
+        pk = dim.columns(dim.primary(level)["fields"])
         what = "primary key repeats among current versions" if current else "primary key repeats"
-        keys.append(
-            f"select {_literal(f'{dim.name}.{level}: {what}')} as finding,\n"
-            f"    {pk} as member\n"
-            f"from {rows} as r\ngroup by {pk}\nhaving count(*) > 1")
+        keys.append(_grouped(f"{dim.name}.{level}: {what}", pk, rows))
     for level_name, level in dim.levels.items():
         primary = dim.primary(level_name)
-        p_sql = _key_sql(dim.columns(primary["fields"]))
+        p_cols = dim.columns(primary["fields"])
         for key in level["keys"]:
             if key is primary:
                 continue
-            k_sql = _key_sql(dim.columns(key["fields"]))
+            k_cols = dim.columns(key["fields"])
             several = f"{dim.name}.{level_name}: key {key['name']} names several members"
             values = f"{dim.name}.{level_name}: member has several values of key {key['name']}"
-            keys.append(
-                f"select {_literal(several)} as finding,\n"
-                f"    {k_sql} as member\n"
-                f"from {rows} as r\ngroup by {k_sql}\nhaving count(distinct {p_sql}) > 1")
-            reports.append(
-                f"select {_literal(values)} as finding,\n"
-                f"    {p_sql} as member\n"
-                f"from {rows} as r\ngroup by {p_sql}\nhaving count(distinct {k_sql}) > 1")
+            keys.append(_grouped(several, k_cols, rows, p_cols))
+            reports.append(_grouped(values, p_cols, rows, k_cols))
     for hier in dim.hierarchies:
         names = hier["levels"]
         for parent, child in zip(names, names[1:]):
-            c_sql = _key_sql(dim.columns(dim.primary(child)["fields"]))
-            p_sql = _key_sql(dim.columns(dim.primary(parent)["fields"]))
+            c_cols = dim.columns(dim.primary(child)["fields"])
+            p_cols = dim.columns(dim.primary(parent)["fields"])
             several = f"{dim.name}.{hier['name']}: {child} rolls up to several {parent} members"
-            reports.append(
-                f"select {_literal(several)} as finding,\n"
-                f"    {c_sql} as member\n"
-                f"from {rows} as r\ngroup by {c_sql}\nhaving count(distinct {p_sql}) > 1")
+            reports.append(_grouped(several, c_cols, rows, p_cols))
     return keys, reports
 
 
@@ -169,22 +178,24 @@ def _aggregate_checks(doc, dims, tables):
                     members = "{{ ref('" + tables[base["physical_table"]]["dbt_model"] + "') }}"
                     level_label = "row"
                 key_cols = ref["key_columns"]
-                match = " and ".join(f"d.{m} = a.{k}" for m, k in zip(member_cols, key_cols))
-                present = " and ".join(f"a.{k} is not null" for k in key_cols)
+                joins = [f"d.{m} = a.{k}" for m, k in zip(member_cols, key_cols)]
+                match = (f"where {joins[0]}" if len(joins) == 1
+                         else "where\n            " + "\n            and ".join(joins))
+                present = "\n    and ".join(f"a.{k} is not null" for k in key_cols)
                 role = f"{via} " if via else ""
                 label = f"{dataset['name']}.{src['name']}: {role}{level_label} key is no member"
                 out.append(
-                    f"select distinct {_literal(label)} as finding,\n"
-                    f"    {_key_sql(key_cols, 'a')} as member\n"
+                    f"select distinct\n    {_literal(label)} as finding,\n"
+                    f"    {_key_sql(key_cols, 'a', indent=4)} as member_key\n"
                     f"from {agg} as a\n"
-                    f"where {present}\n"
-                    f"    and not exists (select 1 from {members} as d where {match})")
+                    f"where\n    {present}\n"
+                    f"    and not exists (\n        select 1 from {members} as d\n        {match}\n    )")
     return out
 
 
 def _assemble(header, parts):
     if not parts:
-        return header + "select null as finding, null as member where false\n"
+        return header + "select\n    null as finding,\n    null as member_key\nwhere 1 = 0\n"
     return header + "\n\nunion all\n\n".join(parts) + "\n"
 
 

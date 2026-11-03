@@ -19,6 +19,10 @@ Set per resource, never per run: `append` for immutable events that arrive once,
 
 `columns: freeze`, `tables: evolve` while a pipeline is new then `freeze` once every resource has loaded into a database that persists, `data_type: freeze`. A pipeline whose database is rebuilt from empty on every run keeps `tables: evolve`, because freezing it would forbid creating the tables. Any other value carries a `# why:` line in the pipeline and a decision in its design record.
 
+## Column hints come from the contract (D7b)
+
+A pipeline's `columns=` hint is never written by hand. `ingestion/contracts.py` is generated from the input contracts by `odcs.py generate` (`data-contract` skill) and holds `COLUMNS`; a pipeline imports it (`from contracts import COLUMNS`) and passes `columns=COLUMNS[<resource>]` to `apply_hints`, beside `schema_contract`. A resource with no entry raises. A new input resource starts with its contract, `status: proposed`: `generate` writes the hints before the pipeline exists, and the contract becomes `active` once the table has landed.
+
 ## Bronze carries no logic (D8)
 
 No transformation, casts, joins or filters in a pipeline. A pipeline loads what the source gives it. Simulated sources generate their data, but do not clean it.

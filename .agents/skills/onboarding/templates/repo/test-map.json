@@ -46,6 +46,24 @@
       "commands": {
         "structural": "python3 -m pytest tests/test_adr_links.py -q"
       }
+    },
+    "ontology": {
+      "sources": [
+        "ontology/",
+        ".agents/skills/ontology/",
+        ".agents/skills/validating-ontology/"
+      ],
+      "commands": {}
+    },
+    "contracts": {
+      "sources": [
+        "contracts/",
+        ".agents/skills/data-contract/",
+        ".agents/skills/validating-data-contract/"
+      ],
+      "commands": {
+        "structural": "python3 .agents/skills/data-contract/scripts/odcs.py check"
+      }
     }
   }
 }

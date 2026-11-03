@@ -24,11 +24,20 @@ import pytest
 from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.pipeline.exceptions import PipelineStepFailed
 
-import mdm_pipeline
-import ops_pipeline
-import tlc_pipeline
-from contracts import COLUMNS
-from sources import mdm, ops
+# The pipelines import `vibedata.dlt.duckdb`, which `vibedata-dlt-duckdb-studio` provides (it is in
+# `ingestion/requirements.txt`, so `requirements-dev.txt` installs it). An interpreter without it
+# cannot import any pipeline, so this module skips there instead of failing at collection; CI
+# installs it and runs every test here.
+pytest.importorskip(
+    "vibedata.dlt.duckdb",
+    reason="vibedata-dlt-duckdb-studio is not installed; pip install -r requirements-dev.txt",
+)
+
+import mdm_pipeline  # noqa: E402
+import ops_pipeline  # noqa: E402
+import tlc_pipeline  # noqa: E402
+from contracts import COLUMNS  # noqa: E402
+from sources import mdm, ops  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TLC_TABLES = ("yellow_tripdata", "green_tripdata", "taxi_zone_lookup")
@@ -218,7 +227,8 @@ def _dbt_build(project, warehouse):
     """Build one seed and one enforced-contract model into `warehouse`.
 
     Singular tests are excluded because they read the whole warehouse, and this fixture builds
-    neither the sources nor the rest of the models.
+    neither the sources nor the rest of the models; tests that also depend on an unbuilt model are
+    left out for the same reason.
     """
     return subprocess.run(
         [
@@ -228,6 +238,10 @@ def _dbt_build(project, warehouse):
             "+dim_daypart",
             "--exclude",
             "test_type:singular",
+            # A `relationships` test on a fact names `dim_daypart` too, and the default (eager)
+            # selection would run it against a fact this fixture never builds.
+            "--indirect-selection",
+            "cautious",
             "--profiles-dir",
             str(project),
             "--profile",

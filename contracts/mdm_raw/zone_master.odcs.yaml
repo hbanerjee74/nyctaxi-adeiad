@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: f77e9418-52bd-535e-99bb-91d1cb45fd7c
 name: zone_master
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,8 @@ schema:
         description: "TLC taxi zone identifier. Natural key of the zone."
         logicalType: integer
         physicalType: BIGINT
+        primaryKey: true
+        primaryKeyPosition: 1
       - name: borough_name
         description: "Borough the zone belongs to."
         logicalType: string
@@ -72,3 +74,5 @@ schema:
         description: "Version number of the record at the source; 1 is the first version."
         logicalType: integer
         physicalType: INTEGER
+        primaryKey: true
+        primaryKeyPosition: 2

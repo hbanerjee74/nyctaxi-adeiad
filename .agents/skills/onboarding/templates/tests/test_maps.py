@@ -48,6 +48,23 @@ def test_every_layer_has_one_builder():
     assert {layer["built_by"] for layer in REPO_MAP["layers"].values()} <= {"dlt", "dbt", "custom"}
 
 
+def test_every_layer_declares_its_role():
+    """Rules apply by role, never by a layer's name, so the map names one for every layer."""
+    roles = {name: layer.get("role") for name, layer in REPO_MAP["layers"].items()}
+    assert all(role in {"input", "internal", "boundary"} for role in roles.values()), roles
+    assert "gold_layers" not in REPO_MAP, "`role` is the one declaration of the boundary"
+    dlt_layers = {name for name, layer in REPO_MAP["layers"].items() if layer["built_by"] == "dlt"}
+    assert {name for name, role in roles.items() if role == "input"} == dlt_layers
+
+
+def test_every_semantic_exclusion_names_a_boundary_relation_and_a_reason():
+    boundary = {layer["schema"] for layer in REPO_MAP["layers"].values() if layer.get("role") == "boundary"}
+    for entry in REPO_MAP["semantic_exclusions"]:
+        schema, _, table = entry["relation"].partition(".")
+        assert schema in boundary and table, entry
+        assert entry["reason"].strip(), entry
+
+
 def test_orchestrators_and_sources_agree():
     declared = set(REPO_MAP["sources"])
     runs = {name for runner in REPO_MAP["orchestrators"].values() for name in runner["runs"]}

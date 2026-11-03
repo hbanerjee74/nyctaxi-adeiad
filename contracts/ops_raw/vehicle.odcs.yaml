@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3d872971-69b6-5e26-8cb5-23e915b26be6
 name: vehicle
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the vehicle."
         logicalType: integer
         physicalType: BIGINT
+        primaryKey: true
       - name: medallion_number
         description: "Medallion number of the vehicle. Simulated."
         logicalType: string

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 1fcb54f7-28a3-55d7-ba8b-dd79daee860e
 name: fare_regime_master
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Code of the surcharge regime."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: fare_component
         description: "The fare component the regime sets a rate for."
         logicalType: string

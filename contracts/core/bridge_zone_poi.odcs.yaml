@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: d705ae57-ddfc-50b6-9a9a-f33b8e7b355d
 name: bridge_zone_poi
-version: 1.0.1
+version: 1.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -26,6 +26,8 @@ schema:
       - name: zone_natural_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_zone.zone_natural_key
       - name: poi_category
         logicalType: string
         physicalType: VARCHAR

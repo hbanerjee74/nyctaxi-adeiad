@@ -21,7 +21,7 @@ description: "Use when adding, changing or removing a term in CONTEXT.md."
 - Implementation detail: the design record.
 - Example values, ids, dates or numbers the code can change.
 - Consumers, teams, reports or audiences. The product can be used by anyone.
-- Platform or agent terms, such as the medallion layering. They are defined elsewhere.
+- Platform or agent terms, such as the layer roles. They are defined elsewhere.
 
 ## Entries
 

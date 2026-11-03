@@ -484,6 +484,10 @@ def _validate_dataset(dataset, context):
     for p in payloads:
         payload.update(p)
     diags.extend(_unknown_keys(payload, DATASET_KEYS, where))
+    if payload.get("conformed_from") is not None and payload.get("vibedata_version") == "1.5":
+        diags.append(_error("vibedata/version-mismatch",
+                            f"{where}: `conformed_from` is a 1.6 key but the payload is "
+                            "vibedata_version '1.5'; stamp the whole document 1.6 (S6a)"))
 
     level_names = []
     for level in payload.get("levels", []) or []:

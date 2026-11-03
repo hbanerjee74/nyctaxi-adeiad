@@ -16,3 +16,5 @@ For each, using only `AGENTS.md`, `repo-map.json` and `.agents/skills/`, write d
 Then check every entry against the repo: the paths exist, the command runs in the sandbox, and nothing the task needs is missing from the context. Do not run a build.
 
 Each miss is a context fix before shipping, or a finding in the review. Record the table and its result in this intent's `verify.md`, not under `docs/review/`.
+
+When a template or a reference changes, run `python3 -m pytest tests/setup/test_onboarding_dry_run.py -q` in the repo that carries this skill: it bootstraps a scratch Domain from [templates/](../templates/) as [greenfield.md](greenfield.md) says, then runs the plugin gates (the template map tests, the ontology validator, `odcs.py check` and `generate` over a proposed input contract) against it. A template that drifts from the semantic ownership model fails there before a customer sees it.

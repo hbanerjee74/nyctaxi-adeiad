@@ -443,6 +443,7 @@ models:
       - name: zone_natural_key
         data_type: BIGINT
         description: TLC location_id of the zone the POI sits in.
+        data_tests: [{relationships: {arguments: {field: zone_natural_key, to: ref('dim_zone')}}}]
       - name: poi_category
         data_type: VARCHAR
         description: Category code of the point of interest.
@@ -504,21 +505,25 @@ models:
       - name: pickup_date_key
         data_type: INTEGER
         description: Surrogate key into date for the pickup date.
+        data_tests: [{relationships: {arguments: {field: date_key, to: ref('dim_date')}}}]
       - name: pickup_date
         data_type: DATE
         description: Calendar date of pickup; report window grain is day.
       - name: pickup_hour
         data_type: BIGINT
         description: Hour of day of pickup (0-23), joins dim_daypart.
+        data_tests: [{relationships: {arguments: {field: hour_of_day, to: ref('dim_daypart')}}}]
       - name: daypart_code
         data_type: VARCHAR
         description: Analyst-owned daypart band for pickup_hour.
       - name: service_type_key
         data_type: VARCHAR
         description: Fleet service type of the trip.
+        data_tests: [{relationships: {arguments: {field: service_type_key, to: ref('dim_service_type')}}}]
       - name: rate_plan_key
         data_type: BIGINT
         description: Rate plan in effect for the trip.
+        data_tests: [{relationships: {arguments: {field: rate_plan_key, to: ref('dim_rate_plan')}}}]
       - name: shift_id
         data_type: VARCHAR
         description: Attributed fleet shift; null for non-fleet trips.
@@ -601,12 +606,14 @@ models:
       - name: shift_date_key
         data_type: INTEGER
         description: Surrogate key into date for the shift date.
+        data_tests: [{relationships: {arguments: {field: date_key, to: ref('dim_date')}}}]
       - name: shift_date
         data_type: DATE
         description: Calendar date of sign-on.
       - name: garage_key
         data_type: BIGINT
         description: Driver's home garage at sign-on, carried from dim_driver; not the vehicle's garage.
+        data_tests: [{relationships: {arguments: {field: garage_key, to: ref('dim_garage')}}}]
       - name: engagement_type
         data_type: VARCHAR
         description: How the driver is engaged (employee, contractor, ...).
@@ -690,24 +697,29 @@ models:
       - name: driver_key
         data_type: BIGINT
         description: Driver the interval is attributed to.
+        data_tests: [{relationships: {arguments: {field: driver_key, to: ref('dim_driver')}}}]
       - name: vehicle_key
         data_type: INTEGER
         description: Vehicle the driver was in during the interval.
+        data_tests: [{relationships: {arguments: {field: vehicle_key, to: ref('dim_vehicle')}}}]
       - name: interval_date_key
         data_type: INTEGER
         description: Surrogate key into date for the interval date.
+        data_tests: [{relationships: {arguments: {field: date_key, to: ref('dim_date')}}}]
       - name: interval_date
         data_type: DATE
         description: Calendar date the interval started.
       - name: interval_hour
         data_type: BIGINT
         description: Hour of day the interval started (0-23), joins dim_daypart.
+        data_tests: [{relationships: {arguments: {field: hour_of_day, to: ref('dim_daypart')}}}]
       - name: daypart_code
         data_type: VARCHAR
         description: Analyst-owned daypart band for interval_hour.
       - name: zone_key
         data_type: VARCHAR
         description: Zone surrogate resolved to the current version of the zone.
+        data_tests: [{relationships: {arguments: {field: zone_key, to: ref('dim_zone')}}}]
       - name: zone_natural_key
         data_type: INTEGER
         description: TLC location_id of the interval's zone.
@@ -736,12 +748,15 @@ models:
       - name: vehicle_key
         data_type: BIGINT
         description: Vehicle that was in the shop.
+        data_tests: [{relationships: {arguments: {field: vehicle_key, to: ref('dim_vehicle')}}}]
       - name: garage_key
         data_type: BIGINT
         description: Garage the vehicle belongs to, carried from dim_vehicle.
+        data_tests: [{relationships: {arguments: {field: garage_key, to: ref('dim_garage')}}}]
       - name: started_date_key
         data_type: INTEGER
         description: Surrogate key into date for the start date.
+        data_tests: [{relationships: {arguments: {field: date_key, to: ref('dim_date')}}}]
       - name: started_date
         data_type: TIMESTAMP WITH TIME ZONE
         description: First day of the downtime.

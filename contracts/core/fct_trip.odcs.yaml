@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 116ddee7-4f52-5ca9-9abd-8a3fa417d0c5
 name: fct_trip
-version: 1.0.1
+version: 1.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -64,21 +64,29 @@ schema:
       - name: pickup_date_key
         logicalType: integer
         physicalType: INTEGER
+        relationships:
+          - to: dim_date.date_key
       - name: pickup_date
         logicalType: date
         physicalType: DATE
       - name: pickup_hour
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_daypart.hour_of_day
       - name: daypart_code
         logicalType: string
         physicalType: VARCHAR
       - name: service_type_key
         logicalType: string
         physicalType: VARCHAR
+        relationships:
+          - to: dim_service_type.service_type_key
       - name: rate_plan_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_rate_plan.rate_plan_key
       - name: shift_id
         logicalType: string
         physicalType: VARCHAR

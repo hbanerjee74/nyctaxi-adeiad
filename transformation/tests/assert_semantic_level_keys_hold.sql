@@ -6,72 +6,96 @@
 -- one fans a join out, so this test fails the build.
 {{ config(severity='error') }}
 
-select 'date.day: primary key repeats' as finding,
-    cast(calendar_date as varchar) as member
-from {{ ref('dim_date') }} as r
-group by cast(calendar_date as varchar)
+select
+    'date.day: primary key repeats' as finding,
+    cast(calendar_date as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_date') }}
+group by cast(calendar_date as {{ dbt.type_string() }})
 having count(*) > 1
 
 union all
 
-select 'date.month: key year_month names several members' as finding,
-    concat_ws('|', cast(calendar_year as varchar), cast(calendar_month as varchar)) as member
-from {{ ref('dim_date') }} as r
-group by concat_ws('|', cast(calendar_year as varchar), cast(calendar_month as varchar))
-having count(distinct cast(month_start_date as varchar)) > 1
+select
+    'date.month: key year_month names several members' as finding,
+    concat_ws(
+        '|',
+        cast(calendar_year as {{ dbt.type_string() }}),
+        cast(calendar_month as {{ dbt.type_string() }})
+    ) as member_key
+from {{ ref('dim_date') }}
+group by
+    concat_ws(
+        '|',
+        cast(calendar_year as {{ dbt.type_string() }}),
+        cast(calendar_month as {{ dbt.type_string() }})
+    )
+having count(distinct cast(month_start_date as {{ dbt.type_string() }})) > 1
 
 union all
 
-select 'date.day: key date_key names several members' as finding,
-    cast(date_key as varchar) as member
-from {{ ref('dim_date') }} as r
-group by cast(date_key as varchar)
-having count(distinct cast(calendar_date as varchar)) > 1
+select
+    'date.day: key date_key names several members' as finding,
+    cast(date_key as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_date') }}
+group by cast(date_key as {{ dbt.type_string() }})
+having count(distinct cast(calendar_date as {{ dbt.type_string() }})) > 1
 
 union all
 
-select 'daypart.hour: primary key repeats' as finding,
-    cast(hour_of_day as varchar) as member
-from {{ ref('dim_daypart') }} as r
-group by cast(hour_of_day as varchar)
+select
+    'daypart.hour: primary key repeats' as finding,
+    cast(hour_of_day as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_daypart') }}
+group by cast(hour_of_day as {{ dbt.type_string() }})
 having count(*) > 1
 
 union all
 
-select 'daypart.daypart: key daypart_name names several members' as finding,
-    cast(daypart_name as varchar) as member
-from {{ ref('dim_daypart') }} as r
-group by cast(daypart_name as varchar)
-having count(distinct cast(daypart_code as varchar)) > 1
+select
+    'daypart.daypart: key daypart_name names several members' as finding,
+    cast(daypart_name as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_daypart') }}
+group by cast(daypart_name as {{ dbt.type_string() }})
+having count(distinct cast(daypart_code as {{ dbt.type_string() }})) > 1
 
 union all
 
-select 'payment_method.payment_method: primary key repeats' as finding,
-    cast(payment_method_key as varchar) as member
-from {{ ref('dim_payment_method') }} as r
-group by cast(payment_method_key as varchar)
+select
+    'payment_method.payment_method: primary key repeats' as finding,
+    cast(payment_method_key as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_payment_method') }}
+group by cast(payment_method_key as {{ dbt.type_string() }})
 having count(*) > 1
 
 union all
 
-select 'payment_method.payment_method: key payment_method_name names several members' as finding,
-    cast(payment_method_name as varchar) as member
-from {{ ref('dim_payment_method') }} as r
-group by cast(payment_method_name as varchar)
-having count(distinct cast(payment_method_key as varchar)) > 1
+select
+    'payment_method.payment_method: key payment_method_name names several members' as finding,
+    cast(payment_method_name as {{ dbt.type_string() }}) as member_key
+from {{ ref('dim_payment_method') }}
+group by cast(payment_method_name as {{ dbt.type_string() }})
+having count(distinct cast(payment_method_key as {{ dbt.type_string() }})) > 1
 
 union all
 
-select 'vendor.vendor: primary key repeats among current versions' as finding,
-    cast(vendor_natural_key as varchar) as member
-from (select * from {{ ref('dim_vendor') }} where is_current_version) as r
-group by cast(vendor_natural_key as varchar)
+select
+    'vendor.vendor: primary key repeats among current versions' as finding,
+    cast(vendor_natural_key as {{ dbt.type_string() }}) as member_key
+from (
+    select * from {{ ref('dim_vendor') }}
+    where is_current_version
+) as r
+group by cast(vendor_natural_key as {{ dbt.type_string() }})
 having count(*) > 1
 
 union all
 
-select 'zone.zone: primary key repeats among current versions' as finding,
-    cast(zone_natural_key as varchar) as member
-from (select * from {{ ref('dim_zone') }} where is_current_version) as r
-group by cast(zone_natural_key as varchar)
+select
+    'zone.zone: primary key repeats among current versions' as finding,
+    cast(zone_natural_key as {{ dbt.type_string() }}) as member_key
+from (
+    select * from {{ ref('dim_zone') }}
+    where is_current_version
+) as r
+group by cast(zone_natural_key as {{ dbt.type_string() }})
 having count(*) > 1

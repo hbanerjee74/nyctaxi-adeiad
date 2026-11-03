@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 2b07e811-f17f-5272-aae8-1fe29c31de24
 name: fct_shift
-version: 2.0.1
+version: 2.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -39,12 +39,16 @@ schema:
       - name: shift_date_key
         logicalType: integer
         physicalType: INTEGER
+        relationships:
+          - to: dim_date.date_key
       - name: shift_date
         logicalType: date
         physicalType: DATE
       - name: garage_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_garage.garage_key
       - name: engagement_type
         logicalType: string
         physicalType: VARCHAR

@@ -16,11 +16,13 @@
     "dbt_project": "transformation/dbt_project.yml"
   },
   "layers": {
-    "<raw schema>": {"schema": "<raw schema>", "built_by": "dlt", "path": "ingestion/", "notes": "<source system>, verbatim."},
-    "staging": {"schema": "staging", "built_by": "dbt", "path": "transformation/models/staging/", "notes": "One view per source table."},
-    "intermediate": {"schema": "intermediate", "built_by": "dbt", "path": "transformation/models/intermediate/", "notes": "Business logic and joins."},
-    "core": {"schema": "core", "built_by": "dbt", "path": "transformation/models/marts/core/", "notes": "Facts and conformed dimensions."}
+    "<raw schema>": {"schema": "<raw schema>", "built_by": "dlt", "role": "input", "path": "ingestion/", "notes": "<source system>, verbatim."},
+    "staging": {"schema": "staging", "built_by": "dbt", "role": "internal", "path": "transformation/models/staging/", "notes": "One view per source table."},
+    "intermediate": {"schema": "intermediate", "built_by": "dbt", "role": "internal", "path": "transformation/models/intermediate/", "notes": "Business logic and joins."},
+    "core": {"schema": "core", "built_by": "dbt", "role": "boundary", "path": "transformation/models/marts/core/", "notes": "Facts and conformed dimensions."}
   },
+  "data_platform": "<data platform>",
+  "semantic_exclusions": [],
   "sources": {},
   "orchestrators": {
     "run_ingest": {"kind": "python", "path": "orchestration/run_ingest.py", "runs": []}
@@ -47,7 +49,10 @@
     "requirement": "docs/requirement/{intent}.md",
     "plan": "docs/plans/{intent}.md",
     "verification": "docs/verify/{intent}.md",
-    "case_record": "docs/cases/{intent}.md"
+    "case_record": "docs/cases/{intent}.md",
+    "data_contract": "contracts/{schema}/{table}.odcs.yaml",
+    "ontology": "ontology/{name}.ontology.yaml",
+    "ontology_mapping": "ontology/{document}.mapping.yaml"
   },
   "modules": {
     "ingestion": {"path": "ingestion/", "description": "dlt pipelines (one per source), their modules under sources/, resource docs under docs/, and .dlt/config.toml."},
@@ -56,6 +61,8 @@
     "python_tests": {"path": "tests/", "description": "pytest tests for ingestion, orchestration and the two maps."},
     "conventions": {"path": ".agents/skills/", "description": "Operator conventions."},
     "decisions": {"path": "docs/adr/", "description": "ADRs, including the standing business answers."},
+    "contracts": {"path": "contracts/", "description": "ODCS data contracts, one per relation on the contract boundary (the input and boundary layers)."},
+    "ontology": {"path": "ontology/", "description": "The business ontology and one mapping per Ossie document."},
     "reviews": {"path": "docs/review/", "description": "Review findings for triage: intent, proposal, declined or deferred."},
     "proposals": {"path": "docs/proposal/", "description": "Proposed work, read only when an intent's requirement links to it."}
   },
@@ -66,6 +73,8 @@
     "tests/": "pytest tests",
     ".agents/skills/": "convention and procedure skills",
     "docs/adr/": "decisions",
+    "contracts/": "data contracts for the input and boundary relations",
+    "ontology/": "business ontology and its mappings",
     "docs/review/": "review findings",
     "docs/proposal/": "proposals"
   },
@@ -82,7 +91,9 @@
     "python_tests": "python3 -m pytest tests -q",
     "python_lint": "ruff check .",
     "sqlfluff_lint": "sqlfluff lint transformation/models",
-    "adr_lint": "python3 .github/scripts/adr_lint.py"
+    "adr_lint": "python3 .github/scripts/adr_lint.py",
+    "odcs_check": "python3 .agents/skills/data-contract/scripts/odcs.py check",
+    "odcs_check_relations": "python3 .agents/skills/data-contract/scripts/odcs.py check --relations"
   },
   "key_references": {"agents": "AGENTS.md", "vocabulary": "CONTEXT.md", "conventions": ".agents/skills/", "test_map": "test-map.json", "schema": "repo-map.schema.json"},
   "notes_for_agents": {
@@ -91,6 +102,7 @@
     "dlt_environment": "Pipelines need VD_DOMAIN_DATA_PLATFORM=duckdb_local, VD_DOMAIN_SECRET_STORE_KIND=local_toml and VD_EPHM_DUCKDB_LOCAL_PATH; orchestration/run_ingest.py sets them.",
     "dbt_sources": "dbt sources name a schema and never a database: the Studio sandbox is a renamed copy of the Domain file. dbt runs use the dev target.",
     "artifact_paths": "Every artifact location is declared here: requirement, plan, verification and case_record per intent, design records per model or pipeline (layered: design_record_model) or area. The plugin names an intent's artifacts; this map places them.",
+    "contracts": "Input and boundary layers owe a contract (ADR-0225); internal layers do not. A contract may precede its table with status: proposed. Grain comes from primaryKey, not prose. Boundary tables outside the semantic layer are listed in semantic_exclusions with a reason.",
     "reviews_and_proposals": "docs/review/ holds review findings for triage; do not read it for build tasks. Read a docs/proposal/ file only when the intent's requirement links to it."
   }
 }

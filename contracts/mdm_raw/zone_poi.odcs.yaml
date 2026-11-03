@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: f18cbe09-2761-5a2e-9f89-57fc375eb5a4
 name: zone_poi
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the point of interest."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: location_id
         description: "TLC taxi zone identifier. Natural key of the zone."
         logicalType: integer

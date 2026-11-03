@@ -1,63 +1,49 @@
 ---
 name: validating-ontology
-description: "Use when checking a business ontology or its mappings before commit, after a gold mart or metric change, or when asked whether a concept, its identity or a mapping is honest. Covers the structural run, the coverage a tool cannot see, and the content review against the semantic model."
+description: "Use when the Domain's business ontology or its mappings onto the semantic layer's Ossie documents must be checked before commit or after an Ossie document change, or when asked whether a concept, its identity or a mapping is honest. Do not use to author the ontology (use ontology) or to review the Ossie documents themselves (use validating-semantic-model)."
+user-invocable: false
 ---
 
-# Validating an ontology
+# Validating an Ontology
 
-Its own step, not a corner of the semantic-model review: the ontology makes claims the Ossie document cannot state, and the Ossie document makes claims the ontology cannot check. This skill validates the ontology and its mappings against the Ossie documents, and the `validating-semantic-model` skill validates the Ossie document against the ontology's terms.
+Returns a verdict on the Domain's ontology and its mappings with a finding per problem. It is a separate step from `validating-semantic-model`: this skill checks the ontology against the Ossie documents, and that one checks the Ossie documents' side of the shared terms. Tools prove shape, names, resolution and the identity lint; coverage and meaning are a read.
 
-Python proves shape only: the schema, the names, and whether an expression names a field that exists. The schema it loads is the vendored spec beside the validator — `semantic-model/scripts/ossie_vendor/ontology/ontology.json` and `.../mapping.json` — so a construct rejected here is rejected by the pinned spec, not by local taste; read the `$defs` rather than arguing with the error. Coverage — is every table classified, does every concept reach a dataset — and meaning have no tool. Read `../validating-semantic-model/references/checks.md` for what the commands can and cannot see.
+`SKILL_DIR` in the commands below is `SKILL_DIR=<this skill's directory>`; substitute it, the runtime does not expand it. The scripts belong to the `semantic-model` skill; what each check reads, and what it cannot see, is in `../validating-semantic-model/references/checks.md` § "Coverage of the checks" and § "Behaviours worth knowing".
 
-## Step 1 — structure
+## Process
 
-From the repo root, with the paths `repo-map.json` declares:
+1. Resolve the ontology and Ossie directories as step 1 of `../ontology/SKILL.md` does, and read `CONTEXT.md`.
+2. **Structure.** Run the gates from the Domain's repository root and record each command with its exit code. Require exit 0 and zero errors from each; a warning is read, not ignored.
 
-- `python3 .agents/skills/semantic-model/scripts/ossie.py validate <ontology-dir>` — exit 0, zero errors.
-- `... ossie.py refs <ontology-dir> <model-dir>` — exit 0, zero errors.
+   ```bash
+   SKILL_DIR="<this skill's directory>" && python3 "$SKILL_DIR/../semantic-model/scripts/ossie.py" validate <ontology-dir> && python3 "$SKILL_DIR/../semantic-model/scripts/ossie.py" refs <ontology-dir> <model-dir> && python3 "$SKILL_DIR/../semantic-model/scripts/ossie.py" glossary <ontology-dir> CONTEXT.md
+   ```
 
-`refs` proves the mapping references resolve by document `name`, that every `concept` and `relationship` is declared, and that every expression is a `dataset.field` the referenced document declares. It cannot see whether the expression means what the mapping says. Record each command with its exit code.
+   - `validate` proves each document against the vendored spec, fails an `EntityType` with no `identify_by`, and warns on `requires`, `derived_by`, `prefixes`, `custom_extensions` and a concept or relationship `iri`.
+   - `refs` proves each mapping's document resolves, each concept and relationship is declared, and each expression is a `dataset.field` the document declares. Its identity lint fails an identity mapped to a version surrogate (`refs/identity-version-surrogate`) or on only some of its components (`refs/partial-identity`). It warns on an identity column that is neither the dataset's natural key nor its row-level primary key (`refs/identity-not-natural-key`, naming the keys it compared), which is legitimate for a degenerate key or a code held as an attribute: confirm each from the SQL. `mapping/none` warns on an Ossie document no mapping covers. It cannot see whether a natural-looking key is natural, or what an expression means.
+   - `glossary` fails on `entity_types_without_term`. Adjudicate every `terms_without_concept` entry: a rule, measure, population, period, classification or version stays prose, and a term naming a thing with identity is a missing concept. `value_types_without_term` is expected. The report carries all three lists and the call made on each term.
 
-## Step 2 — coverage
-
-The tool cannot count what is absent, so this step is a read, not a command. Enumerate the gold marts and classify every `dim_*` and `fct_*` with the table in the `ontology` skill. Then check:
-
-1. **Every table is classified.** A dimension, transactional fact or event-derived interval either has a concept or carries its exemption where a reader finds it — a junk dimension, a degenerate key, a rebuilt state snapshot, an effective-dated rule, a bridge or an aggregate. A table nobody classified is a finding, and so is a concept invented for one of those kinds. A table the author could not classify is a blocked finding with the question it raised, never an omission.
-2. **Every concept reaches a dataset.** A concept with no mapping anywhere is either ahead of its data, with its description saying so, or a finding.
-3. **Every identity component is mapped.** A concept mapped on only some of the relationships its `identify_by` names is a partial identity — a gap to report, never a complete mapping.
-4. **Every document is accounted for.** Each Ossie document is mapped, or its own description says why no concept reaches it.
-5. **Every dataset carrying a concept's identity is mapped.** A dataset whose key is a concept's identity and has no object mapping understates the Ossie document even when another dataset states the same concept.
-6. **The glossary holds both ways.** Run `... ossie.py glossary <ontology-dir> <CONTEXT.md>` and read the three lists as signals, not a verdict: the command reports drift and always exits 0.
-   - `entity_types_without_term` — always a finding. An entity type must have a word in the business's vocabulary; add the term or drop the concept.
-   - `terms_without_concept` — adjudicate every entry. A rule, measure, population, period, classification or version stays prose; a term naming a thing with identity is a missing concept, added in the same change.
-   - `value_types_without_term` — expected. A value type carries identity and needs no glossary word.
-   The report carries the three lists and the category given to each term, so a reviewer can disagree with the call rather than having to re-derive it.
-
-## Step 3 — content
-
-Work from the mart SQL and the Ossie document, never from the mapping's own prose.
-
-7. **Identity is natural.** Each `identify_by` reaches the value holding the entity's natural key in the mart or its staging SQL. A surrogate over natural key plus valid-from is a version; a key with no natural code beside it is a surrogate the report names as such.
-8. **A relationship's direction and multiplicity match the foreign key.** The inverse is implicit; a declared inverse, or two relationships where one would do, is a finding.
-9. **Cross-document identity is the claim under test.** Where two documents map one concept, both expressions identify the same real-world object. A mapping that bridges them through a version surrogate asserts an identity the data does not have.
-10. **A versioned or re-grained dataset has had its mappings re-derived.** A mapping that still resolves to a real field can still identify the wrong thing after a grain change, a Type 1-to-Type 2 change, or a natural key replaced by a surrogate.
-11. **Declaration status.** No `requires`, `derived_by`, `prefixes` or vendor payload, and no `iri` on a concept or relationship: an identifier for another party's vocabulary, named with its release, or omitted. The report says plainly that no tool parses, converts or executes a mapping.
-
-## Step 4 — report
-
-The verdict, then every finding as location → evidence → fix, then the checks you could not run and why. A verdict of "passes" cites a file per claim.
-
-Close with two sections:
-
-- **Coverage**: the classification table, one row per gold mart — conceptually carried, exempt with the reason and where it is recorded.
-- **Declaration versus executable**: which artifacts were checked for shape, which expressions no tool reads, and which concepts or documents are unmapped with their reasons.
+3. **Coverage.** Classify every dimension and fact the Ossie documents register with `../ontology/references/classification.md`, then check:
+   1. **Every table is classified.** Each has a concept or carries its exemption where a reader finds it. An unclassified table is a finding, so is a concept invented for an exempt kind, and a table the author could not classify is a blocked finding with its question.
+   2. **Every concept reaches a dataset,** or its description says it is declared ahead of its data.
+   3. **Every document is accounted for.** Each `mapping/none` document's description says why no concept reaches it.
+   4. **Every dataset carrying a concept's identity is mapped,** even when another dataset states the same concept.
+4. **Content.** Work from the dataset SQL and the Ossie documents, never from the mapping's prose.
+   1. **Identity is natural.** Each `identify_by` reaches the column holding the natural key in the dbt model SQL or its staging; a key with no natural code beside it is named as a surrogate.
+   2. **Direction and multiplicity match the foreign key.** A declared inverse, or two relationships where one would do, is a finding.
+   3. **Cross-document identity holds.** Where two documents map one concept, both expressions identify the same real-world object.
+   4. **A re-grained or versioned dataset has re-derived mappings.** A mapping that still resolves can identify the wrong thing after a grain change, a Type 1 to Type 2 change, or a natural key replaced by a surrogate.
+   5. **Declaration status.** Each `validate` warning names a rule its ADR states, or is a finding.
+5. Fix what needs no business decision (a missing exemption reason, an expression `refs` names, a missing mapping entry) and re-run step 2. Escalate a concept added, dropped or re-identified, or a missing term, through `grilling`, one finding at a time.
+6. Report the verdict, then each finding as location → evidence → fix, then the checks you could not run and why. A verdict of "passes" cites a file per claim. Close with **Coverage** (one row per table: concept, or exempt with the reason and where it is recorded) and **Declaration versus executable** (what was checked for shape, which expressions no tool reads, and which concepts or documents are unmapped and why).
 
 ## Red flags — stop and re-check
 
-- "The join column is the identity." A surrogate that changes per version is not identity.
-- "It validates, so the mapping works." Nothing executes a mapping; shape is all a tool proves.
-- "The glossary is the coverage list." The glossary names what the business says, not what the lakehouse holds. Both directions matter.
-- "An aggregate is a fact." A rollup's rows are a population, not an event; it gets a metric, not a concept.
-- "Every table needs a concept." Junk dimensions, bridges, derived snapshots and rule tables exist to make queries cheap, not to name a thing.
-- "The name matches, so the concept is covered." A term and a concept can be spelled alike and disagree; step 3 reads the SQL.
-- "The table fits no row exactly, so the nearest one will do." That is a question for the user, not a classification: a wrong row silently deletes a concept or invents one.
+- "The identity lint passed, so identity is natural." It reads key declarations, not the SQL; step 4 is unstarted.
+- "It validates, so the mapping works." Nothing executes a mapping.
+- "The glossary is the coverage list." It names what the business says, not what the lakehouse holds.
+- "An aggregate is a fact." A rollup's rows are a population; it gets metrics, not a concept.
+- "The name matches, so the concept is covered." A term and a concept can be spelled alike and disagree.
+- "The nearest row will do." That is a question for the user.
+
+All of these mean: no verdict without a cited file per claim.

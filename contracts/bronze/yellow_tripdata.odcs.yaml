@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 9d7861f6-8191-5cc0-9c90-1a4a54fb5d3b
 name: yellow_tripdata
-version: 1.0.1
+version: 1.0.2
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,6 +11,7 @@ servers:
     schema: bronze
 schema:
   - name: yellow_tripdata
+    dataGranularityDescription: One row per trip record in a TLC yellow-taxi monthly file. The file carries no trip identifier.
     properties:
       - name: VendorID
         description: "Code for the technology provider that supplied the trip record."

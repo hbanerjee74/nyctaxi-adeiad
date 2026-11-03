@@ -133,7 +133,7 @@
     },
     "layers": {
       "type": "object",
-      "description": "One entry per schema: what builds it and where its code lives. Skills read built_by to choose a procedure; custom names a stack no skill has a procedure for, so it must say what builds it.",
+      "description": "One entry per schema: what builds it, where its code lives and what role it plays. Skills read built_by to choose a procedure; custom names a stack no skill has a procedure for, so it must say what builds it.",
       "additionalProperties": {
         "type": "object",
         "required": [
@@ -151,6 +151,14 @@
               "dbt",
               "custom"
             ]
+          },
+          "role": {
+            "enum": [
+              "input",
+              "internal",
+              "boundary"
+            ],
+            "description": "What the layer is for, which decides the rules that apply to it, never its name: `input` is landed by a loader and read by nothing in the repo, `internal` is built for the Domain's own use, `boundary` is read by a consumer outside the repo. `input` and `boundary` layers owe a data contract (ADR-0225); a `boundary` relation is a candidate for the semantic layer. When absent it is derived (`built_by: dlt` is `input`, any other is `internal`), so a Domain declares it on every layer."
           },
           "path": {
             "type": [
@@ -192,6 +200,29 @@
           "required": [
             "notes"
           ]
+        }
+      }
+    },
+    "data_platform": {
+      "type": "string",
+      "description": "The Data Platform kind this Domain runs on, as the shared vocabulary names it. One Domain runs on one platform, so this is the only source for `servers[].type` in a data contract."
+    },
+    "semantic_exclusions": {
+      "type": "array",
+      "description": "Boundary relations deliberately outside the semantic layer, as schema.table with the reason (a different population or method, a reshape that fans out when summed, no join key into any star). Coverage and the contract check report an excluded relation as information, not as undeclared. The contract of an excluded relation stays.",
+      "items": {
+        "type": "object",
+        "required": [
+          "relation",
+          "reason"
+        ],
+        "properties": {
+          "relation": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
         }
       }
     },

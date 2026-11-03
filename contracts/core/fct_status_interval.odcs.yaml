@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 18a03801-8362-5453-8397-f3d2d7e073a5
 name: fct_status_interval
-version: 2.0.1
+version: 2.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -44,24 +44,34 @@ schema:
       - name: driver_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_driver.driver_key
       - name: vehicle_key
         logicalType: integer
         physicalType: INTEGER
+        relationships:
+          - to: dim_vehicle.vehicle_key
       - name: interval_date_key
         logicalType: integer
         physicalType: INTEGER
+        relationships:
+          - to: dim_date.date_key
       - name: interval_date
         logicalType: date
         physicalType: DATE
       - name: interval_hour
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_daypart.hour_of_day
       - name: daypart_code
         logicalType: string
         physicalType: VARCHAR
       - name: zone_key
         logicalType: string
         physicalType: VARCHAR
+        relationships:
+          - to: dim_zone.zone_key
       - name: zone_natural_key
         logicalType: integer
         physicalType: INTEGER

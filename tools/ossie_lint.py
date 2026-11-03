@@ -40,7 +40,12 @@ ONTOLOGY = _declared("ontology")
 ADRS = _declared("adr")
 CONTEXT = _declared("context")
 CONTRACTS = _declared("data_contract") if "data_contract" in REPO_MAP.get("artifact_paths", {}) else None
-GOLD_ROOTS = [ROOT / REPO_MAP["layers"][name]["path"] for name in REPO_MAP.get("gold_layers", [])]
+def _role(layer: dict) -> str:
+    """The layer's declared role, else the plugin's derivation (a dlt layer is input, any other internal)."""
+    return layer.get("role") or ("input" if layer.get("built_by") == "dlt" else "internal")
+
+
+BOUNDARY_ROOTS = [ROOT / layer["path"] for layer in REPO_MAP["layers"].values() if _role(layer) == "boundary"]
 EXCLUDES = [e["relation"] for e in REPO_MAP.get("semantic_exclusions", [])]
 TESTS = ROOT / REPO_MAP["artifact_paths"]["singular_tests"]
 DECLARATION_KEYS = ("requires", "derived_by", "prefixes")
@@ -203,10 +208,11 @@ def main() -> int:
     diags += run("validate model", ["validate", str(MODEL)])
     diags += run("validate ontology", ["validate", str(ONTOLOGY)])
     diags += run("refs", ["refs", str(ONTOLOGY), str(MODEL)])
-    diags += run("coverage", ["coverage", str(MODEL), *map(str, GOLD_ROOTS),
+    diags += run("coverage", ["coverage", str(MODEL), *map(str, BOUNDARY_ROOTS),
                                     *[arg for rel in EXCLUDES for arg in ("--exclude", rel)]])
     diags += run("suppliers", ["suppliers", str(MODEL)])
     diags += run("notes", ["notes", str(MODEL), str(TESTS), str(ADRS)])
+    diags += run("generate-tests", ["generate-tests", str(MODEL), str(TESTS), "--check"])
     diags += contracts()
     run("glossary", ["glossary", str(ONTOLOGY), str(CONTEXT)], blocking=False)
 

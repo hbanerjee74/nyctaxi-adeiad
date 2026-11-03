@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 97947e8f-11d3-5e7f-8778-c53e454545fa
 name: fct_maintenance
-version: 2.0.1
+version: 2.1.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -26,12 +26,18 @@ schema:
       - name: vehicle_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_vehicle.vehicle_key
       - name: garage_key
         logicalType: integer
         physicalType: BIGINT
+        relationships:
+          - to: dim_garage.garage_key
       - name: started_date_key
         logicalType: integer
         physicalType: INTEGER
+        relationships:
+          - to: dim_date.date_key
       - name: started_date
         logicalType: date
         physicalType: TIMESTAMP WITH TIME ZONE

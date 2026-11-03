@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 3605ca4d-30af-5507-aeb3-118a2bd6f417
 name: shift
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the shift."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: vehicle_id
         description: "Identifier of the vehicle."
         logicalType: integer

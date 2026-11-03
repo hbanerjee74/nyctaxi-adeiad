@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 36b36bff-8e5d-5198-ac2a-1bfc8d54f114
 name: borough_master
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Name of the borough. Natural key."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: borough_code
         description: "Short code of the borough."
         logicalType: string

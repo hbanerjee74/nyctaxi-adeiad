@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: c08a9cfd-a552-5141-ac50-4b1d3a5b4f4c
 name: taxi_zone_lookup
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "TLC taxi zone identifier."
         logicalType: integer
         physicalType: BIGINT
+        primaryKey: true
       - name: Borough
         description: "Borough the zone belongs to."
         logicalType: string

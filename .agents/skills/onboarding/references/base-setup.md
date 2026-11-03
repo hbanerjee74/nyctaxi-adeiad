@@ -23,7 +23,7 @@ Either way the data stays in this sandbox: the Domain database is still empty fo
 
 ## Base commands
 
-Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them, and one entry per CI check script an agent should run rather than read (for example `adr_lint` for `.github/scripts/adr_lint.py`).
+Put these in `repo-map.json` `commands`, using the repo's own paths: `dbt_deps`, `dbt_parse`, `dbt_build`, `python_tests`, `python_lint`, plus the run scripts if the repo has them, one entry per CI check script an agent should run rather than read (for example `adr_lint` for `.github/scripts/adr_lint.py`), and `odcs_check` and `odcs_check_relations` once `data-contract` is seeded.
 
 In the design phase, after the inherited-view check and before the inventory, run each once in the sandbox: dbt through the runtime wrapper with `--target dev`, after `dbt deps` when `packages.yml` exists. Record every result. A failure you cannot fix with a change from the two lists below is a review finding, `platform` or `bug`.
 
@@ -74,15 +74,49 @@ Only when the repo has none. When the repo has its own that conflicts, leave it 
 
 The map tests and the ADR link test are the Domain's own checks; the CI bundle does not run them. Ask the user where they run, as one grilling question. Recommended: a repo workflow, [templates/repo/repo-checks.yml](../templates/repo/repo-checks.yml) at `.github/workflows/repo-checks.yml`, which installs `requirements-dev.txt` and runs `python_tests` on every pull request. A pre-commit hook is the other option; if the user wants one, say that setting `core.hooksPath` stops git reading `.git/hooks`, where the CI bundle installs its own hooks, so the repo hook must call them.
 
+## Layers, roles and the contract boundary
+
+The model is the plugin's semantic ownership design; onboarding applies it and invents none of it.
+
+- **Layers are the Domain's, roles are the rule.** `repo-map.json` `layers` declares every layer with `schema`, `built_by`, `path` and an explicit `role`: `input` (landed by a loader), `internal` (built for the Domain's own use) or `boundary` (read by a consumer outside the repo). Names come from the inventory and the user; medallion names (`bronze`, `silver`, `gold`) are only the default for a greenfield Domain, never a rule, so a brownfield repo keeps the names it has. Write no `gold_layers`: it is the legacy way to say `boundary`, and a second declaration beside `role` can only drift. The role definitions are the plugin's `layer-roles.md`.
+- **The contract boundary is `input` and `boundary` layers** (ADR-0225). An `internal` layer owes no contract, so a staging view built over a loader relation has none; `contract_layers` (an optional `repo-map.json` key naming the layers that owe a contract) overrides this and is set only when the user asks. A boundary relation is a candidate for the semantic layer; an internal one never is.
+- **A contract may come before its table** with `status: proposed`: `check` shape-checks it, `generate` writes no dbt keys for it (a proposed input still gets its dlt `COLUMNS`), and it becomes `active` once the table is built. Adopting an existing table writes it `active`.
+- **Grain comes from keys, not prose.** A contract's `primaryKey` states the grain, and a star member's contract carries no `dataGranularityDescription` and no column descriptions: the Ossie dataset and fields own them, and `generate` copies them into dbt. A non-star relation states its grain by a `primaryKey`, or by one `dataGranularityDescription` sentence where it has no key or the key would mislead (a snapshot, a file with no identifier). Verify a candidate key is unique, and never null, on the landed data before declaring it; a relation with neither key nor sentence raises `contract/no-grain` and a review question, and nothing invents the answer.
+- **Bespoke boundary tables are routed, not modelled.** `semantic-model` owns the routing table: a rollup, filter or window of a star's rows is an aggregate source; a filter on an existing measure is a filtered metric; a different population or method (a `HAVING` floor, a lossy join, an unpivot) is listed in `semantic_exclusions` with its reason and keeps its contract; a new business process is a new star. A standalone Ossie document is retired, and a dimension copied into several documents names its owner with `conformed_from`.
+- **`semantic_exclusions: [{relation, reason}]` sits in the map beside the layers.** The gates read no Domain file, so the lint passes the list as arguments (below).
+- **No MetricFlow and no dbt Semantic Layer.** The Ossie documents plus the ontology are the semantic layer. A repo that has `_semantic.yml` files is a review finding to delete them once the Ossie documents carry their metrics.
+
+## Semantic layer, ontology and contracts
+
+Every repo gets the `ontology` and `validating-ontology` skills, and an `ontology/` directory registered in `repo-map.json` and `test-map.json`: the ontology renders the confirmed vocabulary as concepts and relationships, and it is the only artifact that states an object is the same object across the Ossie documents. Its validation is its own step. Mappings are written only for Ossie documents that exist, so a repo with no boundary marts gets the ontology and no mapping, and its `repo-map.json` still declares both artifact paths. The template `test-map.json` registers the `ontology` module with no command: `ossie.py validate` refuses an empty directory (`cli/no-files`), so the first concept adds the module's `structural` command (`validate`, `refs` and `glossary` from the gates table).
+
+The `semantic-model` and `validating-semantic-model` skills belong to a repo with boundary marts. They are seeded when `logical-model/` is registered; a repo with no boundary mart yet gets neither skill, because a declared path that does not exist fails the map tests. It still gets `semantic-model/scripts/` (the checker `ossie.py` and its vendored Ossie schemas, no `SKILL.md`), because the ontology validates through it. `data-contract` and `validating-data-contract` are always seeded, with `data-contract/scripts/` (`odcs.py` and its vendored schema), and `contracts/` is declared as `artifact_paths.data_contract` and as a module in both maps.
+
+Seed each skill with its `scripts/`, `references/` and `examples/` from the plugin (`plugins/vibedata-data-engineering/skills/<name>/`, delivered by VD-7139) or by copying the reference Domain's `.agents/skills/`, which tracks the plugin's text. Take the directory whole: `semantic-model/scripts/` holds the checker and its vendored Ossie schemas, and the dlt `COLUMNS` and dbt keys are only as current as `odcs.py`. The map declares `data_platform` before any contract is written, because `servers[].type` in every contract derives from it.
+
+The loader's columns are derived, never assumed. A repo's dlt version decides which of them it adds, so ask the catalog which relations the loader created, take the layer from the map's `layers[].built_by`, and read the dbt model's SQL to see whether a model selects a `_dlt_*` column through. A contract on a relation the loader creates declares none of them; one on a dbt output that propagates one must declare it, because the enforced contract rejects an undeclared output column.
+
+A repo that already has contracts keeps them. Adopting existing tables is: rebuild with `--full-refresh`, run `odcs.py reverse` once with no flag (it leaves a contract that exists alone; `--force` rewrites every authored version and description and is only for a deliberate rewrite), triage its findings, run `generate`, then `check`. The findings are the review artifact of type `contracts` at `artifact_paths.review`, and the contracts stay partial until an engineer triages them: say so in that artifact and in the PR description. Two questions the reverse pass cannot answer are findings, not content: a relation whose key and descriptions say nothing about its grain, and a rule no existing test expresses. Both go to the review artifact as questions.
+
+### The gates, as commands
+
+Record each command and its exit code in this intent's verification. `<boundary root>` is a boundary layer's `path`, one per layer with that role.
+
+| Artifact | Command | Proves |
+| --- | --- | --- |
+| Ossie documents | `ossie.py validate <model-dir>` | Schema, `conformed_from`, cross-document drift |
+| | `ossie.py coverage <model-dir> <boundary root>... --exclude <schema.table>...` | Every boundary dbt model is named by a dataset or listed in `semantic_exclusions` (one `--exclude` per entry) |
+| | `ossie.py suppliers <model-dir>`, `ossie.py notes <model-dir> <tests-dir> <adr-dir>` | Every declared field is supplied; every note pointer resolves |
+| | `ossie.py generate-tests <model-dir> <tests-dir> --check` | The generated singular tests are current (run without `--check` to write them) |
+| | `ossie.py bindings <model-dir> <manifest.json>` | After a build: each aggregate binding agrees with the compiled SQL |
+| Ontology | `ossie.py validate <ontology-dir>`, `refs <ontology-dir> <model-dir>`, `glossary <ontology-dir> CONTEXT.md` | Structure, mapping refs, term names |
+| Contracts | `odcs.py check` | Shape, agreement with the map and the Ossie documents, `boundary/*`, `contract/no-grain`, `contract/undescribed`, `generated/stale`; after a build also `contract/active-unbuilt` |
+| | `odcs.py generate` | Writes the dbt keys and descriptions and the dlt `COLUMNS` (never by hand) |
+| | `odcs.py diff <base-ref>`, `check --relations`, `profile` | The version moved far enough; contract against the built relations; every data claim against the data |
+
+Each `ossie.py` and `odcs.py` command above is run from the repo root as `python3 .agents/skills/<skill>/scripts/<script>.py`; the commands the repo gates on belong in `repo-map.json` `commands` and `test-map.json`.
+
 ## Convention skills
-
-Every repo gets the `ontology` and `validating-ontology` skills, and an `ontology/` directory registered in `repo-map.json` and `test-map.json`: the ontology renders the confirmed vocabulary as concepts and relationships, and it is the only artifact that states an object is the same object across the Ossie documents. Its validation is its own step, not a branch of the Ossie document review. Seed both from the plugin delivery (VD-7139) or copy them from a reference Domain, and copy `semantic-model/scripts/` from the same place — the checker and its vendored Ossie schemas. Mappings are written only for Ossie documents that exist, so a repo with no gold marts gets the ontology and no mapping, and its `repo-map.json` still declares both artifact paths — the mapping path is where the first mapping will go.
-
-The `semantic-model` skill text (canonical Ossie shape and the VIBEDATA rules) and `validating-semantic-model` (the structural gate plus the content review that decides whether a model is honest) belong to a repo with gold marts, and they are not templates because their content is the modelling language itself. Seed both at the same time as `logical-model/` is registered. A repo with no gold mart yet gets neither: there is nothing to model, and a declared path that does not exist fails the map tests. Its ontology still validates, through the scripts copied with the `ontology` skill, and gains its mappings when the first Ossie document lands.
-
-The map declares `data_platform` before any contract is written, and `gold_layers` wherever an Ossie document exists. Both are read, not inferred: `servers[].type` in every contract derives from the platform, so a map that omits it drafts `custom` with the platform `unknown`, and every contract then needs rewriting the day the platform is declared; `gold_layers` is the set `check` gates against the Ossie documents, and a map that omits it gates nothing and says so. `data-contract` and `validating-data-contract` are always seeded, with `data-contract/scripts/` — `odcs.py` and its vendored schema — from the same two places as the ontology, and `contracts/` is declared as `artifact_paths.data_contract` and as a module in both maps. A repo with no gold marts still has the loader's relations and the views built over them to contract, so neither skill waits for an Ossie document. A repo that already has contracts keeps them: adopting it is `reverse` with no flag, after the map's build command with `--full-refresh`, while `--force` replaces every authored version and description and is only for a deliberate rewrite. Its findings are the review artifact of type `contracts` at `artifact_paths.review`, and the contracts stay partial until an engineer triages them: an answer lands in a contract as a description, a rule or a relationship, and a question nobody can answer from data or business stays open in the artifact.
-
-The loader's columns are derived, never assumed. A repo's dlt version decides which of them it adds, so ask the catalog which relations the loader created, take the layer it builds from the map's `layers[].built_by`, and read the dbt model's SQL to see whether a model selects a `_dlt_*` column through. A contract on a relation the loader creates declares none of them; one on a dbt output that propagates one must declare it, because the enforced contract rejects an undeclared output column. Two questions the reverse pass cannot answer are findings, not content: a relation with no existing description has no grain, and a rule no existing test expresses has no `quality`. Both go to the review artifact as questions — a sentence or a rule invented to fill either is prose nothing downstream can check.
 
 Copy these from [templates/skills/](../templates/skills/) as they are, each `<name>.md` becoming `.agents/skills/<name>/SKILL.md` (the templates are not named `SKILL.md`, so the agent does not load them as skills); only examples may change to the repo's own. When the repo's confirmed inventory says otherwise (its own commit format, for example), the inventory wins for that line.
 
@@ -104,6 +138,7 @@ Write these into the repo's own convention skills beside its conventions:
 | `dlt` | A new source joins its runner's `orchestrators.<name>.runs`; a dataset with more than one producing pipeline declares `produces` on each. |
 | `dbt-models` | Sources name a schema and tables, never a database, and no var feeds either. |
 | `dlt` | Mirror the repo's existing source of the same kind for batching and file handling. |
+| `dlt` | A pipeline's `columns=` hint is the generated `COLUMNS` from `ingestion/contracts.py` (`from contracts import COLUMNS`, `columns=COLUMNS[<resource>]`), never written by hand. |
 | `adr` | Check citations with the `adr_lint` command (or the repo's equivalent) and the two-way links with `tests/test_adr_links.py`; run them, do not read the scripts. |
 | `dbt-models` | dlt lands naive Arrow timestamps as `TIMESTAMPTZ` and the sandbox session is not UTC: staging converts every dlt-loaded timestamp with `timezone('UTC', col)`. |
 | `dbt-testing` | A left join on a derived key gets a singular test that every left row finds its match, or that the unmatched rows are the expected ones. |
@@ -124,11 +159,11 @@ File each as a finding when it fails; change nothing.
 | Check | Kind when it fails |
 | --- | --- |
 | Parquet or Arrow sources stamp `_dlt_load_id` and `_dlt_id` (`[normalize.parquet_normalizer] add_dlt_load_id`, `add_dlt_id`) | `platform` |
-| Staging reads bronze only through `source()` | `platform` |
+| Staging reads an input relation only through `source()` | `platform` |
 | Staging converts dlt-loaded timestamps to UTC | `bug` if a key or join depends on them, else `convention` |
 | Run scripts install dbt packages before building | `bug` |
 | `.sqlfluff` (or the SQL lint config) resolves its profile and project paths | `gap` |
 
 ## Verify
 
-The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox. For DuckDB-local, check every user-defined view and run the data tests on a renamed copy of the built database, without rebuilding it. Keep this post-build portability result separate from the inherited-view assessment: neither a successful rebuild nor a passing renamed-copy check clears a finding about the uploaded Domain database.
+The base commands pass, or each failure is a filed finding. `tests/test_maps.py` passes in the sandbox. The gates in [the gates table](#the-gates-as-commands) pass against what onboarding wrote, or each failure is a finding. For DuckDB-local, check every user-defined view and run the data tests on a renamed copy of the built database, without rebuilding it. Keep this post-build portability result separate from the inherited-view assessment: neither a successful rebuild nor a passing renamed-copy check clears a finding about the uploaded Domain database.

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 4e444cf1-c71c-55ee-a5f8-a05f960f43c3
 name: green_tripdata
-version: 1.0.1
+version: 1.0.2
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -11,6 +11,7 @@ servers:
     schema: bronze
 schema:
   - name: green_tripdata
+    dataGranularityDescription: One row per trip record in a TLC green-taxi monthly file. The file carries no trip identifier.
     properties:
       - name: VendorID
         description: "Code for the technology provider that supplied the trip record."

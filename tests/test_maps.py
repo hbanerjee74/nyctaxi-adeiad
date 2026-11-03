@@ -91,14 +91,26 @@ def test_the_contracts_are_declared_and_gated():
     )
 
 
-def test_the_gold_layers_are_declared_and_exist():
-    """Gold is a declaration in the map, not a fixed list of non-gold names inside the tool."""
-    assert "gold_layers" in REPO_MAP, "the map declares no gold layers, so the tool infers them"
-    unknown = set(REPO_MAP["gold_layers"]) - set(REPO_MAP["layers"])
-    assert unknown == set(), f"gold layers the map does not declare: {sorted(unknown)}"
-    assert set(REPO_MAP["gold_layers"]) == {"core", "agg", "finance", "ops"}, (
-        "the gated gold set changed; `check`'s `contract/no-document` count moves with it"
+def test_every_layer_declares_its_role():
+    """Rules apply by role, so the map names one for every layer and no tool infers it from a name."""
+    roles = {name: layer.get("role") for name, layer in REPO_MAP["layers"].items()}
+    assert all(role in {"input", "internal", "boundary"} for role in roles.values()), roles
+    assert "gold_layers" not in REPO_MAP, "`role` is the one declaration of the boundary; gold_layers is the legacy form"
+    boundary = {name for name, role in roles.items() if role == "boundary"}
+    assert boundary == {"core", "agg", "finance", "ops"}, (
+        "the boundary changed; `check`'s `contract/no-document` count and the coverage roots move with it"
     )
+    assert {name for name, role in roles.items() if role == "input"} == {
+        name for name, layer in REPO_MAP["layers"].items() if layer["built_by"] == "dlt"
+    }
+
+
+def test_every_semantic_exclusion_names_a_boundary_relation_and_a_reason():
+    boundary_schemas = {layer["schema"] for layer in REPO_MAP["layers"].values() if layer.get("role") == "boundary"}
+    for entry in REPO_MAP["semantic_exclusions"]:
+        schema, _, table = entry["relation"].partition(".")
+        assert schema in boundary_schemas and table, entry
+        assert entry["reason"].strip(), entry
 
 
 def test_source_artifact_patterns_resolve_for_every_source():

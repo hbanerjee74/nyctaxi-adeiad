@@ -2,7 +2,7 @@
 
 One row per convention the repo follows. Build it from the code and documents before asking anything.
 
-Record whether `logical-model/` exists. A repo with gold marts and no Ossie document is a review finding, and writing the Ossie documents is part of Build once the marts are stable enough to describe.
+Record each layer's role (`input`, `internal`, `boundary`) from what builds and reads it, keeping the names the repo has, and whether `logical-model/`, `contracts/` and `ontology/` exist. A repo with boundary marts and no Ossie document is a review finding, and writing the Ossie documents is part of Build once the marts are stable enough to describe; a `_semantic.yml` (MetricFlow, the dbt Semantic Layer) is a finding to delete once the Ossie documents carry its metrics. A boundary table that is not a star member (a `HAVING` floor, an unpivot) is a `semantic_exclusions` candidate.
 
 | Column | Content |
 | --- | --- |

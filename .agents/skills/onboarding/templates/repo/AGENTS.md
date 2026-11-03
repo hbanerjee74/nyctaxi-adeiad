@@ -23,25 +23,27 @@ Do not read the installed source code of dbt, dlt or any other library to work o
 
 After the conversation is condensed, invoke the [`workarounds`](.agents/skills/workarounds/SKILL.md) skill again before the next tool call: its rules are easy to lose in a summary.
 
-## Medallion layers
+## Layers and their roles
 <!-- onboarding
 ask: yes
-question: Which raw schemas and dbt layers does this domain have?
-recommended: One raw schema per source system, named after it; staging → intermediate → marts split by area, starting with core.
-alternatives: one raw schema for every source; marts not split by area.
+question: Which raw schemas and dbt layers does this domain have, and what is each one's role?
+recommended: One input layer per source system, named after it; `staging` and `intermediate` internal; marts split by area, boundary, starting with `core`. These are the default names; the role is the rule.
+alternatives: one input layer for every source; other layer names; marts not split by area.
 fills: <raw schemas>, <mart areas>
 -->
 
-- **Bronze**: raw data loaded by dlt (`ingestion/`) into <raw schemas>.
-- **Silver**: dbt staging and intermediate models in `transformation/`.
-- **Gold**: dbt marts in <mart areas>.
+- **Input**: raw data loaded by dlt (`ingestion/`) into <raw schemas>.
+- **Internal**: dbt staging and intermediate models in `transformation/`.
+- **Boundary**: dbt marts in <mart areas>.
 
-Layer, schema and builder for each are in `repo-map.json` under `layers`.
+Layers and their roles are declared in `repo-map.json` under `layers` (schema, builder, role and path for each). Rules apply by role, not by name: an `input` or `boundary` relation owes a contract and a boundary relation is a candidate for the semantic layer; an `internal` relation owes neither. The names are this domain's own choice; the role definitions are in the plugin's `layer-roles.md`.
+
+Words used in this repo: a **dbt model** is a SQL file with its properties entry; an **Ossie document** is one `*.ossie.yaml` under `logical-model/`; the **semantic layer** is the Ossie documents plus the ontology.
 
 ## Conventions
 <!-- onboarding
 ask: no
-reason: One row per convention skill written; follows from the skills.
+reason: One row per convention skill written; follows from the skills. Add the `semantic-model` and `validating-semantic-model` rows when `logical-model/` is registered (a repo with no boundary mart has neither skill).
 -->
 
 Operator conventions are skills in `.agents/skills/`, and the agent's skill list shows each one. Invoke the ones that match your task.
@@ -50,8 +52,12 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | --- | --- |
 | [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
 | [`sql-style`](.agents/skills/sql-style/SKILL.md) | SQL formatting |
+| [`data-contract`](.agents/skills/data-contract/SKILL.md) | The contract boundary (input and boundary layers), `status: proposed` before a table exists, grain from keys, generated dbt and dlt keys, when the version moves, and what is never invented |
+| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The contract review before commit |
+| [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: classifying boundary relations, concepts, natural identity, relationships |
+| [`validating-ontology`](.agents/skills/validating-ontology/SKILL.md) | The ontology's own gate: structure, coverage and content against the Ossie documents |
 | [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md) | Generic, singular, unit and Python tests |
-| [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, bronze carries no logic |
+| [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, generated column hints, an input layer carries no logic |
 | [`context`](.agents/skills/context/SKILL.md) | What goes into `CONTEXT.md` |
 | [`adr`](.agents/skills/adr/SKILL.md) | What goes into an ADR, and when |
 | [`design-records`](.agents/skills/design-records/SKILL.md) | What goes into a design record |

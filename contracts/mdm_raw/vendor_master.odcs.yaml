@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: 0507d553-f862-5e4a-88a6-40256bda32e4
 name: vendor_master
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,8 @@ schema:
         description: "TLC vendor code. Natural key of the vendor."
         logicalType: integer
         physicalType: INTEGER
+        primaryKey: true
+        primaryKeyPosition: 1
       - name: vendor_legal_name
         description: "Legal name of the vendor in this version."
         logicalType: string
@@ -40,6 +42,8 @@ schema:
         description: "Version number of the record at the source; 1 is the first version."
         logicalType: integer
         physicalType: INTEGER
+        primaryKey: true
+        primaryKeyPosition: 2
       - name: is_approved
         description: "Whether the vendor is approved for use in this version."
         logicalType: boolean

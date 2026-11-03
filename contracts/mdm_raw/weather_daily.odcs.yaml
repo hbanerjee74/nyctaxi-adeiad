@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: a0fcc702-f5f3-5a64-b5f7-32a4d8038792
 name: weather_daily
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the weather observation."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: obs_date
         description: "Date of the observation."
         logicalType: date

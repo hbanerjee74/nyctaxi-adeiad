@@ -29,18 +29,18 @@ Operator conventions are skills in `.agents/skills/`, and the agent's skill list
 | Skill | Covers |
 | --- | --- |
 | [`dbt-models`](.agents/skills/dbt-models/SKILL.md) | Layer mapping, model naming, properties files, materialisation |
-| [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Ossie document shape and VIBEDATA rules |
-| [`data-contract`](.agents/skills/data-contract/SKILL.md) | Authored contract, generated dbt and dlt keys, when the version moves, and what is never invented |
-| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The review checklist: grain truth, honest `required`, rules against data and ADRs, version moves, actionable descriptions, cross-contract logical types, and meaning against the Ossie document |
+| [`semantic-model`](.agents/skills/semantic-model/SKILL.md) | Ossie documents: the star anchor, routing a boundary table (a star member or `semantic_exclusions`), VIBEDATA rules |
+| [`data-contract`](.agents/skills/data-contract/SKILL.md) | The contract boundary (input and boundary layers), `status: proposed` before a table exists, grain from keys, generated dbt and dlt keys, when the version moves, and what is never invented |
+| [`validating-data-contract`](.agents/skills/validating-data-contract/SKILL.md) | The contract review before commit: that the key is the grain, honest `required`, rules against data and ADRs, version moves, actionable descriptions on non-star relations, and meaning against the Ossie document |
 | [`ontology`](.agents/skills/ontology/SKILL.md) | Business ontology and its mappings: classifying boundary relations, concepts, natural identity, relationships, declaration-only |
 | [`validating-ontology`](.agents/skills/validating-ontology/SKILL.md) | The ontology's own gate: structure, coverage and content against the Ossie documents |
 | [`validating-semantic-model`](.agents/skills/validating-semantic-model/SKILL.md) | Structural gate plus the content review before commit |
 | [`sql-style`](.agents/skills/sql-style/SKILL.md) | SQL formatting |
 | [`dbt-testing`](.agents/skills/dbt-testing/SKILL.md) | Generic, singular, unit and Python tests |
-| [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, bronze carries no logic |
+| [`dlt`](.agents/skills/dlt/SKILL.md) | Datasets, write disposition, schema contract, generated column hints, bronze carries no logic |
 | [`context`](.agents/skills/context/SKILL.md) | What goes into `CONTEXT.md` |
 | [`adr`](.agents/skills/adr/SKILL.md) | What goes into an ADR, and when |
-| [`workarounds`](.agents/skills/workarounds/SKILL.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages, contract authoring and the contract gate. Each names what removes it |
+| [`workarounds`](.agents/skills/workarounds/SKILL.md) | Temporary rules for platform gaps: single edits of `plan.md` and `verify.md`, running dbt in the sandbox, large files changed by script, verify from the landed table, the Tier-1 dev dataset, sample loads that land whole pages, contract-first changes to a loaded relation. Each names what removes it |
 | [`design-records`](.agents/skills/design-records/SKILL.md) | What goes into a design record |
 | [`git-and-prs`](.agents/skills/git-and-prs/SKILL.md) | Commit and pull request format |
 

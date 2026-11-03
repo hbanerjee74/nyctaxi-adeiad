@@ -55,15 +55,6 @@ Remove when: the Tier-1 runner finds the dev dataset itself (`skill-changes.md`)
 
 Remove when: `duckdb_local/dlt.md` and `generating-dlt-pipeline` state that the limit bounds pages (`skill-changes.md`).
 
-## Regenerate the canonical artifacts by hand after mart changes
-
-`logical-model/*.ossie.yaml` is the hand-authored source of truth (VD-7126); no generator owns it yet. After any mart SQL or `_core.yml` change in the same intent, update the canonical in the same intent: physical tables and aliases, added/renamed fields, each LTS `column_map` (an LTS that loses a mapping is disqualified for queries needing it — leave no field supplied by no LTS), each aggregate's `content_levels` and `content_filter` (from its `GROUP BY`, `WHERE` and inner joins) with the holding test, levels, keys and hierarchies (then regenerate the tests with `ossie.py generate-tests <model-dir> <tests-dir>`), each aggregate content level's `key_columns`, metric payloads (`aggregation`, `derived_expression`, `based_on_dimensions`), and SCD validity columns. Then run the skill's `scripts/ossie.py validate` on the canonical file(s) and record the command and exit code. Never commit a mart change with a red validate.
-Then the ontology, in the same change: run `scripts/ossie.py refs`, map the concepts the change touched against the dataset it produced, and when the change moves a concept's identity — a grain change, a new SCD, a natural key that became a surrogate — move the concept, its `CONTEXT.md` sentence and every mapping of it together, because a mapping that still resolves to a real field can be wrong about what that field identifies. A new gold mart is not done until `coverage` names it and `refs` accounts for it.
-
-Run `scripts/ossie.py validate` on the canonical file(s) and on `ontology/`, and record each command with its exit code. Never commit a mart change with a red validate.
-
-Remove when: the plugin `generating-ossie-model` skill generates both artifacts, and `generating-dbt-model` carries the update in the same intent (`skill-changes.md`).
-
 ## Write the contract before the code, and update it in the same intent
 
 A new or changed relation starts from its contract: profile it, write its document, run the generated-key
@@ -75,25 +66,5 @@ Ossie document exists, the contract and the document that declares those fields 
 build pass by deleting a quality rule, an enforced-contract line or a dlt column hint: a violation is a shape
 change to declare.
 
-Remove when: the plugin ships `data-contract` and `validating-data-contract`, and `generating-dbt-model`,
-`generating-dlt-pipeline` and `add-or-update-source` carry the obligation (`skill-changes.md`).
-
-## Reverse the contracts when you adopt a repo, and queue what you cannot settle
-
-Adopting an existing repo is one reverse pass, never a refresh: a plain pass leaves every contract that exists
-alone, and the force flag rewrites authored versions and descriptions. Rebuild the warehouse in full first, or
-the draft records a shape the models no longer produce. Declare only what the catalog, the existing tests and
-the existing descriptions establish; a doubt it cannot settle is a finding in the review artifact, never an
-invented sentence.
-
-Remove when: the plugin's `onboarding` seeds both skills and performs the reverse pass (`skill-changes.md`).
-
-## Run the contract gate before you write verify.md
-
-The contract check runs with the canonical lint in the pre-commit hook and in CI, and it proves the files only:
-schema, coverage, gold agreement and that the generated keys are current. Record its command and exit code in
-`verify.md`, beside the figures read from the landed table. The comparison against a landed relation runs as
-`--relations` and belongs in the same place.
-
-Remove when: the plugin's `verifying` reads the contract gate from `test-map.json` and names the relation
-comparison (`skill-changes.md`).
+Remove when: `generating-dlt-pipeline` and `add-or-update-source` carry the obligation for a loaded relation
+(`skill-changes.md`). `generating-dbt-model` already does for a dbt model, so this rule is kept for a pipeline.

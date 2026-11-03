@@ -38,12 +38,9 @@ derived from building and running it. Every row is tracked in VD-7139.
 
 | Skill | Reference | Suggested change |
 | --- | --- | --- |
-| `generating-dbt-model` | gold-mart completion | A model change updates its contract and regenerates the generated keys in the same intent. A breaking shape change moves the contract's version. Today the reference Domain's `workarounds` holds the rule. |
 | `generating-dlt-pipeline`, `add-or-update-source` | resource completion | A resource change updates its contract; the generated column hints are what keep the loader's column freeze meaningful. A dropped or retyped source column is a contract change, never schema evolution. |
-| `verifying` | the contract gate | Run the contract check as part of verification, with `--relations` against the ephemeral warehouse, and record both results with the landed-table figures. |
 | `install-ci` | the canonical-artifact lint | The bundle runs the contract check beside the canonical lint and skips cleanly in a repo with no contracts directory. The reference Domain's single lint already does both. |
-| `onboarding` | the repo-map template and its map tests | The template and the map tests gain `data_platform` and `gold_layers`, so a repo onboarded by the plugin declares both before it writes a contract. Without them every contract names `custom` with the platform `unknown`. |
-| `onboarding` | the contracts step | Seed both contract skills with their scripts and the vendored schema, declare the contracts directory in both maps, rebuild in full, reverse once without the force flag, write the review artifact, and carry the three contract rows in the `workarounds` template so a freshly onboarded repo inherits them. |
+| `onboarding` | the repo-map template and its map tests | Done in the onboarding skill (VD-7559): the template and the map tests declare `data_platform` and a `role` on every layer, so a repo declares both before it writes a contract. `gold_layers` is retired in favour of roles. |
 
 When the plugin lands, the canonical-artifacts and contract rows above collapse into one rule: a change reaches
 code, model, ontology and contract in the same intent.

@@ -2,7 +2,7 @@ apiVersion: v3.2.0
 kind: DataContract
 id: feb14203-e499-529e-9014-24ea438fc15a
 name: trip_assignment
-version: 1.0.1
+version: 2.0.0
 status: active
 servers:
   - server: sample-nyctaxi-comp
@@ -16,6 +16,7 @@ schema:
         description: "Identifier of the trip assignment."
         logicalType: string
         physicalType: VARCHAR
+        primaryKey: true
       - name: service_type
         description: "Fleet of the trip. Always yellow: the operator runs yellow medallions."
         logicalType: string
