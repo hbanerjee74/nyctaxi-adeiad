@@ -28,10 +28,10 @@ models:
       - name: iso_week
         data_type: BIGINT
       - name: month_start_date
-        data_type: TIMESTAMP
+        data_type: DATE
         description: First day of the calendar month; key of the month level, since calendar_month repeats every year.
       - name: week_start_date
-        data_type: TIMESTAMP
+        data_type: DATE
         description: Monday that starts the calendar week (ADR 0014); key of the week level.
       - name: day_of_week
         data_type: BIGINT
@@ -291,10 +291,10 @@ models:
         data_type: BOOLEAN
         description: Certified to drive a wheelchair-accessible vehicle.
       - name: hire_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: Date engagement started; an attribute of the driver, not a time dimension.
       - name: termination_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: Date engagement ended; null while active.
       - name: tenure_days
         data_type: BIGINT
@@ -358,10 +358,10 @@ models:
         data_type: VARCHAR
         description: Display name of the assigned garage.
       - name: in_service_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: Date the vehicle entered service.
       - name: retired_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: Date the vehicle left service; null while in service.
       - name: is_in_service
         data_type: BOOLEAN
@@ -758,10 +758,10 @@ models:
         description: Surrogate key into date for the start date.
         data_tests: [{relationships: {arguments: {field: date_key, to: ref('dim_date')}}}]
       - name: started_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: First day of the downtime.
       - name: ended_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
         description: Last day of the downtime; a range end, not a time dimension.
       - name: down_days
         data_type: BIGINT

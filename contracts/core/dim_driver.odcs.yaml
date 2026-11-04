@@ -45,10 +45,10 @@ schema:
         physicalType: BOOLEAN
       - name: hire_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: termination_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: tenure_days
         logicalType: integer
         physicalType: BIGINT

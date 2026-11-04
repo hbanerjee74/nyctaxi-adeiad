@@ -65,10 +65,10 @@ schema:
         physicalType: VARCHAR
       - name: in_service_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: retired_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: is_in_service
         logicalType: boolean
         physicalType: BOOLEAN

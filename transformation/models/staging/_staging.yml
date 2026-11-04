@@ -356,9 +356,9 @@ models:
       - name: wheelchair_accessible
         data_type: BOOLEAN
       - name: in_service_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: retired_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: is_in_service
         data_type: BOOLEAN
   - name: stg_ops__drivers
@@ -377,9 +377,9 @@ models:
       - name: home_garage_id
         data_type: BIGINT
       - name: hire_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: termination_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: is_wav_certified
         data_type: BOOLEAN
       - name: driver_status
@@ -509,11 +509,11 @@ models:
       - name: vehicle_id
         data_type: BIGINT
       - name: started_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: down_days
         data_type: BIGINT
       - name: ended_date
-        data_type: TIMESTAMP WITH TIME ZONE
+        data_type: DATE
       - name: maintenance_type
         data_type: VARCHAR
       - name: cost_usd

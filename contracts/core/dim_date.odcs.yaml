@@ -50,10 +50,10 @@ schema:
         physicalType: BIGINT
       - name: month_start_date
         logicalType: date
-        physicalType: TIMESTAMP
+        physicalType: DATE
       - name: week_start_date
         logicalType: date
-        physicalType: TIMESTAMP
+        physicalType: DATE
       - name: day_of_week
         logicalType: integer
         physicalType: BIGINT

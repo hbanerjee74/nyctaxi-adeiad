@@ -40,10 +40,10 @@ schema:
           - to: dim_date.date_key
       - name: started_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: ended_date
         logicalType: date
-        physicalType: TIMESTAMP WITH TIME ZONE
+        physicalType: DATE
       - name: down_days
         logicalType: integer
         physicalType: BIGINT
