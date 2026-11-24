@@ -539,3 +539,51 @@ models:
         data_type: DOUBLE
       - name: zone_occupancy_rate
         data_type: DOUBLE
+  - name: agg_borough_flow_monthly
+    description: >
+      Borough-to-borough flow by calendar month: the trips that started in one
+      borough and ended in another, with their revenue. Every pair of the zone
+      dimension's eight borough values is present in every month of the window,
+      so a pair with no billable trip is a row of zeros and never a missing row
+      (ADR 0018); the 25-trip floor of ADR 0017 is a zone-pair rule and does not
+      apply here. Unresolved and out-of-city boroughs are published as real
+      groups (ADR 0012). The share of a borough's trips that leave it is one
+      value per origin borough and month, repeated on its rows, with its
+      numerator and denominator published beside it (ADR 0016).
+    contract: {enforced: true}
+    columns:
+      - name: trip_month
+        data_type: DATE
+        data_tests: [not_null]
+        description: First calendar day of the pickup month, from the date dimension.
+      - name: origin_borough
+        data_type: VARCHAR
+        data_tests: [not_null]
+        description: Borough of the trip's pickup zone.
+      - name: dest_borough
+        data_type: VARCHAR
+        data_tests: [not_null]
+        description: Borough of the trip's dropoff zone.
+      - name: is_intra_borough
+        data_type: BOOLEAN
+        data_tests: [not_null]
+        description: True when the pickup and dropoff boroughs are the same.
+      - name: trip_count
+        data_type: BIGINT
+        data_tests: [not_null]
+        description: Billable trips from the origin borough to the destination borough in the month; 0 for a pair with none.
+      - name: total_revenue
+        data_type: DOUBLE
+        data_tests: [not_null]
+        description: Sum of total_amount over those trips, with no payment method excluded; 0 for a pair with none.
+      - name: cross_borough_trip_count
+        data_type: BIGINT
+        data_tests: [not_null]
+        description: 'The origin borough''s billable trips in the month that dropped off in another borough, repeated on each of that origin''s rows: the numerator of the share.'
+      - name: origin_trip_count
+        data_type: BIGINT
+        data_tests: [not_null]
+        description: 'All of the origin borough''s billable trips in the month, repeated on each of its rows: the denominator of the share.'
+      - name: cross_borough_trip_share
+        data_type: DOUBLE
+        description: Share of the origin borough's billable trips in the month that left it (ADR 0016); one value per origin borough and month, repeated on its rows, and null when the borough carried no billable trip that month.

@@ -1,0 +1,39 @@
+version: 2
+
+unit_tests:
+  # --- agg_borough_flow_monthly: zero fill and the share's two empty cases ---
+  - name: borough_flow_zero_fills_pairs_and_publishes_the_origin_share
+    description: >
+      A pair with no trip is a row of zeros, an origin with trips but none
+      crossing shows a measured zero share, and an origin with no trip at all
+      shows a null share against a zero denominator. Also proves the population:
+      a non-billable trip, an out-of-window trip and a trip whose dropoff zone
+      does not resolve are all outside the counts.
+    model: agg_borough_flow_monthly
+    given:
+      - input: ref('dim_date')
+        rows:
+          - {date_key: 20240105, calendar_date: '2024-01-05', month_start_date: '2024-01-01'}
+          - {date_key: 20240205, calendar_date: '2024-02-05', month_start_date: '2024-02-01'}
+      - input: ref('dim_zone')
+        rows:
+          - {zone_key: 1, borough_name: A}
+          - {zone_key: 2, borough_name: B}
+      - input: ref('fct_trip')
+        rows:
+          - {pickup_zone_key: 1, dropoff_zone_key: 1, pickup_date_key: 20240105, pickup_datetime: '2024-01-05 10:00:00', is_billable: true, total_amount: 10.0}
+          - {pickup_zone_key: 1, dropoff_zone_key: 2, pickup_date_key: 20240105, pickup_datetime: '2024-01-05 11:00:00', is_billable: true, total_amount: 20.0}
+          - {pickup_zone_key: 1, dropoff_zone_key: 1, pickup_date_key: 20240205, pickup_datetime: '2024-02-05 10:00:00', is_billable: true, total_amount: 10.0}
+          - {pickup_zone_key: 1, dropoff_zone_key: 1, pickup_date_key: 20240105, pickup_datetime: '2024-01-05 12:00:00', is_billable: false, total_amount: 0.0}
+          - {pickup_zone_key: 1, dropoff_zone_key: 1, pickup_date_key: 20240105, pickup_datetime: '2023-12-31 23:00:00', is_billable: true, total_amount: 99.0}
+          - {pickup_zone_key: 1, dropoff_zone_key: 99, pickup_date_key: 20240105, pickup_datetime: '2024-01-05 13:00:00', is_billable: true, total_amount: 77.0}
+    expect:
+      rows:
+        - {trip_month: '2024-01-01', origin_borough: A, dest_borough: A, is_intra_borough: true, trip_count: 1, total_revenue: 10.0, cross_borough_trip_count: 1, origin_trip_count: 2, cross_borough_trip_share: 0.5}
+        - {trip_month: '2024-01-01', origin_borough: A, dest_borough: B, is_intra_borough: false, trip_count: 1, total_revenue: 20.0, cross_borough_trip_count: 1, origin_trip_count: 2, cross_borough_trip_share: 0.5}
+        - {trip_month: '2024-01-01', origin_borough: B, dest_borough: A, is_intra_borough: false, trip_count: 0, total_revenue: 0.0, cross_borough_trip_count: 0, origin_trip_count: 0, cross_borough_trip_share: null}
+        - {trip_month: '2024-01-01', origin_borough: B, dest_borough: B, is_intra_borough: true, trip_count: 0, total_revenue: 0.0, cross_borough_trip_count: 0, origin_trip_count: 0, cross_borough_trip_share: null}
+        - {trip_month: '2024-02-01', origin_borough: A, dest_borough: A, is_intra_borough: true, trip_count: 1, total_revenue: 10.0, cross_borough_trip_count: 0, origin_trip_count: 1, cross_borough_trip_share: 0.0}
+        - {trip_month: '2024-02-01', origin_borough: A, dest_borough: B, is_intra_borough: false, trip_count: 0, total_revenue: 0.0, cross_borough_trip_count: 0, origin_trip_count: 1, cross_borough_trip_share: 0.0}
+        - {trip_month: '2024-02-01', origin_borough: B, dest_borough: A, is_intra_borough: false, trip_count: 0, total_revenue: 0.0, cross_borough_trip_count: 0, origin_trip_count: 0, cross_borough_trip_share: null}
+        - {trip_month: '2024-02-01', origin_borough: B, dest_borough: B, is_intra_borough: true, trip_count: 0, total_revenue: 0.0, cross_borough_trip_count: 0, origin_trip_count: 0, cross_borough_trip_share: null}

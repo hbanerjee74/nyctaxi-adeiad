@@ -1,0 +1,65 @@
+apiVersion: v3.2.0
+kind: DataContract
+id: 4b1d7f52-9a3e-5c48-b0d1-6f2e83ac9d17
+name: agg_borough_flow_monthly
+version: 1.0.0
+status: active
+servers:
+  - server: sample-nyctaxi-comp
+    type: duckdb
+    database: domain.duckdb
+    schema: agg
+schema:
+  - name: agg_borough_flow_monthly
+    dataGranularityDescription: Borough-to-borough flow by calendar month -- every pair of the zone dimension's boroughs in every month of the reporting window, zero-filled (ADR 0018).
+    properties:
+      - name: trip_month
+        description: "First calendar day of the pickup month, from the date dimension."
+        logicalType: date
+        physicalType: DATE
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: origin_borough
+        description: "Borough of the trip's pickup zone."
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: dest_borough
+        description: "Borough of the trip's dropoff zone."
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 3
+      - name: is_intra_borough
+        description: "True when the pickup and dropoff boroughs are the same."
+        logicalType: boolean
+        physicalType: BOOLEAN
+        required: true
+      - name: trip_count
+        description: "Billable trips from the origin borough to the destination borough in the month; 0 for a pair with none."
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+      - name: total_revenue
+        description: "Sum of total_amount over those trips, with no payment method excluded; 0 for a pair with none."
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+      - name: cross_borough_trip_count
+        description: "The origin borough's billable trips in the month that dropped off in another borough, repeated on each of that origin's rows: the numerator of the share."
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+      - name: origin_trip_count
+        description: "All of the origin borough's billable trips in the month, repeated on each of its rows: the denominator of the share."
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+      - name: cross_borough_trip_share
+        description: "Share of the origin borough's billable trips in the month that left it (ADR 0016); one value per origin borough and month, repeated on its rows, and null when the borough carried no billable trip that month."
+        logicalType: number
+        physicalType: DOUBLE
