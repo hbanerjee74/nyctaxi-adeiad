@@ -49,3 +49,4 @@ None. Every branch the transformation playbook asks about is settled above; the 
 
 ## Approvals
 - 2026-11-24T08:13:56Z — requirement approved — "Approve, continue to design" — 7c62db00345130ea493261734067f17575ab0f5d
+- 2026-11-24T08:26:37Z — design approved — "Approve, continue to planning" — 1fe8854ad5220db02fd677eac34076116f9b0cbd
