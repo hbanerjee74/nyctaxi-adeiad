@@ -55,3 +55,12 @@ This is a property of the business, not missing data. `is_fleet_attributed`
 states it explicitly so that no consumer has to infer it from a null, and so
 that a fleet-level denominator is never taken over the whole fact.
 {% enddocs %}
+
+{% docs borough_flow_trip_count %}
+Billable trips from the origin borough to the destination borough in the month.
+A pair that carried none is published as a row of 0, not omitted (ADR 0018).
+
+This is the `billable_trip_count` metric on the `trips` dataset, not
+`trip_count`: `fct_trip` keeps every trip and this table applies `is_billable`
+inside the reporting window, as the gold marts do (ADR 0003).
+{% enddocs %}

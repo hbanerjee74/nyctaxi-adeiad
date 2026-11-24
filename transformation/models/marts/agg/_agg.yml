@@ -571,7 +571,7 @@ models:
       - name: trip_count
         data_type: BIGINT
         data_tests: [not_null]
-        description: Billable trips from the origin borough to the destination borough in the month; 0 for a pair with none.
+        description: '{{ doc("borough_flow_trip_count") }}'
       - name: total_revenue
         data_type: DOUBLE
         data_tests: [not_null]
