@@ -703,6 +703,16 @@ Fifteen. Each is a `gold/missing-relationship` warning: carrying one publishes a
 | `core.fct_trip.rate_plan_key` | the model declares `trips_to_rate_plan` to `dim_rate_plan.rate_plan_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
 | `core.fct_trip.service_type_key` | the model declares `trips_to_service_type` to `dim_service_type.service_type_key`; the contract carries no such relationship | carry it — which publishes the edge and adds a dbt `relationships` test — or record why the contract should not |
 
+### One key, two logical types
+
+`trip_month` is `logicalType: date` on `agg.agg_borough_flow_monthly` and `logicalType: timestamp` on
+`finance.mart_monthly_service_summary`, `finance.mart_revenue_component_bridge` and
+`ops.mart_trip_quality_scorecard`. `check` compares each contract with its own document only, so both shapes pass.
+The values agree — all four are a month's first day — and the physical types differ because the three older marts
+`date_trunc('month', f.pickup_datetime)` without a cast, while the new relation casts to `DATE` off
+`dim_date.month_start_date`. The question is which shape the Domain publishes for a month key: casting the three
+older marts is a shape change to published columns, so it is not a side effect of adding this table.
+
 ### A composite unique key ODCS cannot state
 
 `the canonical model declares the composite unique key (fare_component, applies_to_fleet, valid_from_date)`. ODCS states uniqueness per property, so no contract edit can express a
