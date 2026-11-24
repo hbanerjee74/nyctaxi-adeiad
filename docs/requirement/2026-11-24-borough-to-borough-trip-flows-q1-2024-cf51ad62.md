@@ -48,3 +48,4 @@ Leila Haddad (Mobility Planning Lead) reports for the city: "The city asked how 
 None. Every branch the transformation playbook asks about is settled above; the design questions (materialisation, the Ossie document placement, whether the table extends an existing star) are for the design stop.
 
 ## Approvals
+- 2026-11-24T08:13:56Z — requirement approved — "Approve, continue to design" — 7c62db00345130ea493261734067f17575ab0f5d
