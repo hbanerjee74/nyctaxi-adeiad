@@ -24,4 +24,4 @@ The share of trips that cross a borough line is measured per origin borough agai
 
 ## Affected designs
 
-None yet: the code this decision governs lands with the intent that records it.
+- [`models/agg/agg_borough_flow_monthly.md`](../design/models/agg/agg_borough_flow_monthly.md)
